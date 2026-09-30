@@ -1,30 +1,32 @@
+/* ============================================================
+   Шрифт CoreNaraePro_0 — из fonts/CoreNaraePro_0.ttf
+   ============================================================ */
+@font-face {
+	font-family: "CoreNaraePro";
+	src: url("fonts/CoreNaraePro_0.ttf") format("truetype");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
 :root {
-	/* Светлая тема (по умолчанию): фон сайта — основной цвет фоновой
-	   картинки (фон.png, светло-зелёный), шапка и обложка книги — тёплый
-	   пергамент/кожа */
 	--bg: #a9b370;
 	--surface: #f1e6c4;
 	--surface-alt: #e3d4a4;
 	--border: #c9b587;
-	--text: #3a2a1a;
-	--text-dim: #7c6a4c;
+	--text: #2b1c0e;
+	--text-dim: #655238;
 	--accent: #9c4a1a;
 	--accent-dim: #a5652a;
 	--accent-soft: rgba(156, 74, 26, 0.12);
 
-	/* Цвета переходов — тоже настраиваются на странице «Настройки», значения
-	   ниже лишь стартовые (до применения JS), и одинаковые для обеих тем */
 	--deadend: #484b52;
 	--self-loop: #4f9196;
+	--hidden-cell: #7d6ba8;
+	--fast-cell: #b4963c;
 	--path-color: #a1518d;
-
-	/* жёлтый (как в тёмной теме) на светлом фоне почти не виден — маршрут
-	   на графе в светлой теме подсвечиваем более контрастным фиолетовым */
 	--route-color: #8e24aa;
 
-	/* карты локаций (мини-карта в графе, панель редактирования, пикер точек) —
-	   в светлой теме тоже светлые, зеленоватые (в цвет фона сайта); тёмные
-	   значения для тёмной темы заданы отдельно ниже, в :root[data-theme="dark"] */
 	--cell-bg: #e0e5c4;
 	--cell-bg-alt: #d3dbb0;
 	--map-bg: #bdc794;
@@ -32,64 +34,83 @@
 	--cell-active: #788741;
 	--cell-active-dim: #5e6933;
 
-	--cell-w: 20px;
-	--cell-h: 30px;
+	--cell-w: 15px;
+	--cell-h: 22px;
 	--cell-gap: 2px;
-	--panel-w: 220px;
+	--panel-w: 168px;
+
+	--tab-ov:     #8fb3a3;
+	--tab-vt:     #d9a441;
+	--tab-zp:     #b8b8c8;
+	--tab-sl:     #8a8f96;
+	--tab-dush:   #8fae94;
+	--tab-draft:  #c9b8a0;
+	--tab-set:    #9c9c9c;
+	--tab-text:   #ffffff;
+
+	--panel-indent: 26px;
+	--content-pad: 16px;
 }
 
-/* Тёмная тема: переключается кнопкой-луной у книги, хранится в localStorage */
 :root[data-theme="dark"] {
-	--bg: #222416;
-	--surface: #191c25;
-	--surface-alt: #21252f;
-	--border: #2c303c;
-	--text: #e7e8ee;
-	--text-dim: #9196a6;
-	--accent: #e2984c;
-	--accent-dim: #b97634;
-	--accent-soft: rgba(226, 152, 76, 0.15);
+	--bg: #1a2a1c;
+	--surface: #14201a;
+	--surface-alt: #1d2c23;
+	--border: #2b3a2f;
+	--text: #e3ecd9;
+	--text-dim: #90a08a;
+	--accent: #e2b45c;
+	--accent-dim: #b98a2f;
+	--accent-soft: rgba(226, 180, 92, 0.15);
 
 	--route-color: #ffcc33;
 
-	/* карты локаций в тёмной теме — как раньше, тёмные (цвета переходов
-	   теперь одинаковые в обеих темах, см. :root выше) */
-	--cell-bg: #101218;
-	--cell-bg-alt: #21252f;
-	--map-bg: #191c25;
-	--map-bg-alt: #21252f;
+	--cell-bg: #17231a;
+	--cell-bg-alt: #24332a;
+	--map-bg: #14201a;
+	--map-bg-alt: #1d2c23;
+
+	--tab-ov:     #6d8f80;
+	--tab-vt:     #8a6a2f;
+	--tab-zp:     #9090a0;
+	--tab-sl:     #666b72;
+	--tab-dush:   #6d8a72;
+	--tab-draft:  #a5967e;
+	--tab-set:    #7a7a7a;
 }
 
-* {
-	box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
 	margin: 0;
 	background-color: var(--bg);
 	color: var(--text);
-	font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+	font-family: "CoreNaraePro", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+	font-size: 15px;
 	transition: background-color 0.25s ease, color 0.25s ease;
 }
+
+button,
+input,
+select,
+textarea { font-family: inherit; }
 
 header {
 	background-color: var(--surface);
 	border-bottom: 1px solid var(--border);
-	font-size: 20px;
-	transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 .site-title {
 	text-align: center;
 	margin: 0;
-	padding: 20px;
+	padding: 14px;
 	letter-spacing: 2px;
 	color: var(--accent);
 	font-weight: 700;
+	font-size: 21px;
 }
 
 button {
-	margin-bottom: 0;
 	width: 100%;
 	padding: 8px 10px;
 	background-color: var(--surface-alt);
@@ -97,2633 +118,609 @@ button {
 	border: 1px solid var(--border);
 	border-radius: 6px;
 	cursor: pointer;
-	font-size: 14px;
+	font-size: 15px;
 	text-align: center;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
 }
+button:hover { background-color: var(--accent-soft); border-color: var(--accent-dim); }
+button:active { transform: translateY(1px); }
 
-button:hover {
-	background-color: var(--accent-soft);
-	border-color: var(--accent-dim);
-}
-
-button:active {
-	transform: translateY(1px);
-}
-
-.section-note {
-	margin: 10px 0 0;
-	font-size: 13px;
-	color: var(--text-dim);
-}
-
-.section-note:empty {
-	display: none;
-}
-
-/* Двухколоночная зона: слева будущий поиск пути, справа поиск локации */
-.locator-layout {
-	display: flex;
-	align-items: flex-start;
-	justify-content: center;
-	gap: 18px;
-	flex-wrap: wrap;
-	width: 100%;
-}
-
-.location-finder {
-	width: 100%;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 6px;
-}
-
-/* Обёртка нужна, чтобы список подсказок был абсолютно спозиционирован
-   и не сдвигал карту с проверкой вниз */
-.search-wrap {
-	position: relative;
-	width: var(--panel-w);
-}
-
-/* Панель поиска локации: инпут + кнопка суммарно = ширине локации */
-.search-panel {
-	display: flex;
-	gap: 6px;
-	width: var(--panel-w);
-}
-
-.search-panel input {
-	flex: 1;
-	min-width: 0;
-	padding: 8px 10px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	color: var(--text);
-	font-size: 13px;
-	outline: none;
-	transition: border-color 0.15s ease;
-}
-
-.search-panel input::placeholder {
-	color: var(--text-dim);
-}
-
-.search-panel input:focus {
-	border-color: var(--accent);
-}
-
-.search-panel button {
-	width: auto;
-	flex-shrink: 0;
-	padding: 8px 14px;
-	background-color: var(--accent-dim);
-	border-color: var(--accent-dim);
-	color: #1a1206;
-	font-weight: 600;
-}
-
-.search-panel button:hover {
-	background-color: var(--accent);
-}
-
-/* Список подсказок — плавающий блок поверх контента,
-   карта и всё, что ниже, остаются на месте */
-.search-results {
-	position: absolute;
-	top: calc(100% + 4px);
-	left: 0;
-	z-index: 30;
-	display: flex;
-	flex-direction: column;
-	width: var(--panel-w);
-	max-height: 240px;
-	overflow-y: auto;
-	background-color: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: 8px;
-	box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
-}
-
-.search-results:empty {
-	display: none;
-}
-
-.search-results .search-option {
-	width: 100%;
+.search-results .search-option,
+.prop-picker-list .prop-list-btn {
 	justify-content: flex-start;
 	text-align: left;
-	border: none;
-	border-radius: 0;
-	border-bottom: 1px solid var(--border);
-	background-color: transparent;
 }
 
-.search-results .search-option:last-child {
-	border-bottom: none;
+/* ============================================================
+   Каркас
+   ============================================================ */
+.app {
+	display: flex;
+	align-items: stretch;
+	min-height: calc(100vh - 52px);
+	position: relative;
 }
 
-.search-option {
-	width: auto;
-	padding: 7px 12px;
-	border-radius: 999px;
+.sidebar {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 8px 0 12px 10px;
+	background-color: color-mix(in srgb, var(--surface) 82%, transparent);
+	backdrop-filter: blur(3px);
+	border-right: 1px solid var(--border);
+	overflow-y: auto;
+	overflow-x: hidden;
+	transition: background-color 0.25s ease, border-color 0.25s ease,
+		width 0.2s ease, padding 0.2s ease;
+	width: 84px;
+	align-self: flex-start;
+	position: sticky;
+	top: 0;
+	max-height: calc(100vh - 52px);
+}
+
+.app.sidebar-collapsed .sidebar {
+	width: 42px;
+	padding: 8px 4px;
+	gap: 6px;
+}
+.app.sidebar-collapsed .tab-left { display: none; }
+
+.sidebar-toggle {
+	width: 100%;
+	height: 26px;
+	padding: 0;
+	border-radius: 6px;
 	background-color: var(--surface-alt);
 	border: 1px solid var(--border);
-	font-size: 12px;
-}
-
-.search-option:hover {
-	background-color: var(--accent-soft);
-	border-color: var(--accent);
-	color: var(--accent);
-}
-
-/* «Перейти к разделу …» */
-.search-hint {
-	color: var(--accent);
-}
-
-.search-empty {
 	color: var(--text-dim);
 	font-size: 13px;
-	margin: 0;
-	padding: 8px 12px;
+	line-height: 1;
+	flex-shrink: 0;
+	margin-bottom: 2px;
+}
+.sidebar-toggle:hover { color: var(--accent); }
+
+.tab-left {
+	position: relative;
+	width: 74px;
+	height: 52px;
+	padding: 6px;
+	border-radius: 10px 0 0 10px;
+	font-family: "CoreNaraePro", Georgia, serif;
+	font-weight: 700;
+	font-size: 14px;
+	color: var(--tab-text);
+	text-shadow:
+		-1px -1px 1.5px rgba(0,0,0,0.55), 1px -1px 1.5px rgba(0,0,0,0.55),
+		-1px 1px 1.5px rgba(0,0,0,0.55), 1px 1px 1.5px rgba(0,0,0,0.55);
+	background-color: var(--tab-color, var(--tab-set));
+	border: 1px solid rgba(0,0,0,0.25);
+	border-right: none;
+	overflow: hidden;
+	transition: filter 0.15s ease, box-shadow 0.15s ease;
+}
+.tab-left:hover { filter: brightness(1.08); }
+.tab-left.active { filter: brightness(1.15); box-shadow: inset -3px 0 6px rgba(0,0,0,0.2); }
+
+.tab-left .tab-label,
+.tab-left .tab-icon {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: opacity 0.18s ease;
+	pointer-events: none;
+}
+.tab-left .tab-label { font-size: 13px; letter-spacing: 0.3px; text-align: center; line-height: 1.1; padding: 0 4px; }
+.tab-left .tab-icon { opacity: 0; }
+.tab-left .tab-icon img,
+.tab-left .tab-icon svg { width: 26px; height: 26px; object-fit: contain; display: block; fill: currentColor; color: var(--tab-text); filter: drop-shadow(0 1px 1px rgba(0,0,0,0.45)); }
+.tab-left:hover .tab-label,
+.tab-left.active .tab-label { opacity: 0; }
+.tab-left:hover .tab-icon,
+.tab-left.active .tab-icon { opacity: 1; }
+.tab-left-draft { margin-top: 0; }
+
+.content {
+	flex: 1 1 auto;
+	min-width: 0;
+	padding: var(--content-pad);
+	overflow-y: auto;
+	text-align: left;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+}
+.content > * { flex: 0 0 auto; }
+
+.page-title { margin: 0; font-size: 24px; color: var(--accent); text-align: left; }
+.page-subtitle { margin: 2px 0 12px; font-size: 15px; font-style: italic; color: var(--text-dim); text-align: left; }
+
+.tool-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.tool-tab {
+	width: auto; flex: 1 1 0; min-width: 100px;
+	padding: 10px; font-size: 14px; font-weight: 700; letter-spacing: 0.3px;
+	background-color: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+	color: var(--text-dim);
+}
+.tool-tab.active { background-color: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+.panels-row {
+	display: flex; flex-direction: row; align-items: flex-start;
+	gap: 24px; flex-wrap: wrap; width: 100%;
+	padding-left: var(--panel-indent);
+}
+.panels-row > .panel-column {
+	flex: 1 1 320px; min-width: 260px;
+	display: flex; flex-direction: column; align-items: flex-start;
 }
 
-/* Карта локации */
-#map {
+.panel-column.check-column .location-finder { margin-top: 22px; }
+
+.tool-panel {
+	display: flex; flex-direction: column; gap: 14px;
+	align-items: flex-start; text-align: left; width: 100%;
+}
+.tool-panel[hidden] { display: none !important; }
+
+.panel-section-title {
+	margin: 0 0 8px; font-size: 15px; letter-spacing: 0.5px; text-transform: uppercase;
+	color: var(--accent); width: 100%; padding-bottom: 6px;
+	border-bottom: 1px solid var(--border); text-align: left;
+}
+
+/* ---------- Общие элементы ---------- */
+.search-wrap { position: relative; width: 100%; max-width: var(--panel-w); }
+.search-panel { display: flex; gap: 6px; }
+.search-panel input {
+	flex: 1; min-width: 0; padding: 8px 10px;
+	background-color: var(--surface-alt); border: 1px solid var(--border);
+	border-radius: 6px; color: var(--text); font-size: 14px; outline: none;
+}
+.search-panel button {
+	width: auto; flex-shrink: 0; padding: 8px 14px;
+	background-color: var(--accent-dim); border-color: var(--accent-dim);
+	color: #1a1206; font-weight: 600;
+}
+.search-results {
+	position: absolute; top: calc(100% + 4px); left: 0; z-index: 30;
+	display: flex; flex-direction: column; width: 100%; max-height: 240px; overflow-y: auto;
+	background-color: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+	box-shadow: 0 10px 24px rgba(0,0,0,0.45);
+}
+.search-results:empty { display: none; }
+.search-results .search-option {
+	width: 100%; border: none; border-radius: 0; border-bottom: 1px solid var(--border);
+	background-color: transparent;
+}
+.search-results .search-option:last-child { border-bottom: none; }
+.search-option { width: auto; padding: 7px 12px; border-radius: 999px; background-color: var(--surface-alt); border: 1px solid var(--border); font-size: 13px; }
+.search-option:hover { background-color: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.search-empty { color: var(--text-dim); font-size: 14px; margin: 0; padding: 8px 12px; }
+
+/* ---------- Карта локации ---------- */
+.map-holder { position: relative; }
+#map, .point-map, .graph-point-map {
 	display: grid;
 	grid-template-columns: repeat(10, var(--cell-w));
 	grid-template-rows: repeat(6, var(--cell-h));
-	gap: var(--cell-gap);
-	width: var(--panel-w);
-	background-color: var(--map-bg);
-	border: 1px solid var(--border);
-	border-radius: 8px;
-	overflow: hidden;
+	gap: var(--cell-gap); width: var(--panel-w);
+	background-color: var(--map-bg); border: 1px solid var(--border);
+	border-radius: 8px; overflow: hidden;
 }
-
-#map button {
-	width: var(--cell-w);
-	height: var(--cell-h);
-	padding: 0;
-	margin: 0;
-	background-color: var(--cell-bg-alt);
-	border: none;
-	border-radius: 0;
+.point-map { background-color: var(--map-bg-alt); }
+#map button, .point-map button, .graph-point-map button {
+	width: var(--cell-w); height: var(--cell-h); padding: 0; margin: 0;
+	background-color: var(--cell-bg-alt); border: none; border-radius: 0;
 }
-
-#map button:hover {
-	outline: 1px solid var(--accent);
-	outline-offset: -1px;
+.point-map button { background-color: var(--cell-bg); }
+#map button:hover, .point-map button:hover, .graph-point-map button:hover {
+	outline: 1px solid var(--accent); outline-offset: -1px;
 }
-
-#map button.active {
-	background-color: var(--cell-active);
-}
-
-#map button:disabled {
-	cursor: default;
-}
-
-#map button:disabled.active {
-	background-color: var(--cell-active-dim);
-}
-
-/* Тупики и переходы "сам в себя" красим отдельно от обычных переходов */
-#map button.cell-deadend.active {
-	background-color: var(--deadend);
-}
-
-#map button.cell-self.active {
-	background-color: var(--self-loop);
-}
-
-/* Обёртка карты локации + маленький крестик «Очистить». Кнопка стоит
-   вплотную к боковой стенке карты вровень с нижней клеткой (не под картой),
-   и никак не зависит от подписи с названием локации под картой — та растёт
-   собственным потоком, а кнопка прибита абсолютным позиционированием
-   к самой карте и никогда не сдвигается */
-.map-holder {
-	position: relative;
-}
+#map button.active, .point-map button.active, .graph-point-map button.active { background-color: var(--cell-active); }
+#map button.cell-deadend.active, .point-map button.cell-deadend.active { background-color: var(--deadend); }
+#map button.cell-self.active, .point-map button.cell-self.active { background-color: var(--self-loop); }
+.point-map button.cell-next.active { background-color: var(--path-color); }
 
 .map-clear {
-	position: absolute;
-	bottom: 0;
-	right: 100%;
-	width: 20px;
-	height: 20px;
-	padding: 0;
-	border-radius: 6px;
-	font-size: 11px;
-	line-height: 1;
+	position: absolute; bottom: 0; right: 100%;
+	width: 20px; height: 20px; padding: 0;
+	border-radius: 6px; font-size: 11px; line-height: 1;
 	color: var(--text-dim);
 }
+.map-clear-right { right: auto; left: 100%; }
 
-.map-clear:hover {
-	color: var(--accent);
-}
+.loc-tags { position: absolute; top: 0; left: 100%; display: flex; flex-direction: column; gap: 4px; }
+.loc-tag-icon { display: block; width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }
 
-/* В поиске пути крестик конечной локации — слева стенки сменяется на правую,
-   так пара «начало / конец» выглядит симметрично относительно кнопки «поменять местами» */
-.map-clear.map-clear-right {
-	right: auto;
-	left: 100%;
-}
-
-/* Столбик иконок функций и типов локации — так же вплотную к правой стенке
-   карты, как крестик «Очистить» к своей, только сверху, вровень с верхней
-   клеткой, и друг под другом вниз. Тот же размер, что у крестика (20px) */
-.loc-tags {
-	position: absolute;
-	top: 0;
-	left: 100%;
-	display: flex;
-	flex-direction: column;
-	gap: 3px;
-}
-
-.loc-tag-icon {
-	display: block;
-	width: 20px;
-	height: 20px;
-	object-fit: contain;
-	flex-shrink: 0;
-}
-
-#check {
-	width: var(--panel-w);
-	padding: 8px 0;
-	background-color: var(--accent-dim);
-	border-color: var(--accent-dim);
-	color: #1a1206;
-	font-weight: 600;
-}
-
-#check:hover {
-	background-color: var(--accent);
-}
-
-#result {
-	width: 100%;
-	margin: 0;
-	font-size: 16px;
-	font-weight: 600;
-	color: var(--accent);
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	justify-content: center;
-	text-align: center;
-	gap: 8px 10px;
-}
-
-#result:empty {
-	display: none;
-}
-
-/* Поиск кратчайшего пути */
-.path-finder {
-	width: 100%;
-	max-width: 100%;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 10px;
-}
-
-/* Начальная и конечная локация — в ряд */
+/* ---------- Поиск пути ---------- */
+.path-finder { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; text-align: left; }
 .points-row {
-	display: flex;
-	justify-content: center;
-	gap: 20px;
-	flex-wrap: wrap;
-	width: 100%;
+	display: flex; justify-content: flex-start; align-items: flex-start;
+	gap: 20px; flex-wrap: wrap; width: 100%;
 }
+.point-picker { display: flex; flex-direction: column; gap: 5px; }
+.point-label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }
+.point-name { margin: 0; min-height: 18px; font-size: 14px; font-weight: 600; color: var(--accent); text-align: left; }
 
-.point-picker {
-	display: flex;
-	flex-direction: column;
-	gap: 5px;
-}
-
-/* Кнопка «поменять местами» — строго посередине между картами начальной
-   и конечной локации по вертикали. Точный отступ сверху (top) считает JS
-   (positionSwapButton), потому что высота подписи и поля поиска над картой
-   не задана жёстко в вёрстке */
 .swap-col {
 	position: relative;
 	display: flex;
 	justify-content: center;
+	align-self: stretch;
+	min-height: 100%;
 }
-
 .swap-btn {
 	position: absolute;
-	top: 0; /* переопределяется в JS, чтобы попасть точно в центр карт */
-	left: 50%;
-	transform: translateX(-50%);
-	width: auto;
-	flex-direction: column;
-	gap: 1px;
-	padding: 10px 8px;
-	border-radius: 10px;
-	line-height: 1;
+	top: 50%; left: 50%;
+	transform: translate(-50%, -50%);
+	width: auto; flex-direction: column; gap: 1px;
+	padding: 10px 8px; border-radius: 10px; line-height: 1;
+	opacity: 0.55; transition: opacity 0.15s ease;
 }
+.swap-btn:hover { opacity: 1; }
+.swap-btn:active { transform: translate(-50%, -50%); }
+.swap-arrow { font-size: 15px; line-height: 1; }
+.swap-btn:disabled { opacity: 0.25; cursor: default; }
+.swap-btn:disabled:hover { background-color: var(--surface-alt); border-color: var(--border); }
 
-/* У всех кнопок есть общий button:active { transform: translateY(1px) },
-   который при нажатии полностью заменяет собой transform: translateX(-50%)
-   этой кнопки — из-за этого она визуально «прыгала» влево при клике.
-   Отменяем нажатие здесь, чтобы кнопка оставалась строго на месте */
-.swap-btn:active {
-	transform: translateX(-50%);
-}
-
-.swap-arrow {
-	font-size: 15px;
-	line-height: 1;
-}
-
-.swap-btn:disabled {
-	opacity: 0.35;
-	cursor: default;
-}
-
-.swap-btn:disabled:hover {
-	background-color: var(--surface-alt);
-	border-color: var(--border);
-}
-
-.point-label {
-	font-size: 11px;
-	color: var(--text-dim);
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
-}
-
-.point-map {
-	display: grid;
-	grid-template-columns: repeat(10, var(--cell-w));
-	grid-template-rows: repeat(6, var(--cell-h));
-	gap: var(--cell-gap);
-	width: var(--panel-w);
-	background-color: var(--map-bg-alt);
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	overflow: hidden;
-}
-
-.point-map button {
-	width: var(--cell-w);
-	height: var(--cell-h);
-	padding: 0;
-	margin: 0;
-	background-color: var(--cell-bg);
-	border: none;
-	border-radius: 0;
-}
-
-.point-map button:hover {
-	outline: 1px solid var(--accent);
-	outline-offset: -1px;
-}
-
-.point-map button.active {
-	background-color: var(--cell-active);
-}
-
-.point-map button.cell-deadend.active {
-	background-color: var(--deadend);
-}
-
-.point-map button.cell-self.active {
-	background-color: var(--self-loop);
-}
-
-/* Клетка нужного перехода к следующей локации маршрута */
-.point-map button.cell-next.active {
-	background-color: var(--path-color);
-}
-
-.point-name {
-	margin: 0;
-	min-height: 18px;
-	font-size: 13px;
-	font-weight: 600;
-	color: var(--accent);
-	text-align: center;
-}
-
-/* Поле "Хочу пройти через локации..." */
-.waypoints-block {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	width: 100%;
-	max-width: calc(var(--panel-w) * 2 + 20px);
-}
-
+.waypoints-block { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 460px; }
 .waypoints-block input[type="text"] {
-	width: 100%;
-	padding: 8px 10px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	color: var(--text);
-	font-size: 13px;
-	outline: none;
+	width: 100%; padding: 8px 10px;
+	background-color: var(--surface-alt); border: 1px solid var(--border);
+	border-radius: 6px; color: var(--text); font-size: 14px; outline: none;
 }
-
-.waypoints-block input[type="text"]::placeholder {
-	color: var(--text-dim);
-}
-
-.waypoints-block input[type="text"]:focus {
-	border-color: var(--accent);
-}
-
-.waypoints-title {
-	font-size: 13px;
-	color: var(--text);
-}
-
-.waypoints-order {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 12px;
-	color: var(--text-dim);
-	cursor: pointer;
-}
-
-.waypoints-preview select {
-	max-width: 180px;
-	padding: 2px 4px;
-	background-color: var(--surface-alt);
-	color: var(--text);
-	border: 1px solid var(--accent-dim);
-	border-radius: 4px;
-	font-size: 12px;
-}
-
-.waypoints-preview {
-	margin: 0;
-	font-size: 12px;
-	color: var(--accent);
-	min-height: 16px;
-}
-
-.waypoints-preview .waypoint-unknown {
-	color: #c26a5c;
-	text-decoration: underline dotted;
-}
+.waypoints-title { font-size: 14px; color: var(--text); }
+.waypoints-order { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-dim); cursor: pointer; }
+.waypoints-preview { margin: 0; font-size: 13px; color: var(--accent); min-height: 16px; }
+.waypoints-preview select { max-width: 180px; padding: 2px 4px; background-color: var(--surface-alt); color: var(--text); border: 1px solid var(--accent-dim); border-radius: 4px; font-size: 13px; }
+.waypoints-preview .waypoint-unknown { color: #c26a5c; text-decoration: underline dotted; }
 
 #findPathBtn {
-	width: 100%;
-	max-width: calc(var(--panel-w) * 2 + 20px);
-	padding: 8px 0;
-	background-color: var(--accent-dim);
-	border-color: var(--accent-dim);
-	color: #1a1206;
-	font-weight: 600;
+	width: 100%; max-width: 460px; padding: 10px 0;
+	background-color: var(--accent-dim); border-color: var(--accent-dim);
+	color: #1a1206; font-weight: 600;
 }
+#findPathBtn:disabled { opacity: 0.5; cursor: default; }
+#findPathBtn.hide-mode { background-color: var(--surface-alt); border-color: var(--border); color: var(--text); }
 
-#findPathBtn:hover {
-	background-color: var(--accent);
-}
+.path-message { text-align: left; width: 100%; }
+.path-message:empty { display: none; }
+.path-empty { color: var(--text-dim); margin: 0; }
 
-#findPathBtn:disabled {
-	opacity: 0.5;
-	cursor: default;
-}
+/* ---------- Проверка локации ---------- */
+.location-finder { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; width: 100%; }
+#check { width: 100%; max-width: var(--panel-w); padding: 8px 0; background-color: var(--accent-dim); border-color: var(--accent-dim); color: #1a1206; font-weight: 600; }
+#result { width: 100%; margin: 0; font-size: 16px; font-weight: 600; color: var(--accent); display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; text-align: left; gap: 8px 10px; }
+#result:empty { display: none; }
 
-#findPathBtn:disabled:hover {
-	background-color: var(--accent-dim);
-}
-
-/* Маршрут — карты локаций в ряд, под общим блоком поиска */
+/* ---------- Найденный маршрут ---------- */
 .path-route {
-	width: 100%;
-	max-width: 1500px;
-	margin: 30px auto 0;
-	padding-bottom: 8px;
+	width: calc(100vw - var(--sidebar-current, 84px) - var(--content-pad) * 2 - var(--panel-indent));
+	margin-left: calc(-1 * var(--panel-indent) - var(--content-pad));
+	padding: 8px 0 8px var(--panel-indent);
+	--cell-w: 18px; --cell-h: 26px; --panel-w: 200px;
+	margin-top: 8px;
 }
+.app.sidebar-collapsed .path-route { width: calc(100vw - 42px - var(--content-pad) * 2 - var(--panel-indent)); }
 
-.path-route:empty {
-	display: none;
-}
+.path-route-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin: 0 0 10px; font-size: 14px; color: var(--text-dim); }
+.route-legend { display: flex; align-items: center; justify-content: flex-start; gap: 8px; margin: 0 0 12px; font-size: 14px; color: var(--text-dim); }
+.route-legend-swatch { width: 14px; height: 14px; flex: 0 0 auto; border-radius: 3px; border: 1px solid var(--border); background-color: var(--path-color); }
 
-.path-route-summary {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 8px 14px;
-	margin: 0 0 14px;
-	font-size: 13px;
-	color: var(--text-dim);
-}
-
-.detach-btn {
-	width: auto;
-	padding: 4px 12px;
-	font-size: 12px;
-}
-
-/* Карты идут рядами, перенос на новую строку — как только очередная карта
-   (с её стрелкой) не помещается по ширине; и ряды центрируются — как целыми,
-   так и последним неполным. Раньше ширина каждой карты в ряду была жёстко
-   зашита в 25% (ровно 4 в ряд) независимо от масштаба — при уменьшении карты
-   оказывались куда мельче своей ячейки (ряды расползались пустотой), а при
-   увеличении, наоборот, крупнее (ряды слипались/наезжали друг на друга).
-   Теперь ширина каждой карты равна её фактическому размеру при любом
-   масштабе, поэтому и промежуток между картами больше не «плывёт» */
 .path-cards {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-start;
-	justify-content: center;
+	display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: flex-start;
 	gap: calc(var(--panel-w) * 0.09) calc(var(--panel-w) * 0.02);
 }
+.path-step { display: flex; align-items: flex-start; justify-content: flex-start; flex: 0 0 auto; }
+.path-map-card { display: flex; flex-direction: column; align-items: flex-start; gap: max(2px, calc(6px * var(--ui-scale, 1))); flex-shrink: 0; }
+.path-map-title { font-size: max(7px, calc(13px * var(--ui-scale, 1))); color: var(--accent); text-align: left; max-width: var(--panel-w); font-weight: 600; }
+.path-map-tag { display: block; margin-top: 2px; font-size: max(6px, calc(12px * var(--ui-scale, 1))); color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+.path-map-card .point-map button { cursor: default; }
+.path-map-card .point-map button:hover { outline: none; }
+.path-map-card .point-map button.active:hover { outline: 1px solid var(--text); outline-offset: -1px; }
 
-.path-step {
-	display: flex;
-	align-items: flex-start;
-	justify-content: center;
-	flex: 0 0 auto;
-}
+.route-tools { display: flex; align-items: center; justify-content: flex-start; gap: 10px; margin: 0 0 10px; }
+.detach-btn { width: auto; padding: 4px 12px; font-size: 13px; }
+.rw-buttons { display: flex; gap: 4px; flex-shrink: 0; }
+.rw-buttons button { width: 30px; height: 30px; padding: 0; font-size: 14px; }
+.rw-buttons button:disabled { opacity: 0.4; cursor: default; }
 
-.path-map-card {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: max(2px, calc(6px * var(--ui-scale, 1)));
-	flex-shrink: 0;
-}
-
-.path-map-title {
-	font-size: max(6px, calc(12px * var(--ui-scale, 1)));
-	color: var(--text);
-	text-align: center;
-	max-width: var(--panel-w);
-}
-
-/* Общая подсказка вместо стрелочек между картами: квадратик того же цвета,
-   что и клетка-переход на самих картах маршрута (--path-color) — цвет берётся
-   из CSS-переменной, а не фиксируется, поэтому при смене цвета в настройках
-   квадратик сразу покажет новый */
-.route-legend {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 8px;
-	margin: 8px 0 0;
-	font-size: 13px;
-	color: var(--text-dim);
-}
-
-.route-legend-swatch {
-	width: 14px;
-	height: 14px;
-	flex: 0 0 auto;
-	border-radius: 3px;
-	border: 1px solid var(--border);
-	background-color: var(--path-color);
-}
-
-/* Метка под названием: начало / через / конец */
-.path-map-tag {
-	display: block;
-	margin-top: 2px;
-	font-size: max(5px, calc(11px * var(--ui-scale, 1)));
-	color: var(--accent);
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
-}
-
-/* В маршруте клетки не кликаются, только показывают подсказку при наведении */
-.path-map-card .point-map button {
-	cursor: default;
-}
-
-.path-map-card .point-map button:hover {
-	outline: none;
-}
-
-.path-map-card .point-map button.active:hover {
-	outline: 1px solid var(--text);
-	outline-offset: -1px;
-}
-
-.path-empty {
-	color: var(--text-dim);
-	margin: 0;
-}
-
-#result .search-option {
-	font-size: 13px;
-	font-weight: 400;
-	color: var(--text);
-}
-
-/* ---------- Отдельное окно браузера (PiP / всплывающее) ---------- */
-.ext-root {
-	display: flex;
-	flex-direction: column;
-	height: 100vh;
-}
-
-.rw-header {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 6px 8px;
-	background-color: var(--surface-alt);
-	border-bottom: 1px solid var(--border);
-	user-select: none;
-}
-
-.rw-title {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	font-size: 13px;
-	font-weight: 600;
-	color: var(--accent);
-}
-
-.rw-buttons {
-	display: flex;
-	gap: 4px;
-	flex-shrink: 0;
-}
-
-.rw-buttons button {
-	width: 26px;
-	height: 26px;
-	padding: 0;
-	font-size: 13px;
-}
-
-.rw-buttons button:disabled {
-	opacity: 0.4;
-	cursor: default;
-}
-
-/* ---------- Плеер маршрута: Начать/Завершить — стрелки — авто/пауза ---------- */
+/* ---------- Плеер маршрута ---------- */
 .route-player {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 10px;
-	flex: 1;
-	min-width: 0;
+	display: flex; align-items: center; justify-content: space-between;
+	gap: calc(10px * var(--ui-scale, 1)); flex-wrap: wrap;
+	padding: calc(8px * var(--ui-scale, 1));
+	margin-bottom: calc(10px * var(--ui-scale, 1));
+	border-radius: 8px; background-color: var(--surface); border: 1px solid var(--border);
 }
-
-/* На странице в книге (не в отдельном окне) сама страница прокручивается
-   целиком, поэтому строку с кнопками фиксируем сверху, чтобы она не убегала
-   вместе с картами, пока смотришь длинный маршрут */
-.route-head .route-player {
-	position: sticky;
-	top: 0;
-	z-index: 3;
-	padding: 6px 8px;
-	margin: 0 -8px;
-	border-radius: 8px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-}
-
-.rp-toggle {
-	width: auto;
-	flex-shrink: 0;
-	padding: 0 12px;
-	font-weight: 600;
-}
-
-.rp-manual,
-.rp-auto {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	flex-shrink: 0;
-}
-
-.rp-manual button,
-.rp-auto button {
-	width: 30px;
-	height: 30px;
-	padding: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-/* Пока маршрут не запущен («Начать» ещё не нажали) — стрелки/авто/пауза
-   вообще не нужны, показываем только саму кнопку запуска */
+.rp-toggle { width: auto; flex-shrink: 0; padding: 0 calc(12px * var(--ui-scale, 1)); font-size: calc(15px * var(--ui-scale, 1)); font-weight: 600; }
+.rp-manual, .rp-auto { display: flex; align-items: center; gap: calc(6px * var(--ui-scale, 1)); flex-shrink: 0; }
+.rp-manual button, .rp-auto button { width: calc(30px * var(--ui-scale, 1)); height: calc(30px * var(--ui-scale, 1)); padding: 0; display: flex; align-items: center; justify-content: center; }
 .route-player:not(.rp-started) .rp-manual,
-.route-player:not(.rp-started) .rp-auto {
-	visibility: hidden;
-}
-
-/* В авто-режиме ручные стрелки тусклые — как бы неактивные (листает само);
-   и наоборот — пока авто выключен, тусклая кнопка паузы (нечего приостанавливать) */
-.rp-manual button:disabled,
-.rp-auto button:disabled {
-	opacity: 0.35;
-	cursor: default;
-}
-
-/* Подстраховка: гарантируем, что скрытая иконка (пауза/пуск) внутри .rp-pause
-   действительно не отображается, даже если что-то ещё в стилях случайно
-   перебивает обычное поведение атрибута hidden */
-.rp-pause svg[hidden] {
-	display: none;
-}
-
-.rp-loop {
-	font-size: 17px;
-	font-weight: 700;
-	line-height: 1;
-}
-
-.rp-loop.active {
-	background-color: var(--accent);
-	color: #fff;
-	border-color: var(--accent);
-}
-
-/* Текущая локация маршрута во время проигрывания — яркая, заметная рамка,
-   не зависящая от цветов темы/настроек (специально контрастная в обоих) */
-.rp-current {
-	position: relative;
-	border-radius: 6px;
-	box-shadow: 0 0 0 3px #ffcc33, 0 0 14px 3px rgba(255, 204, 51, 0.75);
-}
-
-.rw-body {
-	flex: 1;
-	overflow: auto;
-	padding: 12px;
-}
-
-.ext-tip {
-	display: none;
-	position: fixed;
-	z-index: 10;
-	max-width: 240px;
-	padding: 4px 8px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--accent-dim);
-	border-radius: 4px;
-	font-size: 12px;
-	color: var(--text);
-	pointer-events: none;
-}
-
-
-
-/* ============================================================
-   Книга
-   ============================================================ */
-.book-stage {
-	/* слева, сверху и справа-снизу оставлено место под торчащие закладки */
-	padding: 60px 70px 56px 92px;
-	transition: background-color 0.25s ease;
-}
-
-.book {
-	position: relative;
-	width: 100%;
-	max-width: 1500px;
-	height: calc(100vh - 190px);
-	min-height: 660px;
-	margin: 0 auto;
-	padding: 16px;
-	border-radius: 16px;
-	background: linear-gradient(145deg, #62402a, #3a2416 70%);
-	box-shadow:
-		inset 0 0 0 2px #7d5636,
-		inset 0 0 0 5px #3a2416;
-}
-
-.pages {
-	position: relative;
-	display: flex;
-	height: 100%;
-	border-radius: 6px;
-	overflow: hidden;
-	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4);
-}
-
-/* тень корешка между страницами */
-.pages::after {
-	content: "";
-	position: absolute;
-	top: 0;
-	bottom: 0;
-	left: 50%;
-	width: 70px;
-	transform: translateX(-50%);
-	background: linear-gradient(90deg, transparent, rgba(60, 35, 10, 0.32), transparent);
-	pointer-events: none;
-}
-
-/* Внутри страницы — светлая «бумажная» палитра: все компоненты страницы
-   (поля, кнопки, карточки) берут цвета из этих переменных */
-.page {
-	--text: #3a2a1a;
-	--text-dim: #7b6650;
-	--border: #b59d74;
-	--surface: rgba(255, 248, 228, 0.55);
-	--surface-alt: #f4e9cf;
-	--accent: #9c4a1a;
-	--accent-dim: #a5652a;
-	--accent-soft: rgba(156, 74, 26, 0.14);
-	/* карты компактнее (−10%), чтобы обе карточки (начальная и конечная
-	   локация) точно помещались на странице рядом друг с другом */
-	--cell-w: 16px;
-	--cell-h: 23px;
-	--panel-w: 180px;
-
-	position: relative;
-	min-width: 0;
-	padding: 26px 26px 30px;
-	overflow-y: auto;
-	color: var(--text);
-	font-family: Georgia, "Palatino Linotype", "Book Antiqua", serif;
-	background-color: #eadfc4;
-	background-image:
-		radial-gradient(circle at 15% 8%, rgba(255, 255, 255, 0.4), transparent 45%),
-		radial-gradient(circle at 85% 92%, rgba(130, 90, 40, 0.16), transparent 50%);
-	scrollbar-color: #b59d74 transparent;
-	transition: background-color 0.25s ease, color 0.25s ease;
-}
-
-/* Тёмная тема: тот же «бумажный» разворот, но страницы — тёмный пергамент.
-   Сама обложка книги при этом не меняется — это просто другое освещение в комнате */
-:root[data-theme="dark"] .page {
-	--text: #e9ddc0;
-	--text-dim: #a8987a;
-	--border: #4c4128;
-	--surface: rgba(40, 33, 20, 0.55);
-	--surface-alt: #362c19;
-	--accent: #e2a24f;
-	--accent-dim: #c1852f;
-	--accent-soft: rgba(226, 162, 79, 0.14);
-
-	background-color: #241d10;
-	background-image:
-		radial-gradient(circle at 15% 8%, rgba(255, 255, 255, 0.06), transparent 45%),
-		radial-gradient(circle at 85% 92%, rgba(0, 0, 0, 0.35), transparent 50%);
-	scrollbar-color: #4c4128 transparent;
-}
-
-:root[data-theme="dark"] .page .search-panel button,
-:root[data-theme="dark"] .page #check,
-:root[data-theme="dark"] .page #findPathBtn {
-	color: #2a1c08;
-}
-
-.page-left {
-	flex: 1 1 0;
-}
-
-.page-right {
-	flex: 1 1 0;
-	display: flex;
-	flex-direction: column;
-}
-
-.page button,
-.page input {
-	font-family: inherit;
-}
-
-/* основные кнопки — «кожаные» с кремовым текстом */
-.page .search-panel button,
-.page #check,
-.page #findPathBtn {
-	color: #fdf3dc;
-}
-
-.page .search-results {
-	background-color: #f7edd2;
-}
-
-:root[data-theme="dark"] .page .search-results {
-	background-color: var(--surface-alt);
-}
-
-.page-head {
-	margin-bottom: 14px;
-	text-align: center;
-}
-
-.page-title {
-	margin: 0;
-	font-size: 30px;
-	font-weight: 700;
-	letter-spacing: 0.5px;
-	color: var(--accent);
-}
-
-.page-subtitle {
-	margin: 4px 0 0;
-	font-size: 18px;
-	font-style: italic;
-	color: var(--text-dim);
-}
-
-/* На странице раздела название вселенной (page-title) отходит на второй план —
-   это просто рубрика над настоящим заголовком, которым теперь смотрится
-   название фракции (page-subtitle, взятое из подсказки раздела) */
-.section-page-head .page-title {
-	font-size: 15px;
-	font-weight: 600;
-	letter-spacing: 1px;
-	text-transform: uppercase;
-	color: var(--text-dim);
-}
-
-.section-page-head .page-subtitle {
-	margin-top: 2px;
-	font-size: 26px;
-	font-style: normal;
-	font-weight: 700;
-	color: var(--accent);
-}
-
-.page-head::after {
-	content: "🐾 🐾 🐾";
-	display: block;
-	margin-top: 6px;
-	font-size: 14px;
-	color: var(--accent-dim);
-}
-
-.page-head p:not(.page-subtitle):not(.section-note) {
-	margin: 12px auto 0;
-	max-width: 420px;
-	line-height: 1.5;
-}
-
-.page-placeholder {
-	margin: auto;
-	font-style: italic;
-	color: var(--text-dim);
-}
-
-.map-help {
-	margin: 16px 0 0;
-	font-size: 13px;
-	line-height: 1.5;
-	color: var(--text-dim);
-}
-
-/* ---------- Закладки ----------
-   Прилегают прямо к обложке (правый/нижний край закладки = край книги,
-   небольшой отрицательный отступ убирает щель на стыке), поэтому выглядят
-   вклеенными в книгу, а не отдельными плитками рядом с ней */
-.tab {
-	position: relative;
-	isolation: isolate;
-	margin: 0;
-	border: none;
-	color: #fff;
-	font-family: Georgia, "Palatino Linotype", serif;
-	font-weight: 700;
-	/* Белый текст с чёрным контуром со всех сторон — одинаково для любой
-	   закладки, независимо от цвета/картинки её фона */
-	text-shadow:
-		-1px -1px 1.5px rgba(0, 0, 0, 0.85),
-		1px -1px 1.5px rgba(0, 0, 0, 0.85),
-		-1px 1px 1.5px rgba(0, 0, 0, 0.85),
-		1px 1px 1.5px rgba(0, 0, 0, 0.85),
-		0 2px 4px rgba(0, 0, 0, 0.6);
-	background: none;
-}
-
-/* Фон и «раскрытие» закладки — на отдельном слое позади текста.
-   Так масштабируется (растёт) только этот слой, а сам текст/иконка
-   в .tab-content лежат в обычном потоке и никогда не двигаются и не тянутся.
-   --tab-bg-image (если задан у конкретной закладки) — картинка-«запах» с
-   catwar.net, растягивается на весь фон закладки поверх сплошного цвета */
-.tab::before {
-	content: "";
-	position: absolute;
-	inset: 0;
-	z-index: -1;
-	border-radius: inherit;
-	background-color: var(--tab-color);
-	background-image:
-		linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(0, 0, 0, 0.18)),
-		var(--tab-bg-image, none);
-	/* У самой картинки (второе значение) размер больше 100% — сами картинки
-	   обычно нарисованы с запасом (плавно гаснут к краям), и от одного
-	   только «cover» в кадр попадала в основном пустая/бледная кайма, а не
-	   сама картинка. Увеличиваем и обрезаем лишнее, чтобы она покрывала всю
-	   закладку целиком. У градиента (первое значение) размер не трогаем */
-	background-size: cover, 150%;
-	background-position: center;
-	background-repeat: no-repeat;
-	transition: transform 0.12s ease, filter 0.12s ease;
-}
-
-/* Раньше эти классы меняли цвет текста под цвет/светлоту фона конкретной
-   закладки (тёмный или серый текст на светлом фоне). Теперь везде единый
-   белый текст с чёрным контуром, как и у обычной .tab (см. выше) — поэтому
-   здесь просто ничего не переопределяем. Важно: делаем это, НЕ объявляя
-   color/text-shadow вообще (а не через color: inherit — inherit берёт цвет
-   от родителя в DOM, а не от правила .tab на этом же элементе, и в итоге
-   текст всё равно оставался бы чёрным). Классы оставлены пустыми, чтобы не
-   трогать JS и данные разделов, которые их проставляют */
-.tab-dark-text,
-.tab-gray-text,
-.tab-outline-text {
-}
-
-.tab-content {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 6px;
-}
-
-/* Иконка на закладке — герб вселенной (свой .svg — ОВ/МВ/ВТ) или картинка-
-   «запах» раздела/вселенной (см. .tab-icon-smell и .tab-top .tab-content
-   ниже: у «запахов» слева она справа от подписи и видна по наведению,
-   сверху — под подписью). Размер одинаковый везде */
-.tab-icon {
-	display: block;
-	width: 20px;
-	height: 20px;
-	object-fit: contain;
-	flex-shrink: 0;
-}
-
-/* «Запах»-картинка вселенной без своего герба (все левые закладки, кроме
-   ОВ/МВ/ВТ) — справа от подписи (order задаёт место, а не порядок в DOM,
-   поэтому подпись остаётся первой без лишней разметки) и не отвлекает,
-   пока закладку не откроют или не наведут на неё курсор */
-.tab-icon-smell {
-	order: 2;
-	opacity: 0;
-	transition: opacity 0.15s ease;
-}
-
-.tab-left:hover .tab-icon-smell,
-.tab-left.active .tab-icon-smell,
-.tab-left:focus-visible .tab-icon-smell {
-	opacity: 1;
-}
-
-.tabs-left {
-	position: absolute;
-	/* прежний, «родной» отступ под обложку (16px) — глубже заводить нельзя,
-	   иначе закладки перекрывают текст на странице, а не только сам корешок */
-	right: calc(100% - 16px);
-	margin-right: -3px;
-	top: 64px;
-	/* нижняя граница нужна, чтобы у колонки было понятное «дно» — без неё
-	   margin-top: auto у закладки «Рыба» ниже толкать её было бы некуда */
-	bottom: 56px;
-	z-index: 2;
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-
-/* Закладка черновика — служебная, не вселенная, поэтому специально отставлена
-   от остальных: прибита к самому низу колонки (margin-top: auto забирает
-   всё свободное место над собой) и чуть крупнее обычных закладок */
-.tab-left-draft {
-	margin-top: auto;
-	width: 72px;
-	height: 60px;
-}
-
-.tab-icon-fish {
-	width: 22px;
-	height: 22px;
-	color: #000;
-	/* после подписи, тем же приёмом, что и у «запах»-иконок (order, не DOM) */
-	order: 2;
-}
-
-.tab-left {
-	/* та же высота и масштаб текста, что и у остальных закладок — уже,
-	   короче, торчит из-под обложки настолько же скромно, как они */
-	width: 64px;
-	height: 44px;
-	padding: 0 8px 0 6px;
-	justify-content: flex-start;
-	border-radius: 10px 0 0 10px;
-	font-size: 14px;
-}
-
-.tab-left::before {
-	box-shadow: -2px 3px 6px rgba(0, 0, 0, 0.35);
-	/* наружный (левый) край всегда на одном уровне с соседними закладками —
-	   растёт только внутренний край, в сторону страницы */
-	transform-origin: left center;
-}
-
-.tab-left:hover::before {
-	filter: brightness(1.08);
-	background-color: var(--tab-color);
-}
-
-/* Выбранная закладка не выезжает наружу и не сдвигается — её наружный край
-   остаётся на общем уровне, а фон «раскрывается» вглубь книги,
-   как будто нижняя часть приклеена к открытой странице. Текст лежит
-   поверх этого слоя и растяжение фона его не касается */
-.tab-left.active::before {
-	transform: scaleX(1.22);
-	filter: brightness(1.15);
-	box-shadow: -2px 3px 6px rgba(0, 0, 0, 0.35), inset -3px 0 6px rgba(0, 0, 0, 0.18);
-}
-
-/* ---------- «Вся карта» — угловая закладка справа сверху: тот же приём,
-   что и закладки настроек/темы (тоже торчат вправо), только у верха книги,
-   а не у низа ---------- */
-.tabs-map-corner {
-	position: absolute;
-	left: calc(100% - 16px);
-	margin-left: -3px;
-	top: 64px;
-	z-index: 2;
-	display: flex;
-}
-
-.tab-map-corner {
-	width: 64px;
-	height: 44px;
-	padding: 0 6px 0 8px;
-	justify-content: flex-end;
-	border-radius: 0 10px 10px 0;
-	font-size: 14px;
-}
-
-.tab-map-corner::before {
-	box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.35);
-	transform-origin: right center;
-}
-
-.tab-map-corner:hover::before {
-	filter: brightness(1.08);
-	background-color: var(--tab-color);
-}
-
-.tab-map-corner.active::before {
-	transform: scaleX(1.22);
-	filter: brightness(1.15);
-	box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.35), inset 3px 0 6px rgba(0, 0, 0, 0.18);
-}
-
-/* Закладки сверху читаются одной сплошной последовательностью слева направо:
-   сначала заполняется левая страница (от своего внешнего края, обычным
-   плотным рядом), и только то, что не поместилось, продолжает ряд на правой
-   странице — СРАЗУ ЗА КОРЕШКОМ (а не от внешнего правого края страницы, как
-   было раньше — из-за этого правая часть выглядела отдельным «зеркальным»
-   кластером, растущим от угла к центру, а не продолжением ряда слева) */
-.tabs-top {
-	position: absolute;
-	bottom: calc(100% - 16px);
-	margin-bottom: -3px;
-	left: 70px;
-	max-width: calc(50% - 70px - 40px); /* не доходя 40px до корешка */
-	z-index: 2;
-	display: flex;
-	gap: 8px;
-}
-
-/* Продолжение того же ряда сразу за корешком — растёт вправо, к внешнему
-   краю правой страницы, а не наоборот. Какие разделы сюда попадут (сколько
-   не поместилось слева), решает renderTabs() по фактической ширине закладок */
-.tabs-top-right {
-	position: absolute;
-	bottom: calc(100% - 16px);
-	margin-bottom: -3px;
-	left: calc(50% + 40px); /* не доходя 40px от корешка, с другой стороны */
-	max-width: calc(50% - 70px - 40px);
-	z-index: 2;
-	display: flex;
-	gap: 8px;
-}
-
-.tab-top {
-	width: auto;
-	min-width: 58px;
-	height: 58px;
-	padding: 5px 16px 6px;
-	border-radius: 10px 10px 0 0;
-	font-size: 14px;
-}
-
-/* Иконка-«запах» раздела — под подписью, а не рядом с ней, и точно так же,
-   как слева, видна только при наведении/нажатии на саму закладку (order
-   переносит её визуально вниз, а не в DOM — подпись первым же ребёнком
-   остаётся читаемым текстом кнопки без лишней разметки) */
-.tab-top .tab-content {
-	flex-direction: column;
-	gap: 3px;
-}
-
-.tab-top .tab-icon {
-	order: 2;
-	opacity: 0;
-	transition: opacity 0.15s ease;
-}
-
-.tab-top:hover .tab-icon,
-.tab-top.active .tab-icon,
-.tab-top:focus-visible .tab-icon {
-	opacity: 1;
-}
-
-/* Заглушка вместо иконки у разделов без своей картинки (см. makeTab в
-   script.js) — держит ту же высоту столбца, что и у закладок с иконкой,
-   поэтому подпись оказывается на одном уровне со всеми остальными, но
-   сама никогда не становится видимой (даже по наведению/фокусу выше) */
-.tab-icon-placeholder {
-	visibility: hidden;
-}
-
-.tab-top::before {
-	box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.3);
-	/* наружный (верхний) край всегда на одном уровне с соседними закладками —
-	   растёт только вниз, в сторону страницы */
-	transform-origin: center top;
-}
-
-.tab-top.blank {
-	min-width: 58px;
-	padding: 0;
-}
-
-button.tab-top:hover::before {
-	filter: brightness(1.08);
-	background-color: var(--tab-color);
-}
-
-.tab-top.active::before {
-	transform: scaleY(1.32);
-	filter: brightness(1.15);
-	box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.3), inset 0 -3px 6px rgba(0, 0, 0, 0.18);
-}
-
-/* ---------- Закладки-шестерёнки справа снизу: настройки и тема ---------- */
-.tabs-right {
-	position: absolute;
-	left: calc(100% - 16px);
-	margin-left: -3px;
-	bottom: 54px;
-	z-index: 2;
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-}
-
-.tab-right {
-	width: 40px;
-	height: 44px;
-	padding: 0;
-	border-radius: 0 10px 10px 0;
-}
-
-.tab-right::before {
-	box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.35);
-	/* наружный (правый) край всегда на одном уровне с соседними закладками —
-	   растёт только влево, в сторону страницы */
-	transform-origin: right center;
-}
-
-.tab-right:hover::before {
-	filter: brightness(1.08);
-	background-color: var(--tab-color);
-}
-
-.tab-right.active::before {
-	transform: scaleX(1.32);
-	filter: brightness(1.15);
-	box-shadow: inset 2px 0 5px rgba(0, 0, 0, 0.3);
-}
-
-/* ---------- Стрелка «назад» — возврат со страниц маршрута/настроек ---------- */
-.page-back {
-	position: absolute;
-	left: 26px;
-	bottom: 14px;
-	transform: translateY(14px) scale(0.85);
-	z-index: 5;
-	width: 44px;
-	height: 44px;
-	padding: 0;
-	border-radius: 50%;
-	background-color: #f4ead0;
-	color: #7d5636;
-	box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-	opacity: 0;
-	pointer-events: none;
-	transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-.pages.spread-open .page-back {
-	opacity: 1;
-	pointer-events: auto;
-	transform: translateY(0) scale(1);
-}
-
-.page-back:hover {
-	background-color: #fff8e4;
-}
-
-:root[data-theme="dark"] .page-back {
-	background-color: #2c2416;
-	color: #e2a24f;
-}
-
-:root[data-theme="dark"] .page-back:hover {
-	background-color: #3a3018;
-}
-
-/* ---------- Граф на правой странице ---------- */
-.graph-title {
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: 12px;
-	margin-bottom: 10px;
-}
-
-.graph-title h3 {
-	margin: 0;
-	font-size: 16px;
-	letter-spacing: 1px;
-	color: var(--accent);
-}
-
-.graph-caption {
-	margin: 0;
-	font-size: 12px;
-	color: var(--text-dim);
-}
-
-/* «Начало: … — Конец: …» — сразу видно, где на карте начало и конец
-   найденного маршрута, отдельно от серой строки с числом локаций */
-.graph-endpoints {
-	margin: 0 0 10px;
-	font-size: 13px;
-	color: var(--text);
-}
-
-.graph-wrap {
-	position: relative;
-	flex: 1;
-	min-height: 0;
-	overflow: hidden;
-	border: 1px solid var(--border);
-	border-radius: 8px;
-	background-color: rgba(130, 90, 40, 0.1);
-	box-shadow: inset 0 0 18px rgba(90, 60, 20, 0.18);
-}
-
-.graph-empty {
-	margin: 40% 0 0;
-	text-align: center;
-	font-style: italic;
-	color: var(--text-dim);
-}
-
-.graph-svg {
-	display: block;
-	width: 100%;
-	height: 100%;
-	cursor: grab;
-	touch-action: none;
-}
-
-.graph-svg.grabbing {
-	cursor: grabbing;
-}
-
-/* Ребро — простая прямая линия: от клетки перехода до клетки встречного
-   перехода (если он есть), иначе до края узла-локации со стрелкой.
-   Рисуется поверх узлов, поэтому не должно перехватывать наведение мыши
-   с самих локаций */
+.route-player:not(.rp-started) .rp-auto { visibility: hidden; }
+.rp-manual button:disabled, .rp-auto button:disabled { opacity: 0.35; cursor: default; }
+.rp-pause svg[hidden] { display: none; }
+.rp-loop { font-size: calc(17px * var(--ui-scale, 1)); font-weight: 700; line-height: 1; }
+.rp-loop.active { background-color: var(--accent); color: #fff; border-color: var(--accent); }
+.rp-current { position: relative; border-radius: 6px; box-shadow: 0 0 0 3px #ffcc33, 0 0 14px 3px rgba(255,204,51,0.75); }
+
+/* ---------- Настройки ---------- */
+.settings-menu { display: flex; flex-direction: column; gap: 10px; max-width: 420px; width: 100%; }
+.settings-menu[hidden] { display: none !important; }
+.settings-menu-btn { justify-content: space-between; padding: 14px 18px; font-size: 16px; font-weight: 600; }
+.settings-menu-btn .chevron { color: var(--text-dim); font-size: 18px; }
+.settings-section { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; }
+.settings-section[hidden] { display: none !important; }
+.settings-back { align-self: flex-start; width: auto; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px 6px 8px; margin-bottom: 14px; font-size: 14px; font-weight: 600; color: var(--text-dim); background: none; border: none; }
+.settings-hint { max-width: 100%; margin: 0 0 16px; font-size: 14px; line-height: 1.5; color: var(--text-dim); text-align: left; }
+
+.homeland-list { display: flex; flex-direction: column; gap: 10px; max-width: 420px; width: 100%; }
+.homeland-btn { padding: 14px 18px; font-size: 16px; font-weight: 600; border-radius: 8px; }
+.homeland-btn.current { border-color: var(--accent); background-color: var(--accent-soft); color: var(--accent); }
+
+.colors-layout { display: flex; flex-direction: row; align-items: flex-start; gap: 24px; flex-wrap: wrap; width: 100%; }
+.color-rows { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 260px; flex: 0 1 260px; }
+.color-row { width: 100%; justify-content: flex-start; gap: 10px; padding: 8px 12px; background-color: var(--surface-alt); border-radius: 8px; }
+.color-row.selected { outline: 2px solid var(--accent); outline-offset: -2px; }
+.color-row .swatch { width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%; border: 2px solid rgba(0,0,0,0.25); }
+.color-editor-holder { display: flex; justify-content: flex-start; flex: 0 1 auto; }
+.color-editor { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.wheel { position: relative; width: 160px; height: 160px; border-radius: 50%; cursor: crosshair; touch-action: none; background: radial-gradient(circle at center, #fff 0%, rgba(255,255,255,0) 72%), conic-gradient(from 0deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000); box-shadow: 0 0 0 4px var(--surface-alt), 0 4px 14px rgba(0,0,0,0.35); }
+.wheel-shade { position: absolute; inset: 0; border-radius: 50%; background-color: #000; pointer-events: none; }
+.wheel-dot { position: absolute; width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.5), 0 1px 4px rgba(0,0,0,0.5); transform: translate(-50%, -50%); pointer-events: none; }
+.color-fields { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 220px; }
+.color-fields label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-dim); }
+.wheel-value, .wheel-alpha { width: 100%; height: 14px; padding: 0; border: none; border-radius: 999px; background-color: var(--surface-alt); appearance: none; -webkit-appearance: none; }
+.wheel-value::-webkit-slider-thumb, .wheel-alpha::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background-color: #fff; border: 2px solid var(--accent-dim); cursor: pointer; }
+.wheel-value::-moz-range-thumb, .wheel-alpha::-moz-range-thumb { width: 18px; height: 18px; border: 2px solid var(--accent-dim); border-radius: 50%; background-color: #fff; cursor: pointer; }
+.wheel-alpha { background-image: linear-gradient(45deg, #999 25%, transparent 25%, transparent 75%, #999 75%), linear-gradient(45deg, #999 25%, transparent 25%, transparent 75%, #999 75%); background-size: 10px 10px; background-position: 0 0, 5px 5px; position: relative; }
+.wheel-alpha-fill { position: absolute; inset: 0; border-radius: 999px; pointer-events: none; }
+.wheel-hex { padding: 6px 10px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: "Courier New", monospace; font-size: 14px; outline: none; }
+.settings-reset { width: auto; margin: 0; padding: 8px 18px; }
+.preview-box { display: flex; justify-content: flex-start; align-items: flex-start; flex: 0 1 auto; margin: 0; }
+.preview-box .path-map-card { flex-shrink: 0; }
+.duration-row { display: flex; justify-content: flex-start; gap: 14px; }
+.duration-field { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--text-dim); }
+.duration-field input { width: 60px; padding: 8px 10px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: inherit; font-size: 15px; text-align: center; outline: none; }
+.duration-field input::-webkit-outer-spin-button,
+.duration-field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.duration-field input[type="number"] { -moz-appearance: textfield; }
+
+/* ---------- Граф ---------- */
+.graph-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; text-align: left; width: 100%; }
+.graph-title h3 { margin: 0; font-size: 17px; letter-spacing: 1px; color: var(--accent); }
+.graph-caption { margin: 0; font-size: 13px; color: var(--text-dim); text-align: right; }
+.graph-wrap { position: relative; height: min(60vh, 520px); overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background-color: rgba(130,90,40,0.1); box-shadow: inset 0 0 18px rgba(90,60,20,0.18); width: 100%; }
+.graph-empty { margin: 40% 0 0; text-align: center; font-style: italic; color: var(--text-dim); }
+.graph-svg { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.graph-svg.grabbing { cursor: grabbing; }
 .g-edge {
 	pointer-events: none;
 	fill: none;
 	stroke: #7a6446;
-	stroke-width: 1.4;
+	stroke-width: 0.9;
+	opacity: 0.65;
 }
-
-.g-edge.one {
-	marker-end: url(#graph-arrow);
-}
-
-/* Стрелка направленного перехода — как и подпись айди, должна быть видна
-   и в тёмной теме (раньше оставалась чёрной по умолчанию) */
-.graph-arrow-head {
-	fill: var(--text);
-}
-
-.graph-arrow-head.route {
-	fill: var(--route-color);
-}
-
-.g-node {
-	cursor: default;
-}
-
-.g-frame {
-	fill: var(--map-bg);
-}
-
-/* пустая (без перехода) клетка мини-карты узла — узор graph-cells */
-.g-cell-empty {
-	fill: var(--cell-bg);
-}
-
-/* Цвета клеток-переходов внутри мини-карты узла — те же, что и на обычной
-   карте локации (--cell-active/--deadend/--self-loop), чтобы цвет перехода
-   был виден сразу, без клика по локации */
-.c-normal {
-	fill: var(--cell-active);
-}
-
-.c-deadend {
-	fill: var(--deadend);
-}
-
-.c-self {
-	fill: var(--self-loop);
-}
-
+.g-edge.one { marker-end: url(#graph-arrow); }
+.graph-arrow-head { fill: var(--text); opacity: 0.65; }
+.graph-arrow-head.route { fill: var(--route-color); opacity: 0.85; }
+.g-node { cursor: default; }
+.g-frame { fill: var(--map-bg); }
+.g-cell-empty { fill: var(--cell-bg); }
+.c-normal { fill: var(--cell-active); }
+.c-deadend { fill: var(--deadend); }
+.c-self { fill: var(--self-loop); }
+.c-hidden { fill: var(--hidden-cell); }
+.c-fast { fill: var(--fast-cell); }
 .g-label {
 	fill: var(--text);
-	font-family: Georgia, serif;
+	font-family: "CoreNaraePro", Georgia, serif;
 	font-size: 8px;
 	font-weight: 700;
 	text-anchor: middle;
 	pointer-events: none;
+	dominant-baseline: hanging;
 }
+.g-node.sel .g-frame { stroke: #2ecc71; stroke-width: 2.6; }
+.g-node.route .g-frame { stroke: var(--route-color); stroke-width: 3; }
+.g-edge.route { stroke: var(--route-color); stroke-width: 3; opacity: 1; }
+.g-edge.route.one { marker-end: url(#graph-arrow-route); }
+.graph-svg.dim .g-edge.route:not(.hl) { opacity: 0.85; }
+.graph-svg.dim .g-node.route:not(.hl) { opacity: 1; }
+.graph-svg.dim .g-edge:not(.hl) { opacity: 0.1; }
+.graph-svg.dim .g-node:not(.hl) { opacity: 0.3; }
+.graph-toolbar { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; gap: 6px; }
+.graph-toolbar button { width: 32px; height: 32px; padding: 0; font-size: 16px; }
+.graph-search-wrap { position: relative; }
+.graph-search { width: 150px; padding: 6px 10px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; outline: none; }
+.graph-search-results { width: 220px; }
+.graph-tip { display: none; position: absolute; z-index: 3; max-width: 260px; padding: 4px 8px; background-color: var(--surface-alt); border: 1px solid var(--accent-dim); border-radius: 4px; font-size: 13px; pointer-events: none; }
+.graph-card { position: absolute; left: 10px; bottom: 10px; z-index: 3; padding: 12px 12px 8px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 16px rgba(60,35,10,0.35); }
+.graph-card:empty { display: none; }
+.graph-card-close { position: absolute; top: 3px; right: 4px; width: 22px; height: 22px; padding: 0; font-size: 12px; }
+.graph-legend { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 8px 18px; font-size: 15px; color: var(--text); margin-top: 10px; }
+.graph-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.graph-legend-item i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
 
-.g-node.sel .g-frame {
-	stroke: #2ecc71;
-	stroke-width: 2.6;
-}
-
-/* Маршрут, найденный поиском пути, — выделяем заметным цветом, отдельным
-   и от обычной раскраски переходов, и от рамки при клике/поиске (.sel) */
-.g-node.route .g-frame {
-	stroke: var(--route-color);
-	stroke-width: 3;
-}
-
-.g-edge.route {
-	stroke: var(--route-color);
-	stroke-width: 3;
-}
-
-.g-edge.route.one {
-	marker-end: url(#graph-arrow-route);
-}
-
-/* маршрут остаётся заметным, даже когда наведение на другой узел
-   приглушает всё остальное на карте */
-.graph-svg.dim .g-edge.route:not(.hl) {
-	opacity: 0.85;
-}
-
-.graph-svg.dim .g-node.route:not(.hl) {
-	opacity: 1;
-}
-
-/* при наведении всё, что не связано с узлом, приглушается */
-.graph-svg.dim .g-edge:not(.hl) {
-	opacity: 0.1;
-}
-
-.graph-svg.dim .g-node:not(.hl) {
-	opacity: 0.3;
-}
-
-.graph-toolbar {
+.graph-connect-toggle {
 	position: absolute;
-	top: 10px;
 	right: 10px;
-	z-index: 2;
-	display: flex;
-	gap: 6px;
-}
-
-.graph-toolbar button {
-	width: 32px;
-	height: 32px;
-	padding: 0;
-	font-size: 16px;
-}
-
-.graph-search-wrap {
-	position: relative;
-}
-
-.graph-search {
-	width: 150px;
-	padding: 6px 10px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	color: var(--text);
-	font-size: 13px;
-	outline: none;
-}
-
-.graph-search:focus {
-	border-color: var(--accent);
-}
-
-.graph-search.not-found {
-	border-color: #c26a5c;
-}
-
-/* Список подсказок под полем поиска графа — та же выпадающая карточка,
-   что и у остальных полей поиска в приложении (.search-results), только
-   пошире поля ввода, чтобы длинные названия локаций не обрезались */
-.graph-search-results {
-	width: 220px;
-}
-
-.graph-tip {
-	display: none;
-	position: absolute;
-	z-index: 3;
-	max-width: 260px;
-	padding: 4px 8px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--accent-dim);
-	border-radius: 4px;
-	font-size: 12px;
-	pointer-events: none;
-}
-
-/* карточка выбранной локации — в углу графа */
-.graph-card {
-	position: absolute;
-	left: 10px;
 	bottom: 10px;
-	z-index: 3;
-	padding: 12px 12px 8px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 8px;
-	box-shadow: 0 6px 16px rgba(60, 35, 10, 0.35);
-}
-
-.graph-card:empty {
-	display: none;
-}
-
-.graph-card-close {
-	position: absolute;
-	top: 3px;
-	right: 4px;
-	width: 22px;
-	height: 22px;
-	padding: 0;
-	font-size: 11px;
-}
-
-.graph-legend {
-	display: flex;
-	flex-wrap: wrap;
-	justify-content: center;
-	gap: 8px 18px;
-	font-size: 14px;
-	color: var(--text);
-}
-
-.graph-legend-item {
+	z-index: 2;
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
-}
-
-.graph-legend-item i {
-	display: inline-block;
-	width: 12px;
-	height: 12px;
-	border-radius: 3px;
-}
-
-/* ============================================================
-   Один блок на странице раздела с двумя вкладками в один ряд —
-   «Поиск пути» и «Проверка локации». Открыта всегда только одна панель
-   ============================================================ */
-.tool-block {
-	width: 100%;
-	border: 1px solid var(--border);
-	border-radius: 10px;
-	background-color: var(--surface);
-	overflow: hidden;
-}
-
-/* Ряд из двух вкладок-кнопок, разделённых тонкой линией */
-.tool-tabs {
-	display: flex;
-	align-items: stretch;
-	border-bottom: 1px solid var(--border);
-}
-
-.tool-tab {
-	flex: 1;
-	width: auto;
-	padding: 12px 10px;
-	border: none;
-	border-radius: 0;
-	background: none;
-	font-family: inherit;
-	font-size: 14px;
-	font-weight: 700;
-	letter-spacing: 0.5px;
-	text-transform: uppercase;
-	color: var(--text-dim);
-	position: relative;
-}
-
-.tool-tab:hover {
-	background-color: var(--accent-soft);
-}
-
-.tool-tab.active {
-	color: var(--accent);
-}
-
-/* Полоска снизу у активной вкладки — показывает, какая панель сейчас открыта */
-.tool-tab.active::after {
-	content: "";
-	position: absolute;
-	left: 0;
-	right: 0;
-	bottom: -1px;
-	height: 2px;
-	background-color: var(--accent);
-}
-
-/* Разделитель между двумя вкладками */
-.tool-tab-sep {
-	width: 1px;
-	flex-shrink: 0;
-	background-color: var(--border);
-}
-
-.tool-panel {
-	display: flex;
-	justify-content: center;
-	padding: 16px 18px 22px;
-}
-
-/* Важно: у класса и атрибута вместе выше специфичность, чем у одного
-   .tool-panel — иначе display: flex выше побеждает атрибут hidden,
-   и панель не получится скрыть */
-.tool-panel[hidden] {
-	display: none;
-}
-
-/* ============================================================
-   Развороты поверх текущих страниц: найденный путь, настройки
-   ============================================================ */
-.spread-view {
-	display: flex;
-	flex-direction: column;
-	height: 100%;
-}
-
-.route-head .page-head {
-	margin-bottom: 14px;
-}
-
-.route-tools {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 10px;
-	margin-top: 10px;
-}
-
-.route-tools .rw-buttons button {
-	width: 30px;
-	height: 30px;
-}
-
-.route-tools .detach-btn {
-	width: auto;
-}
-
-.path-message {
-	margin-top: 10px;
-	text-align: center;
-}
-
-.path-message:empty {
-	display: none;
-}
-
-.route-more {
-	margin: 0 0 14px;
-	text-align: center;
-	font-size: 13px;
-}
-
-.route-more:empty {
-	display: none;
-	margin: 0;
-}
-
-/* Найденный путь занимает всю ширину страницы, а не половину, как обычный текст */
-.route-head,
-#pageLeft > .spread-view > .path-cards,
-#pageRight > .spread-view > .path-cards {
-	width: 100%;
-}
-
-/* ============================================================
-   Настройки: цвета переходов и цветовой круг
-   ============================================================ */
-.settings-hint {
-	max-width: 100%;
-	margin: 0 0 16px;
-	font-size: 13px;
-	line-height: 1.5;
-	color: var(--text-dim);
-	text-align: center;
-}
-
-.color-rows {
-	display: flex;
-	flex-direction: column;
 	gap: 8px;
-	margin-bottom: 18px;
-}
-
-.color-row {
-	width: 100%;
-	justify-content: flex-start;
-	gap: 10px;
-	padding: 8px 12px;
-	background-color: var(--surface-alt);
-	border-radius: 8px;
-}
-
-.color-row.selected {
-	outline: 2px solid var(--accent);
-	outline-offset: -2px;
-}
-
-.color-row .swatch {
-	width: 20px;
-	height: 20px;
-	flex-shrink: 0;
-	border-radius: 50%;
-	border: 2px solid rgba(0, 0, 0, 0.25);
-}
-
-.color-editor-holder {
-	display: flex;
-	justify-content: center;
-}
-
-.color-editor {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 14px;
-}
-
-.wheel {
-	position: relative;
-	width: 160px;
-	height: 160px;
-	border-radius: 50%;
-	cursor: crosshair;
-	touch-action: none;
-	background:
-		radial-gradient(circle at center, #fff 0%, rgba(255, 255, 255, 0) 72%),
-		conic-gradient(from 0deg,
-			#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
-	box-shadow: 0 0 0 4px var(--surface-alt), 0 4px 14px rgba(0, 0, 0, 0.35);
-}
-
-.wheel-shade {
-	position: absolute;
-	inset: 0;
-	border-radius: 50%;
-	background-color: #000;
-	pointer-events: none;
-}
-
-.wheel-dot {
-	position: absolute;
-	width: 14px;
-	height: 14px;
-	border-radius: 50%;
-	border: 2px solid #fff;
-	box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.5);
-	transform: translate(-50%, -50%);
-	pointer-events: none;
-}
-
-.color-fields {
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-	width: 100%;
-	max-width: 220px;
-}
-
-.color-fields label {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	font-size: 12px;
-	color: var(--text-dim);
-}
-
-.wheel-value {
-	width: 100%;
-	height: 14px;
-	padding: 0;
-	border: none;
-	border-radius: 999px;
-	background-color: var(--surface-alt);
-	appearance: none;
-	-webkit-appearance: none;
-}
-
-.wheel-value::-webkit-slider-thumb {
-	-webkit-appearance: none;
-	width: 18px;
-	height: 18px;
-	border-radius: 50%;
-	background-color: #fff;
-	border: 2px solid var(--accent-dim);
-	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
-	cursor: pointer;
-}
-
-.wheel-value::-moz-range-thumb {
-	width: 18px;
-	height: 18px;
-	border: 2px solid var(--accent-dim);
-	border-radius: 50%;
-	background-color: #fff;
-	cursor: pointer;
-}
-
-.wheel-hex {
 	padding: 6px 10px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	color: var(--text);
-	font-family: "Courier New", monospace;
-	font-size: 13px;
-	outline: none;
-}
-
-.wheel-hex:focus {
-	border-color: var(--accent);
-}
-
-.settings-reset {
-	width: auto;
-	margin: 0 auto;
-	padding: 8px 18px;
-}
-
-/* Длительность перехода: отдельный блок под цветами, с полосой-разделителем сверху */
-.settings-block {
-	margin-top: 22px;
-	padding-top: 18px;
-	border-top: 1px solid var(--border);
-}
-
-.settings-subtitle {
-	margin: 0 0 6px;
-	font-size: 13px;
-	font-weight: 700;
-	letter-spacing: 0.5px;
-	text-transform: uppercase;
-	color: var(--accent);
-	text-align: center;
-}
-
-/* ---------- Настройки: меню разделов («Цвета переходов» / «Длительность перехода») ---------- */
-.settings-menu {
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-	width: 100%;
-	max-width: 320px;
-	margin: 0 auto;
-}
-
-.settings-menu[hidden] {
-	display: none;
-}
-
-.settings-menu-btn {
-	justify-content: space-between;
-	padding: 14px 18px;
-	font-size: 15px;
-	font-weight: 600;
-}
-
-.settings-menu-btn .chevron {
-	color: var(--text-dim);
-	font-size: 17px;
-}
-
-.settings-section {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	width: 100%;
-}
-
-.settings-section[hidden] {
-	display: none;
-}
-
-/* Стрелка «назад» внутри самих настроек — возврат к списку разделов,
-   не путать с общей .page-back, которая закрывает весь разворот настроек */
-.settings-back {
-	align-self: flex-start;
-	width: auto;
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	padding: 6px 12px 6px 8px;
-	margin-bottom: 14px;
-	font-size: 13px;
-	font-weight: 600;
-	color: var(--text-dim);
-	background: none;
-	border: none;
-}
-
-.settings-back:hover {
-	color: var(--accent);
-	background-color: var(--accent-soft);
-}
-
-.settings-back svg {
-	flex-shrink: 0;
-}
-
-.duration-row {
-	display: flex;
-	justify-content: center;
-	gap: 14px;
-}
-
-.duration-field {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 13px;
-	color: var(--text-dim);
-}
-
-.duration-field input {
-	width: 60px;
-	padding: 8px 10px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	color: var(--text);
-	font-family: inherit;
-	font-size: 14px;
-	text-align: center;
-	outline: none;
-	transition: border-color 0.15s ease;
-}
-
-.duration-field input:focus {
-	border-color: var(--accent);
-}
-
-/* Убираем стрелки number-инпута — со стрелками поле выглядит тесно
-   и не совпадает по стилю с остальными полями настроек */
-.duration-field input::-webkit-outer-spin-button,
-.duration-field input::-webkit-inner-spin-button {
-	-webkit-appearance: none;
-	margin: 0;
-}
-
-.duration-field input[type="number"] {
-	-moz-appearance: textfield;
-}
-
-.preview-box {
-	display: flex;
-	justify-content: center;
-	margin: 12px 0 18px;
-}
-/* ============================================================
-   Черновик карты (закладка «Рыба») — свободный редактор: холст с узлами
-   слева, инспектор выбранной локации справа. Использует те же переменные
-   (--cell-w/h/gap, --panel-w, --accent, --border, --surface...), что и
-   остальное приложение, чтобы не выглядеть чужеродной вставкой
-   ============================================================ */
-
-.draft-toolbar {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-	margin: 14px 0 8px;
-}
-
-.draft-btn {
-	width: auto;
-	padding: 7px 12px;
-	font-size: 13px;
-}
-
-.draft-btn-danger {
-	color: #c0392b;
-	border-color: #c0392b;
-}
-
-.draft-btn-danger:hover {
-	background-color: rgba(192, 57, 43, 0.12);
-}
-
-.draft-canvas-wrap {
-	position: relative;
-	max-height: min(58vh, 520px);
-	padding: 14px 14px 14px 32px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 10px;
-	overflow-y: auto;
-	overflow-x: hidden;
-}
-
-/* Карточки-локации растут от нижнего левого угла: flex-wrap-reverse
-   переворачивает кросс-ось, поэтому первая строка (с первой же добавленной
-   карточкой) оказывается внизу, а не наверху, и новые строки достраиваются
-   выше уже существующих, не наезжая на них. Горизонтальный зазор шире
-   вертикального — крестики удаления/очистки теперь торчат слева от каждой
-   карточки (см. .draft-node-topbar), и им нужно место, чтобы не залезать
-   на соседнюю карточку слева */
-.draft-nodes-flow {
-	display: flex;
-	flex-wrap: wrap-reverse;
-	align-content: flex-start;
-	justify-content: flex-start;
-	align-items: flex-end;
-	gap: 12px 34px;
-	min-height: 100%;
-}
-
-/* Карточка-локация — та же визуальная система, что и мини-карта локации на
-   графе («Вся карта»): решётка клеток на map-bg, только гораздо компактнее,
-   чтобы несколько локаций умещались в ряд. Масштаб клеток чуть крупнее
-   обычного (--dn- вместо стандартных --cell-*) — на исходном размере детали
-   было не разглядеть */
-.draft-node {
-	--dn-cell-w: 13px;
-	--dn-cell-h: 18px;
-	--dn-gap: 1px;
-	position: relative;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	padding: 8px;
 	background-color: var(--surface);
-	border: 2px solid var(--border);
-	border-radius: 8px;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	font-size: 13px;
+	color: var(--text);
 	cursor: pointer;
 	user-select: none;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
-
-.draft-node.selected {
-	border-color: var(--accent);
-	box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-/* Два крестика — тот же вид, что у «Очистить» на карте локации (.map-clear):
-   аккуратные квадратики 20×20, вплотную друг к другу. Стоят СЛЕВА от самой
-   карточки (не поверх неё), чтобы не закрывать ни решётку, ни название —
-   сверху удаление локации целиком (красный), под ним — очистка переходов */
-.draft-node-topbar {
-	position: absolute;
-	top: 50%;
-	left: 0;
-	transform: translate(calc(-100% - 6px), -50%);
-	display: flex;
-	flex-direction: column;
-	gap: 3px;
-	z-index: 2;
-}
-
-.draft-node-delete,
-.draft-node-clear {
-	width: 20px;
-	height: 20px;
-	padding: 0;
-	border-radius: 6px;
-	font-size: 11px;
-	line-height: 1;
-	color: var(--text-dim);
-}
-
-.draft-node-delete {
-	color: #c0392b;
-	border-color: #c0392b;
-}
-
-.draft-node-delete:hover {
-	background-color: rgba(192, 57, 43, 0.14);
-}
-
-.draft-node-clear:hover:not(:disabled) {
-	color: var(--accent);
-}
-
-.draft-node-clear:disabled {
-	opacity: 0.35;
-	cursor: not-allowed;
-}
-
-.draft-mini-grid-wrap {
-	position: relative;
-}
-
-.draft-mini-grid {
-	display: grid;
-	grid-template-columns: repeat(10, var(--dn-cell-w));
-	grid-template-rows: repeat(6, var(--dn-cell-h));
-	gap: var(--dn-gap);
-	background-color: var(--map-bg);
-	border: 1px solid var(--border);
-	border-radius: 4px;
-	overflow: hidden;
-}
-
-.draft-mini-grid-wrap .loc-tag-icon {
-	width: 18px;
-	height: 18px;
-}
-
-.draft-mini-cell {
-	width: var(--dn-cell-w);
-	height: var(--dn-cell-h);
-	padding: 0;
-	margin: 0;
-	background-color: var(--cell-bg-alt);
-	border: none;
-	border-radius: 0;
-}
-
-.draft-node:not(.locked) .draft-mini-cell:hover {
-	outline: 1px solid var(--accent);
-	outline-offset: -1px;
-}
-
-.draft-node.locked .draft-mini-cell {
-	cursor: default;
-}
-
-.draft-mini-cell.type-normal {
-	background-color: var(--cell-active);
-}
-
-/* Обычный переход выбран, но локация-цель ещё не назначена («неизвестно») —
-   те же полосы, что предупреждающая штриховка везде в интерфейсе */
-.draft-mini-cell.type-normal.no-target {
-	background-image: repeating-linear-gradient(
-		45deg,
-		rgba(0, 0, 0, 0.3) 0,
-		rgba(0, 0, 0, 0.3) 2px,
-		transparent 2px,
-		transparent 5px
-	);
-}
-
-/* Расщелина/дупло — по смыслу как тупик (никуда не ведут), но визуально
-   выглядят как обычный переход (та же клетка «активна»), просто отметка
-   особого места, а не предупреждение о недоделанном переходе */
-.draft-mini-cell.type-crevice,
-.draft-mini-cell.type-hollow {
-	background-color: var(--cell-active);
-}
-
-.draft-mini-cell.type-deadend {
-	background-color: var(--deadend);
-}
-
-.draft-mini-cell.type-self {
-	background-color: var(--self-loop);
-}
-
-/* Клетка, сейчас выбранная для назначения вида перехода (см. «Вид перехода»
-   справа) — самая заметная из всех, чтобы не потерять, какую именно клетку
-   сейчас настраиваешь */
-.draft-mini-cell.current {
-	outline: 2px solid var(--route-color);
-	outline-offset: -2px;
-}
-
-.draft-node-name-label {
-	margin-top: 6px;
-	max-width: 150px;
-	color: var(--text);
-	font-size: 11px;
-	font-weight: 600;
-	text-align: center;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-/* Галочка/карандаш — снизу по центру карточки, отдельно от крестиков наверху.
-   Показывает не текущее состояние, а действие по клику: галочка предлагает
-   зафиксировать раскладку переходов, а уже зафиксированную — открывает
-   карандаш, чтобы снова её редактировать */
-.draft-node-lock {
-	margin-top: 8px;
-	width: 26px;
-	height: 26px;
-	padding: 0;
-	align-self: center;
-	font-size: 14px;
-	line-height: 1;
-	border-radius: 999px;
-}
-
-.draft-node.locked .draft-node-lock {
-	background-color: var(--accent);
-	border-color: var(--accent);
-	color: #1a1206;
-}
-
-.draft-inspector {
-	display: flex;
-	flex-direction: column;
-	gap: 14px;
-	margin-top: 10px;
-}
-
-.draft-field {
-	display: flex;
-	flex-direction: column;
-	gap: 6px;
-	font-size: 13px;
-	color: var(--text-dim);
-}
-
-.draft-field input[type="text"] {
-	width: 100%;
-	padding: 7px 10px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	color: var(--text);
-	font-family: inherit;
-	font-size: 14px;
-}
-
-.draft-field input[type="text"]:disabled {
-	opacity: 0.5;
-}
-
-.draft-field input[type="text"]:focus {
-	outline: none;
-	border-color: var(--accent);
-}
-
-.draft-props-chips {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
-}
-
-.draft-prop-chip {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	width: auto;
-	padding: 5px 8px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 999px;
-	color: var(--text-dim);
-	font-size: 12px;
-}
-
-.draft-prop-chip img {
+.graph-connect-toggle:hover { border-color: var(--accent-dim); }
+.graph-connect-toggle input {
 	width: 16px;
 	height: 16px;
-	object-fit: contain;
-}
-
-.draft-prop-chip.selected {
-	background-color: var(--accent-soft);
-	border-color: var(--accent);
-	color: var(--accent);
-}
-
-.draft-prop-chip-remove {
-	margin-left: 2px;
-	color: var(--text-dim);
-	font-size: 13px;
-	line-height: 1;
-}
-
-.draft-prop-chip-remove:hover {
-	color: #c0392b;
-}
-
-/* Список уже доступных свойств для добавления (см. createPropertyPicker в
-   script.js) — рядом с уже добавленными чипами (.draft-prop-chip выше) */
-.prop-picker {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-}
-
-.prop-picker-list {
-	display: flex;
-	flex-direction: column;
-}
-
-/* Список свёрнут по умолчанию (см. createPropertyPicker) — раскрывается по
-   клику на строку-заголовок, чтобы не занимать место, пока не нужен */
-.prop-picker-details {
-	border: 1px solid var(--border);
-	border-radius: 8px;
-	background-color: var(--surface-alt);
-}
-
-.prop-picker-details summary {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 6px;
-	padding: 8px 10px;
-	font-size: 12px;
-	color: var(--text-dim);
+	accent-color: var(--accent);
 	cursor: pointer;
-	list-style: none;
-	user-select: none;
-}
-
-.prop-picker-details summary::-webkit-details-marker {
-	display: none;
-}
-
-.prop-picker-details summary::after {
-	content: "▾";
-	transition: transform 0.15s ease;
-	flex-shrink: 0;
-}
-
-.prop-picker-details[open] summary::after {
-	transform: rotate(180deg);
-}
-
-.prop-picker-details summary:hover {
-	color: var(--text);
-}
-
-.prop-picker-details[open] summary {
-	border-bottom: 1px solid var(--border);
-}
-
-.prop-picker-details .prop-picker-list {
-	padding: 4px 10px 6px;
-	max-height: 260px;
-	overflow-y: auto;
-}
-
-.prop-list-btn {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	width: auto;
-	padding: 6px 10px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 999px;
-	color: var(--text-dim);
-	font-size: 12px;
-}
-
-/* Список уже доступных свойств (в отличие от .prop-sub-row ниже, где готовые
-   виды спавна/бота остаются чипами) — теперь настоящий список строк, а не
-   облако кнопок: каждый пункт на всю ширину, иконки не трогаем */
-.prop-picker-list .prop-list-btn {
-	width: 100%;
-	justify-content: flex-start;
-	text-align: left;
-	background-color: transparent;
-	border: none;
-	border-bottom: 1px solid var(--border);
-	border-radius: 0;
-	padding: 8px 4px;
-}
-
-.prop-picker-list .prop-list-btn:last-child {
-	border-bottom: none;
-}
-
-.prop-picker-list .prop-list-btn:hover {
-	background-color: var(--surface-alt);
-}
-
-.prop-list-btn img {
-	width: 18px;
-	height: 18px;
-	object-fit: contain;
-}
-
-.prop-list-btn:hover {
-	border-color: var(--accent);
-	color: var(--text);
-}
-
-/* Выбранный вид бота во всплывающей под-форме (см. selectKind в
-   createPropertyPicker) — до нажатия «Добавить» его ещё можно поменять */
-.prop-list-btn.selected {
-	background-color: var(--accent-soft);
-	border-color: var(--accent);
-	color: var(--accent);
-}
-
-/* Разворачивающаяся под-форма спавна/бота: готовый вид — списком выше,
-   свой — названием и своей иконкой в строке ниже */
-.prop-picker-sub {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	padding: 10px;
-	background-color: var(--surface-alt);
-	border: 1px dashed var(--border);
-	border-radius: 8px;
-}
-
-.prop-sub-row {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
-}
-
-.prop-sub-custom {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 8px;
-}
-
-.prop-sub-custom input[type="text"] {
-	flex: 1;
-	min-width: 120px;
-	padding: 7px 10px;
-	background-color: var(--surface);
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	color: var(--text);
-	font-family: inherit;
-	font-size: 13px;
-}
-
-.prop-sub-custom input[type="text"]:focus {
-	outline: none;
-	border-color: var(--accent);
-}
-
-.prop-sub-custom .draft-btn {
-	width: auto;
-	padding: 7px 12px;
-	font-size: 12px;
-}
-
-.prop-icon-preview {
-	width: 26px;
-	height: 26px;
-	flex-shrink: 0;
-	background-color: var(--surface);
-	background-size: cover;
-	background-position: center;
-	border: 1px solid var(--border);
-	border-radius: 6px;
-}
-
-.prop-icon-upload-label,
-.draft-import-label {
-	width: auto;
-	padding: 7px 12px;
-	font-size: 13px;
-	cursor: pointer;
-}
-
-/* Инструмент «Вид перехода» справа: выпадающий список включается, когда на
-   карточке слева выбрана клетка (расщелина/дупло в нём — только если у
-   локации есть тег «Лазательная локация»), а для обычного перехода ниже
-   появляется ещё один список — куда именно он ведёт */
-.draft-transition-type-select {
-	width: 100%;
-	padding: 6px 8px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	color: var(--text);
-	font-family: inherit;
-	font-size: 13px;
-}
-
-.draft-transition-type-select:disabled {
-	opacity: 0.5;
-}
-
-.draft-transition-target {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	font-size: 13px;
-	color: var(--text-dim);
-}
-
-.draft-transition-select {
-	flex: 1;
-	min-width: 0;
-	padding: 6px 8px;
-	background-color: var(--surface-alt);
-	border: 1px solid var(--border);
-	border-radius: 6px;
-	color: var(--text);
-	font-size: 13px;
-}
-
-.draft-transition-hint {
-	margin: 2px 0 0;
-	font-size: 12px;
-	color: var(--text-dim);
-}
-
-/* Крестик рядом с «Клетка №X локации «Y»» — тот же внешний вид 20×20, что
-   и у .map-clear/.draft-node-delete, но стоит инлайново с краю строки,
-   а не абсолютно прибит к углу карты */
-.draft-transition-hint-row {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-top: 2px;
-}
-
-.draft-transition-hint-row .draft-transition-hint {
-	flex: 1;
 	margin: 0;
 }
+.graph-svg.no-connect .g-edge { display: none; }
 
-.draft-transition-remove {
-	flex-shrink: 0;
-	width: 20px;
-	height: 20px;
-	padding: 0;
-	border-radius: 6px;
-	font-size: 11px;
-	line-height: 1;
-	color: var(--text-dim);
+/* ---------- Нижний колонтитул ---------- */
+.site-footer { display: block; max-width: 320px; margin: 22px 0 8px 0; padding-top: 8px; border-top: 1px solid var(--border); font-size: 13px; color: var(--text-dim); text-align: left; }
+
+/* ============================================================
+   Черновик карты («Рыба»)
+   ============================================================ */
+.draft-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 8px; }
+.draft-btn { width: auto; padding: 7px 12px; font-size: 14px; }
+.draft-btn-danger { color: #c0392b; border-color: #c0392b; }
+.draft-btn-danger:hover { background-color: rgba(192,57,43,0.12); }
+
+.draft-canvas-wrap { position: relative; max-height: min(58vh, 520px); padding: 14px 14px 14px 46px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; overflow-y: auto; overflow-x: hidden; }
+.draft-nodes-flow { display: flex; flex-wrap: wrap-reverse; align-content: flex-start; justify-content: flex-start; align-items: flex-end; gap: 12px 34px; min-height: 100%; }
+
+.draft-node {
+	--dn-cell-w: 13px; --dn-cell-h: 18px; --dn-gap: 1px;
+	position: relative; display: flex; flex-direction: column; align-items: center;
+	padding: 8px; background-color: var(--surface); border: 2px solid var(--border);
+	border-radius: 8px; cursor: pointer; user-select: none;
+}
+.draft-node.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.draft-node.locked { background-color: color-mix(in srgb, var(--surface) 92%, #000 8%); }
+
+.draft-node-topbar {
+	position: absolute; top: 50%; left: 0;
+	transform: translate(calc(-100% - 6px), -50%);
+	display: flex; flex-direction: column; gap: 3px; z-index: 2;
+}
+.draft-node-lock,
+.draft-node-delete,
+.draft-node-clear {
+	width: 20px; height: 20px; padding: 0; border-radius: 6px;
+	font-size: 12px; line-height: 1; color: var(--text-dim);
+}
+.draft-node-delete { color: #c0392b; border-color: #c0392b; }
+.draft-node-clear:disabled { opacity: 0.35; cursor: not-allowed; }
+.draft-node-lock.locked { background-color: var(--accent); border-color: var(--accent); color: #1a1206; }
+
+.draft-mini-grid-wrap { position: relative; }
+.draft-mini-grid { display: grid; grid-template-columns: repeat(10, var(--dn-cell-w)); grid-template-rows: repeat(6, var(--dn-cell-h)); gap: var(--dn-gap); background-color: var(--map-bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.draft-mini-grid-wrap .loc-tag-icon { width: 22px; height: 22px; }
+
+/* Правый столбик иконок карточки черновика: сверху — свойства локации,
+   ниже — свойства тупиков, выбранных у клеток этой локации */
+.draft-tags-column {
+	position: absolute; top: 0; left: 100%;
+	display: flex; flex-direction: column; gap: 4px;
+	padding-left: 4px;
+	pointer-events: none;
+}
+.draft-tags-column .loc-tag-icon { pointer-events: auto; }
+
+.draft-mini-cell { width: var(--dn-cell-w); height: var(--dn-cell-h); padding: 0; margin: 0; background-color: var(--cell-bg-alt); border: none; border-radius: 0; }
+.draft-mini-cell.type-normal { background-color: var(--cell-active); }
+.draft-mini-cell.type-normal.no-target { background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.3) 0, rgba(0,0,0,0.3) 2px, transparent 2px, transparent 5px); }
+.draft-mini-cell.type-crevice, .draft-mini-cell.type-hollow { background-color: var(--cell-active); }
+.draft-mini-cell.type-deadend { background-color: var(--deadend); }
+.draft-mini-cell.type-self { background-color: var(--self-loop); }
+.draft-mini-cell.type-hidden { background-color: var(--hidden-cell); }
+.draft-mini-cell.type-fast { background-color: var(--fast-cell); }
+.draft-mini-cell.current { outline: 2px solid var(--route-color); outline-offset: -2px; }
+.draft-node-name-label { margin-top: 6px; max-width: 150px; color: var(--text); font-size: 12px; font-weight: 600; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.draft-inspector { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+.draft-field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--text-dim); }
+.draft-field input[type="text"] { width: 100%; padding: 7px 10px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: inherit; font-size: 15px; }
+.draft-field input[type="text"]:disabled { opacity: 0.5; }
+.draft-field.deadend-field { border-left: 3px solid var(--deadend); padding-left: 10px; }
+.draft-field.deadend-field[hidden] { display: none !important; }
+
+.draft-props-chips { display: flex; flex-wrap: wrap; gap: 6px; max-width: 100%; }
+.draft-prop-chip { display: flex; align-items: center; gap: 6px; width: auto; max-width: 100%; padding: 5px 8px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 999px; color: var(--text-dim); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.draft-prop-chip img { width: 16px; height: 16px; object-fit: contain; flex-shrink: 0; }
+.draft-prop-chip-remove { margin-left: 2px; color: var(--text-dim); font-size: 14px; line-height: 1; flex-shrink: 0; }
+.draft-prop-chip-remove:hover { color: #c0392b; }
+
+.prop-picker { position: relative; display: flex; flex-direction: column; gap: 8px; max-width: 100%; }
+.prop-picker-trigger { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 12px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 14px; text-align: left; }
+.prop-picker-trigger .chevron { color: var(--text-dim); }
+.prop-picker-list { position: absolute; top: calc(100% + 4px); left: 0; z-index: 25; display: none; flex-direction: column; width: 100%; max-height: 320px; overflow-y: auto; background-color: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 10px 24px rgba(0,0,0,0.45); }
+.prop-picker.open .prop-picker-list { display: flex; }
+.prop-list-btn { display: flex; align-items: center; gap: 6px; width: 100%; padding: 8px 12px; background-color: transparent; border: none; border-bottom: 1px solid var(--border); border-radius: 0; color: var(--text-dim); font-size: 14px; justify-content: flex-start; text-align: left; }
+.prop-picker-list .prop-list-btn:last-child { border-bottom: none; }
+.prop-list-btn:hover { background-color: var(--accent-soft); color: var(--text); }
+.prop-list-btn img { width: 18px; height: 18px; object-fit: contain; flex-shrink: 0; }
+.prop-list-btn.selected { background-color: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.prop-picker-sub { display: flex; flex-direction: column; gap: 8px; padding: 10px; background-color: var(--surface-alt); border: 1px dashed var(--border); border-radius: 8px; }
+.prop-sub-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.prop-sub-row .prop-list-btn { width: auto; padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; background-color: var(--surface-alt); justify-content: center; text-align: center; }
+.prop-sub-row .prop-list-btn:last-child { border-bottom: 1px solid var(--border); }
+.prop-sub-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.prop-sub-custom input[type="text"] { flex: 1; min-width: 120px; padding: 7px 10px; background-color: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: inherit; font-size: 14px; }
+.prop-sub-custom .draft-btn { width: auto; padding: 7px 12px; font-size: 13px; }
+.prop-icon-preview { width: 26px; height: 26px; flex-shrink: 0; background-color: var(--surface); background-size: cover; background-position: center; border: 1px solid var(--border); border-radius: 6px; }
+.prop-icon-upload-label, .draft-import-label { width: auto; padding: 7px 12px; font-size: 14px; cursor: pointer; }
+
+.draft-transition-type-select { width: 100%; padding: 6px 8px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: inherit; font-size: 14px; }
+.draft-transition-type-select:disabled { opacity: 0.5; }
+.draft-transition-target { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-dim); flex-wrap: wrap; }
+.draft-transition-select { flex: 1; min-width: 0; padding: 6px 8px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
+.draft-transition-unknown-name { flex: 1; min-width: 140px; padding: 6px 8px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
+.draft-transition-hint { margin: 2px 0 0; font-size: 13px; color: var(--text-dim); }
+.draft-transition-hint-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.draft-transition-hint-row .draft-transition-hint { flex: 1; margin: 0; }
+.draft-transition-remove { flex-shrink: 0; width: 20px; height: 20px; padding: 0; border-radius: 6px; font-size: 12px; line-height: 1; color: var(--text-dim); }
+.draft-transition-remove:hover { color: #c0392b; border-color: #c0392b; background-color: rgba(192,57,43,0.14); }
+.draft-file-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.draft-save-note { margin: 0; font-size: 14px; color: var(--accent); }
+
+/* ---------- Отдельное окно ---------- */
+.ext-root { display: flex; flex-direction: column; height: 100vh; width: 100%; overflow-x: hidden; }
+.rw-header { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background-color: var(--surface-alt); border-bottom: 1px solid var(--border); user-select: none; flex-shrink: 0; }
+.rw-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; color: var(--accent); }
+.rw-body { flex: 1 1 auto; min-width: 0; overflow: auto; padding: 12px; }
+.ext-tip { display: none; position: fixed; z-index: 10; max-width: 240px; padding: 4px 8px; background-color: var(--surface-alt); border: 1px solid var(--accent-dim); border-radius: 4px; font-size: 13px; color: var(--text); pointer-events: none; }
+
+/* ============================================================
+   Мобильная версия
+   ============================================================ */
+@media (max-width: 900px) {
+	.panels-row { flex-direction: column; padding-left: 12px; }
+	:root { --panel-indent: 12px; }
 }
 
-.draft-transition-remove:hover {
-	color: #c0392b;
-	border-color: #c0392b;
-	background-color: rgba(192, 57, 43, 0.14);
-}
+@media (max-width: 700px) {
+	.app { flex-direction: column; }
+	.app.sidebar-collapsed .sidebar { width: auto; padding: 6px 8px; }
 
-.draft-file-tools {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 10px;
-	margin-top: 16px;
-	padding-top: 14px;
-	border-top: 1px solid var(--border);
-}
+	.sidebar { position: static; max-height: none; flex-direction: row; gap: 6px; padding: 8px; border-right: none; border-bottom: 1px solid var(--border); overflow-x: auto; width: auto; }
+	.sidebar-toggle { width: 44px; height: 44px; margin: 0 8px 0 0; padding: 0; }
 
-.draft-save-note {
-	margin: 0;
-	font-size: 13px;
-	color: var(--accent);
+	.tab-left { flex: 0 0 auto; width: 56px; height: 44px; padding: 4px; border-radius: 8px; border-right: 1px solid rgba(0,0,0,0.35); }
+	.tab-left .tab-label { font-size: 12px; }
+	.tab-left .tab-icon img,
+	.tab-left .tab-icon svg { width: 22px; height: 22px; }
+	.tab-left-draft { margin-top: 0; margin-left: 0; }
+
+	.content { padding: 12px; }
+	.path-route { width: calc(100vw - 24px); margin-left: -12px; padding: 8px 12px; }
+	.points-row { flex-direction: column; align-items: flex-start; }
+	.swap-col { order: -1; min-height: 0; }
+	.swap-btn { position: static; transform: none; flex-direction: row; opacity: 0.8; }
+	.swap-btn:active { transform: none; }
+	.colors-layout { flex-direction: column; }
+	.graph-wrap { height: 55vh; }
 }
