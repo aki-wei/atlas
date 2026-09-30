@@ -1726,6 +1726,14 @@ function createPropertyPicker(onAdd, options) {
 // ============================================================
 const GRAPH_COLORS = ["#b5651d", "#3f6f8f", "#4f7f4a", "#8a4a7a", "#a89a2c", "#2f7f7f", "#6a55b0", "#a83f36"];
 const SVG_NS = "http://www.w3.org/2000/svg";
+const IS_TOUCH = (typeof window !== "undefined") && (
+	("ontouchstart" in window) ||
+	(navigator.maxTouchPoints > 0) ||
+	window.matchMedia("(pointer: coarse)").matches
+);
+
+const IS_NARROW = (typeof window !== "undefined") &&
+	window.matchMedia("(max-width: 700px)").matches;
 const CELL_W = 4.4, CELL_H = 6.6, CELL_GAP = 0.6, FRAME_PAD = 1.5;
 const GRID_W = 10 * CELL_W + 9 * CELL_GAP;
 const GRID_H = 6 * CELL_H + 5 * CELL_GAP;
