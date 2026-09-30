@@ -1726,14 +1726,6 @@ function createPropertyPicker(onAdd, options) {
 // ============================================================
 const GRAPH_COLORS = ["#b5651d", "#3f6f8f", "#4f7f4a", "#8a4a7a", "#a89a2c", "#2f7f7f", "#6a55b0", "#a83f36"];
 const SVG_NS = "http://www.w3.org/2000/svg";
-const IS_TOUCH = (typeof window !== "undefined") && (
-	("ontouchstart" in window) ||
-	(navigator.maxTouchPoints > 0) ||
-	window.matchMedia("(pointer: coarse)").matches
-);
-
-const IS_NARROW = (typeof window !== "undefined") &&
-	window.matchMedia("(max-width: 700px)").matches;
 const CELL_W = 4.4, CELL_H = 6.6, CELL_GAP = 0.6, FRAME_PAD = 1.5;
 const GRID_W = 10 * CELL_W + 9 * CELL_GAP;
 const GRID_H = 6 * CELL_H + 5 * CELL_GAP;
@@ -1742,6 +1734,15 @@ const NODE_H = GRID_H + FRAME_PAD * 2;
 const LABEL_CLEARANCE = 16;
 const OVERLAP_MARGIN = 16;
 const ROUTE_VISIBLE_NODES = 4;
+
+const IS_TOUCH = (typeof window !== "undefined") && (
+	("ontouchstart" in window) ||
+	(navigator.maxTouchPoints > 0) ||
+	window.matchMedia("(pointer: coarse)").matches
+);
+
+const IS_NARROW = (typeof window !== "undefined") &&
+	window.matchMedia("(max-width: 700px)").matches;
 
 function svgEl(name, attrs) {
 	const element = document.createElementNS(SVG_NS, name);
@@ -1760,7 +1761,8 @@ function layoutGraph(count, edges, size) {
 	const shiftX = new Float64Array(count);
 	const shiftY = new Float64Array(count);
 	let temperature = size / 6;
-	for (let step = 0; step < 350; step++) {
+	const steps = IS_TOUCH || count > 60 ? 150 : 350;
+	for (let step = 0; step < steps; step++) {
 		shiftX.fill(0); shiftY.fill(0);
 		for (let i = 0; i < count; i++) {
 			for (let j = i + 1; j < count; j++) {
@@ -1823,7 +1825,8 @@ function compactLayout(pos, count) {
 	const halfW = NODE_W / 2 + OVERLAP_MARGIN / 2;
 	const halfH = (NODE_H + LABEL_CLEARANCE) / 2 + OVERLAP_MARGIN / 2;
 	const shrink = 0.995;
-	for (let round = 0; round < 70; round++) {
+	const shrinkRounds = IS_TOUCH ? 30 : 70;
+	for (let round = 0; round < shrinkRounds; round++) {
 		let cx = 0, cy = 0;
 		for (let i = 0; i < count; i++) { cx += pos[i].x; cy += pos[i].y; }
 		cx /= count; cy /= count;
@@ -1833,7 +1836,8 @@ function compactLayout(pos, count) {
 		}
 		separateOverlapsOnce(pos, count, halfW, halfH);
 	}
-	for (let round = 0; round < 40; round++) {
+	const separateRounds = IS_TOUCH ? 20 : 40;
+	for (let round = 0; round < separateRounds; round++) {
 		if (!separateOverlapsOnce(pos, count, halfW, halfH)) break;
 	}
 }
@@ -1974,7 +1978,7 @@ function renderGraph(wrap, entries, routeIds) {
 	const card = wrap.querySelector(".graph-card");
 	const searchInput = wrap.querySelector(".graph-search");
 	const searchResults = wrap.querySelector(".graph-search-results");
-	const svg = svgEl("svg", { "class": "graph-svg" });
+	const svg = svgEl("svg", { "class": "graph-svg", "touch-action": "none" });
 	const defs = svgEl("defs");
 	const marker = svgEl("marker", { id: "graph-arrow", viewBox: "0 0 10 10", refX: "6.5", refY: "5", markerWidth: "3.2", markerHeight: "3.2", orient: "auto" });
 	marker.appendChild(svgEl("path", { d: "M0,0 L10,5 L0,10 z", "class": "graph-arrow-head" }));
@@ -2044,6 +2048,7 @@ function renderGraph(wrap, entries, routeIds) {
 
 	const TAG_ICON_SIZE = 9.5;
 	const TAG_ICON_GAP = 1.4;
+	const maxTagIcons = IS_NARROW ? 4 : 8;
 
 	const nodeEls = nodes.map(function(node, index) {
 		const group = svgEl("g", { "class": "g-node", transform: "translate(" + (node.x - NODE_W / 2) + "," + (node.y - NODE_H / 2) + ")" });
@@ -2054,7 +2059,7 @@ function renderGraph(wrap, entries, routeIds) {
 			if (paths[type]) group.appendChild(svgEl("path", { d: paths[type], "class": "c-" + type }));
 		});
 		if (node.location.tags && node.location.tags.length > 0) {
-			node.location.tags.forEach(function(tag, tagIndex) {
+			node.location.tags.slice(0, maxTagIcons).forEach(function(tag, tagIndex) {
 				const src = tagIcon(tag);
 				if (!src) return;
 				const image = svgEl("image", {
@@ -2095,13 +2100,21 @@ function renderGraph(wrap, entries, routeIds) {
 			labelGroup.appendChild(t);
 		});
 		group.appendChild(labelGroup);
-		group.addEventListener("mouseenter", function(e) {
-			highlight(index);
-			tip.style.display = "block";
-			updateTip(node, e);
-		});
-		group.addEventListener("mousemove", function(e) { updateTip(node, e); });
-		group.addEventListener("mouseleave", function() { clearHighlight(); tip.style.display = "none"; });
+		if (!IS_TOUCH) {
+			group.addEventListener("mouseenter", function(e) {
+				highlight(index);
+				tip.style.display = "block";
+				updateTip(node, e);
+			});
+			group.addEventListener("mousemove", function(e) { updateTip(node, e); });
+			group.addEventListener("mouseleave", function() { clearHighlight(); tip.style.display = "none"; });
+		} else {
+			group.addEventListener("click", function(e) {
+				tip.textContent = node.location.name;
+				tip.style.display = "block";
+				moveTip(e);
+			});
+		}
 		nodeLayer.appendChild(group);
 		return group;
 	});
@@ -2217,6 +2230,55 @@ function renderGraph(wrap, entries, routeIds) {
 		e.preventDefault();
 		zoomAt(e.deltaY > 0 ? 1.15 : 1 / 1.15, e.clientX, e.clientY);
 	}, { passive: false });
+
+	// -------- Pinch-to-zoom и pan двумя пальцами --------
+	let pinch = null;
+	function touchDistance(touches) {
+		const dx = touches[0].clientX - touches[1].clientX;
+		const dy = touches[0].clientY - touches[1].clientY;
+		return Math.sqrt(dx * dx + dy * dy);
+	}
+	function touchCenter(touches) {
+		return {
+			x: (touches[0].clientX + touches[1].clientX) / 2,
+			y: (touches[0].clientY + touches[1].clientY) / 2
+		};
+	}
+	svg.addEventListener("touchstart", function(e) {
+		if (e.touches.length === 2) {
+			e.preventDefault();
+			drag = null;
+			svg.classList.remove("grabbing");
+			pinch = {
+				dist: touchDistance(e.touches),
+				center: touchCenter(e.touches),
+				viewW: view.w
+			};
+		}
+	}, { passive: false });
+	svg.addEventListener("touchmove", function(e) {
+		if (e.touches.length === 2 && pinch) {
+			e.preventDefault();
+			const newDist = touchDistance(e.touches);
+			const ratio = pinch.dist / Math.max(newDist, 1);
+			const fullWidth = (maxX - minX + 100) * 3;
+			const newW = Math.min(Math.max(pinch.viewW * ratio, 90), fullWidth);
+			const rect = svg.getBoundingClientRect();
+			const fx = (pinch.center.x - rect.left) / rect.width;
+			const fy = (pinch.center.y - rect.top) / rect.height;
+			const worldX = view.x + fx * view.w;
+			const worldY = view.y + fy * view.h;
+			view.w = newW;
+			view.h = newW * rect.height / Math.max(rect.width, 1);
+			view.x = worldX - fx * view.w;
+			view.y = worldY - fy * view.h;
+			applyView();
+		}
+	}, { passive: false });
+	svg.addEventListener("touchend", function(e) {
+		if (e.touches.length < 2) pinch = null;
+	});
+	svg.addEventListener("touchcancel", function() { pinch = null; });
 
 	let drag = null;
 	svg.addEventListener("pointerdown", function(e) {
@@ -3347,7 +3409,6 @@ function buildDraftPage() {
 			renderTransitionTargetOptions(node.id);
 			transitionSelect.value = cell.target || UNKNOWN_TARGET;
 		}
-		// Блок «Куда ведёт тупик / что там» — ТОЛЬКО при выборе типа «Тупик»
 		if (cell && cell.type === "deadend") {
 			deadendFields.hidden = false;
 			renderDeadendProps();
@@ -3405,7 +3466,6 @@ function buildDraftPage() {
 		const nameEl = card.querySelector(".draft-node-name-label");
 		nameEl.textContent = node.name || "Без названия";
 
-		// Собираем свойства тупиков этой локации — для правого столбика иконок
 		const deadendEntries = [];
 		Object.keys(node.cells).forEach(function(key) {
 			const c = node.cells[key];
@@ -3415,8 +3475,6 @@ function buildDraftPage() {
 			if (hasName || hasProps) deadendEntries.push({ name: c.deadendName || "", tags: c.deadendProps || [] });
 		});
 
-		// Один общий столбик иконок справа от карточки:
-		// сначала свойства самой локации, ниже — свойства её тупиков
 		const gridWrap = card.querySelector(".draft-mini-grid-wrap");
 		renderDraftTagsColumn(gridWrap, node.props, deadendEntries);
 
