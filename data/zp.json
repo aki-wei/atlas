@@ -1,0 +1,1527 @@
+[
+  {
+    "id": "Звёздная поляна",
+    "name": "Звёздная поляна",
+    "code": "000000000000000000000000000000000000000000000000000000100000",
+    "transitions": [
+      "Звёздная тропа"
+    ]
+  },
+  {
+    "id": "Звёздная тропа",
+    "name": "Звёздная тропа",
+    "code": "000010000000000000000000000000000000000000000000000000100000",
+    "transitions": [
+      "Звёздная поляна",
+      "Звёздный лес"
+    ]
+  },
+  {
+    "id": "Звёздный лес",
+    "name": "Звёздный лес",
+    "code": "000010000000000000000000000000000000000000000000000000100000",
+    "transitions": [
+      "Звёздная тропа",
+      "Звёздное озеро"
+    ]
+  },
+  {
+    "id": "Звёздное озеро",
+    "name": "Звёздное озеро",
+    "code": "000000000000001000000000000000000000000000000000000000100000",
+    "transitions": [
+      "Звёздный лес",
+      "Звёздный остров [центр]"
+    ]
+  },
+  {
+    "id": "Звёздный остров [центр]",
+    "name": "Звёздный остров [центр]",
+    "code": "100010000100000000000000000000000000000000000000001000100001",
+    "transitions": [
+      "Звёздный остров [верх слева]",
+      "Звёздное озеро",
+      "Звёздный остров [верх справа]",
+      "Звёздный остров [низ слева]",
+      "Звёздная пещера",
+      "Звёздный остров [низ справа]"
+    ],
+    "tags": [
+      {
+        "key": "hunt"
+      }
+    ]
+  },
+  {
+    "id": "Звёздный остров [верх слева]",
+    "name": "Звёздный остров [верх слева]",
+    "code": "000000000100000000000000000000000000000000000000000000000000",
+    "transitions": [
+      "Звёздный остров [центр]"
+    ],
+    "tags": [
+      {
+        "key": "hunt"
+      }
+    ]
+  },
+  {
+    "id": "Звёздный остров [верх справа]",
+    "name": "Звёздный остров [верх справа]",
+    "code": "100000000000000000000000000000000000000000000000000000000000",
+    "transitions": [
+      "Звёздный остров [центр]"
+    ],
+    "tags": [
+      {
+        "key": "hunt"
+      }
+    ]
+  },
+  {
+    "id": "Звёздный остров [низ слева]",
+    "name": "Звёздный остров [низ слева]",
+    "code": "000000000000000000000000000000000000000000000000000000000001",
+    "transitions": [
+      "Звёздный остров [центр]"
+    ],
+    "tags": [
+      {
+        "key": "hunt"
+      }
+    ]
+  },
+  {
+    "id": "Звёздный остров [низ справа]",
+    "name": "Звёздный остров [низ справа]",
+    "code": "000000000000000000000000000000000000000000000000001000000000",
+    "transitions": [
+      "Звёздный остров [центр]"
+    ],
+    "tags": [
+      {
+        "key": "hunt"
+      }
+    ]
+  },
+  {
+    "id": "Звёздная пещера",
+    "name": "Звёздная пещера",
+    "code": "000010000000000000000000000000000000000000000000000000100000",
+    "transitions": [
+      "Звёздный остров [центр]",
+      "Звёздный ручей"
+    ]
+  },
+  {
+    "id": "Звёздный ручей",
+    "name": "Звёздный ручей",
+    "code": "000010000000000000000000000000000000000000000000000000100000",
+    "transitions": [
+      "Звёздная пещера",
+      "Звёздная пустошь"
+    ],
+    "tags": [
+      {
+        "key": "drink"
+      }
+    ]
+  },
+  {
+    "id": "Звёздная пустошь",
+    "name": "Звёздная пустошь",
+    "code": "000010000000000000000000000000000000000000000000000000100000",
+    "transitions": [
+      "Звёздный ручей",
+      "Звёздная река"
+    ]
+  },
+  {
+    "id": "Звёздная река",
+    "name": "Звёздная река",
+    "code": "000010000000000000000000000000000000000000000000000000100000",
+    "transitions": [
+      "Звёздная пустошь",
+      "Звёздный холм"
+    ]
+  },
+  {
+    "id": "Звёздный холм",
+    "name": "Звёздный холм",
+    "code": "000010000000000000000000100000000000000000000000000000000000",
+    "transitions": [
+      "Звёздная река",
+      "Звёздный перевал"
+    ],
+    "tags": [
+      {
+        "key": "dirty"
+      }
+    ]
+  },
+  {
+    "id": "Звёздный перевал",
+    "name": "Звёздный перевал",
+    "code": "000000000000000000000000010000000000000000100000000000000010",
+    "transitions": [
+      "Звёздная рощица",
+      "Звёздный холм",
+      "Звёздная расселина"
+    ]
+  },
+  {
+    "id": "Звёздная расселина",
+    "name": "Звёздная расселина",
+    "code": "000010000000000000000000000000000000000000000000000000000000",
+    "transitions": [
+      "Звёздный перевал"
+    ]
+  },
+  {
+    "id": "Звёздная рощица",
+    "name": "Звёздная рощица",
+    "code": "100000000000010000000000000000000000000000000000000000000000",
+    "transitions": [
+      "Звёздный перевал",
+      "Звёздный овраг"
+    ]
+  },
+  {
+    "id": "Звёздный овраг",
+    "name": "Звёздный овраг",
+    "code": "100000000000000000000000000000000000000000001000000000000000",
+    "transitions": [
+      "Звёздная рощица",
+      "Звёздное поле"
+    ]
+  },
+  {
+    "id": "Звёздное поле",
+    "name": "Звёздное поле",
+    "code": "000000000000100000000000000000000010000000000000000001000000",
+    "transitions": [
+      "Звёздное пастбище",
+      "Звёздная равнина",
+      "Звёздный овраг"
+    ]
+  },
+  {
+    "id": "Звёздное пастбище",
+    "name": "Звёздное пастбище",
+    "code": "000000000000000000000000100000000000000000000000000000000000",
+    "transitions": [
+      "Звёздное поле"
+    ],
+    "tags": [
+      {
+        "key": "bot",
+        "bot": "custom",
+        "icon": "data:image/png;base64,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",
+        "botLabel": "Обмен мышей на пыль",
+        "name": "Барсик"
+      }
+    ]
+  },
+  {
+    "id": "Звёздная равнина",
+    "name": "Звёздная равнина",
+    "code": "000000000000000000000000000100000000000010000000000000000000",
+    "transitions": [
+      "Звёздная долина",
+      "Звёздное поле"
+    ]
+  },
+  {
+    "id": "Звёздная долина",
+    "name": "Звёздная долина",
+    "code": "000010000000000000000000000000000000000000000000001000100000",
+    "transitions": [
+      "Звёздный перелесок",
+      "Звёздная равнина",
+      "Звёздный водопад"
+    ]
+  },
+  {
+    "id": "Звёздный водопад",
+    "name": "Звёздный водопад",
+    "code": "100000000000000000000000000000000000000000000000000000000000",
+    "transitions": [
+      "Звёздная долина"
+    ]
+  },
+  {
+    "id": "Звёздный перелесок",
+    "name": "Звёздный перелесок",
+    "code": "000000000000000100000000000000000000000000000000000000000010",
+    "transitions": [
+      "Звёздная чаща",
+      "Звёздная долина"
+    ]
+  },
+  {
+    "id": "Звёздная чаща",
+    "name": "Звёздная чаща",
+    "code": "000100000000000000000000010000000000000000000000000100010000",
+    "transitions": [
+      "Звёздное предгорье",
+      "Звёздная топь",
+      "Звёздный перелесок",
+      "Звёздная лужайка"
+    ]
+  },
+  {
+    "id": "Звёздная лужайка",
+    "name": "Звёздная лужайка",
+    "code": "000000000000000000000000000000000000000001000000000000000000",
+    "transitions": [
+      "Звёздная чаща"
+    ]
+  },
+  {
+    "id": "Звёздная топь",
+    "name": "Звёздная топь",
+    "code": "000000000000000000000000000100000000000000000000000000000000",
+    "transitions": [
+      "Звёздная чаща"
+    ],
+    "tags": [
+      {
+        "key": "bot",
+        "bot": "guardian",
+        "icon": "data:image/png;base64,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",
+        "name": "Звёзды Кассиопеи"
+      }
+    ]
+  },
+  {
+    "id": "Звёздное предгорье",
+    "name": "Звёздное предгорье",
+    "code": "000001000000000000000000000000000000000010000000000000000000",
+    "transitions": [
+      "Звёздная гора",
+      "Звёздная чаща"
+    ]
+  },
+  {
+    "id": "Звёздная гора",
+    "name": "Звёздная гора",
+    "code": "000000000000000000000000100010000000000000000000000000000010",
+    "transitions": [
+      "Звёздное предгорье",
+      "Звёздная скала",
+      "Звёздное ущелье"
+    ]
+  },
+  {
+    "id": "Звёздное ущелье",
+    "name": "Звёздное ущелье",
+    "code": "000000000000000000000000100000000000000000000000000000000000",
+    "transitions": [
+      "Звёздная гора"
+    ]
+  },
+  {
+    "id": "Звёздная скала",
+    "name": "Звёздная скала",
+    "code": "000000000000000000000000000000001000000000000000000000010000",
+    "transitions": [
+      "Звёздный утёс",
+      "Звёздная гора"
+    ],
+    "tags": [
+      {
+        "key": "bot",
+        "bot": "custom",
+        "icon": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAOcUlEQVR4AbxZaZBcV3X+3r71637d08vsizTaJS+SLEuAg8uJS9hOBQenIkISJw7lqpAfxEUWCpIyrphKkfxwhZhSJTaVQBUVsJEhxNhYcsCRIiEvkkDWMtJopNHsW+/L2xdODxK2sOTpkQS3z3n3vnfPu/d89557z7mvWfx6kyhBGlTVzO3xePedqpreLEnSIKkgEl8X/ToAaKSZAnC/pyq5oXjbymNGrPtQTE7vT2hdhzS555gkxN4imW3Ey6ZfMQC5X1XSP4rrXd/OtK37JuUrwAi6F4aKG0SSH0aywKt6TMuuEwT5L0h7gXhZ9KsEIGhq7Nlkom9bOt79gCwofASGlGsyZYgQRiECynU1LfRk1v2uwMl/RDUccct0swDwCSlxby7Z8wfpeMcfJmKpXTEp9me5ZO8HY6JMKkZwfDuyrPkR05z+mmkuHAkCN6IEjvDct6UDybgRz7WteobjxAdb1p4EbxQAn0vk7rlrcMObW/u3vLK+c+N/bR284xvbVt35rYH2jf/m+Z5StRsoN8qlcnXs8WptYlvDnH+kYU7vqFRHP0UgCiEpYdkuVC0GVYrzqmx8AehU6XFLdCMAdFXSd2/pWv/SznUbbhc4nt3WF0dGj6FWcyCyEjQpAYSuXa2Nf9p1q/9IGpWIm+SHofPvjlt5IQwinLiQR7VYQBAGYBn2LDB9a1OoFWZbEbqKzMaOZN/zH+za+sn2hCGrEoe0zmGq4kORRIDlwDEsYhwLXYrLqVjmk9SGTHwFuW7tQoQQM1UPCZklACEEXtspy8b0FYLvc8O+T921qrJdbSv39Let+ojOS6wsCeA5DnM1H55jgfEdKHIMLC9AljQogoj2RM+HZV7e8csNcgzTRwsEvf3d4NkIfnMGOFEPAutjvyx7rfvlAmhLGz3PZZL9q9sUEYasIfAiDM87MFQZHGljOy7SmoK0kQXHCUioCbBgmZSWu+9KJfi7BMn4BEMz5Xs+7UhkbVEERAyJsU3nRvnSxC4t8o6EKMZ+qyu7/m6R45j17SkgDFGxLMxXTGQNBZm4gtmyiYQYomkaupaAJCrgWJZycdPllgRBvUOWk9+XBCMh8yxku4a6S29QewADJmLKABWwdGKXFnlHQtfSAxzHI0YDNT5WhE0j17Bc+H6AVEzGur4UVFmk8QZ4XkQiniLFJbpngIjJ/ryltC5w2ouqnI3n4iq29yVRtGnZVm24gUciIYIoOkmFlohtSeqSkMBJKcdtQA8ZRIEPSBwRA1XgEPgRRFlGSldhuT4EQQJH60CkHGQaQRhKAHhFjnbLcjrHMgzuXtuO4QJQqNfheC5Vg95tFGgN/IBuaJjougSxS9RfUe16tXSOk6A6PtK5NIxUDLooIq4q8F0aOZr1LnoWMRwkRSMAPBiWo5H14YReUdMy6fZU7/0cyyOni/Bo/ZTNBrwgQES/MPQj2yl9HUDThNBKYlsRuiwjM0KY4yWICR0BKa7IAkRRgMyK0FURWkxBSuUAQYehJxGFEYq1IkzfJk/sDvEM81FNiqWadj+QkmH7HJxFswEsO2/V6uNf8bzak1hGYpchS/at3irRziLoCfiODUkSkCCTUUUOm2/rAkejfXLGo5npAku/2eIsRmbPR5bnRqZr7qOZ+azt2dGKtIozCy5YkmfIUHzfDByn8CSZzl+SPi2PPslSL81rayzJkn6bRqOv6Ak4jodGqQ5N5jG4NkMLOcTwcB6sZNBMGMhXCzg7NQLTtZhSfeaU61a+63omZEGILFovMZGBF/roSedoMzOJ/e+TGgSHrssgdhmyiMdSAXVFI81CTmbhk+MRFbLnrIZK2YIbcmA5HhoBFGkN+KFHwBpFP3R2UT90a31e5AXfdFnc1qWhMxcD3SMVS3FUv5Z42cS2+oaixG8VZEMyPQ8MA6ht7ZA0HSXywACHdKeBgT4DbWoElufR2zMAJrTmG+bsl123TvENaDG7ex3Pmo2rcUhKErdv6kM2rSGb6IShZR8H0I9lppYBUMiyTaXQOE7e1w8Z2E6IRqQhYBUCksIZMp/2dhUrexSIjIU2o831/Nqf+L77RdIpIG5SZXz+7CsJTYTLqJAZibbfEA3HopmTNspS4g2WlZrroCnbErcMQNUSW1JtnWCT3fDkBNlsCFqD6O7NYs1d2yDJCuYLJjqyCviwhEJpNmo41eaCDN+lSVgzK38/nT//pkCxz7kLBQo7JLQndcTUVBj4zn9zXPh/75JfstgqAKa7a/XK7r5V4GQdrh9CYmzwpMQC2f6Rfa8jT6ZUNCVyRAxtpT5qc8dZNuTEq2iwcHz01EOnx94ejXwPTW+8qT8DTVZZQVB2eZ536irvXPNRqwC0ratXZznyqMW5BXR2JcnTsqCQCI2Gi8n5OpkBh7lyhHPTAUJyVIM9GaYrl+WpZ4a4SZfzZnny4NDJe0+MjUzoMofBDgMGmRWdBwSqjBO3TC0BUFVVZ4SUYbAeRNr7S8UaeVEfoiyQF41whg4kpbqNIsX1F2ddnCcWRYFNKnwXadLso6m8dKncvKcizh86e/KZwHcRk/korrDwA7MZQlSala3y5caWkmfCUGQapglW5OG4HmwKHSiWQ0SuhCYB5UYdPs0QHbAwW3SwUGaYhZp3CzXcVDxxKe+gPCJepImFuW/uP3U8tMinXJy7OB0E/mNUERC3TC0BIL1puyxFRdOCQ1rXTRdBEC6OviBGZP8lKEoKxXqeRtEnBxVhocYyXsDcT5o0R7+5xyepvED8CwBUzk+W8qWXjx754dmJ0U/Q/STxsqglAIBZH506b9p2nWzdQhD58MOIYn8bJy9ewExhAkfOHQR9VwBP8X9cz9A6UJA2unpIG5v4NHGYyWTE9vZ1D1B5kURR7D47Obb9pTdev5ce7CdeNrUIAPb8zMlzlXoJ+WoJYeBgoriAQq0CN+CRbVtFsxFg3xt78Orh5/GDg9/C3kPfaZqVbhjtz6lq6vcNve8pkesfjwLujy9r6bpuc8cZuXx/PXmrAPzZwuQLx8emUCgvYK5SRsmsI6BZqDRKBKRI+3iafEMA22uqocHzBTInhULt3odkMfVs0ljxkMDLmmM1duMmplYBhGHofa9WnfF8OsiMzY8BtGBd2sfp9IRCZQK220AsliYzSkMUBLAsQyEHA56PQZEMOG4Vlfrkq+X66OGbqD9tIS22xnHyb9fNOdZ2KvSGh4gV0IwmXc+B5ZTR3d4HQ89CVRSoKk8geAIBYoYWuAHbLg4HYeHhxZfpcrOo1RloIt1hJPo5RAE4GlXX97G4I9GXNyOexmBnmj4PykgmQqTiIHPywZGnlkUPcXJSSaMtX61Wi7jJqVUAjJ7o3iCKGtpSvWDo55IDMp0aGMZDf+dKWrA1iiplPHj3VqxZ045E3AAiF4/u+gAG6YudEdPXdHWt/QzpzxDfNGJbbCkShViCZWgC6IuyQhEpwzAUoLKIURDXm46hI9UGhlVx4OgcTpw0oVLM1JkbwIHDs+CZBDra+5LF4swUCBbxTaNWATC1+tQEmAiZdByyrJKJOKQEi5rN4sBPf4yMLmPb6l6s7+3AzjtuAce40AQLWwZ7ETIspuYn4bp1i166qdQqgIjc/JF6fQ6T0wvg6Fzc05kFfaUAL2jI13g8+/KP8PW9+6AIDFZ1aliZ9TCQUzA0MQKP07Bu7YfY9szgF0n75ifGTspF4hs2p1YBgOPc522nGoR0ju3vzGDnh2/B2hU5WgNMJMtxMJyOiiXjxcOv4+2Rc2gzEjg9MYVM7z1YvXIHOFZELrdyPX3wuosUzxO7xBHxDVHLABqNxlAQOOejiEWp7mDvgWEcO3UC+cLx3eXqxU+XK6N76Y8LCsmK/nOvHcUPj5chxDajYfvIF+ch0gbQ3bWea88O/i1pfD9xy32T7DVpOY3QEbF+muOASq1GpmNQSGGXLav02XL5/NOF4pmPzMwdXTU588b24dEff2zo3MF/vTB+bHJm7iL5vJB2pQRSRhcG+u5sG+jb9CRp1DQjym6MlgOAFm70k0p1hpySTXtJBE01yCVjMXi4pEaN8qPE363WZx6rVMc2nzj1v3uGR45EUzPjMK06MpkOZLObNiTi7QdIboD4hmhZAIBwP5kJdRjQAnYBBjQf8HH1FM3MjuQ/lHD/dHLy7b8+P/qTmUJxBqXSPERBYvr7tg+k21Z8lV4lh0HX66RlAbDt8kHXs+v5fAnNWEfgKfgBwcDVk/XlR3Y8tbNv64Wxo0+9feqle89dODyUSOihTd7bcUxyiivuSSX7XgboM/bVm1jy6bIAUGuB79uPNSgSHRufgKok4vRsJfEVFH3l4dXWEx/vV35nx6OpW7rXNCubofP4xOgH9h964Z+mZ4YshZxhSE7RMHruzKRT3yCZ5vGTsuXRcgHQSUx6Pgyd2XKlSrtLTeV5uXlouaLXsCf3oLxr+/fQntzCDuQeiF773NroiSeor3K5VBr//NTMyJrxqRMvSLxo9feuYI3EivuSRt8r1NZvUEMacctEjbYse0kwb4Ix32TIchpmo7mwH7pU8YuM9aNTWLOKh5zhsGHtQDhe/WjePPYuxayJQmHk4+fHDj98/MQhy7JNms2OjQTkVV3veksQhM1oMV0HAASWNf2fYBoeAxOytOJRScq9SP3JxIsUJtXfxJs//X+cO7GA0YuzrO09nfnn/6ktVr5z8S2rsqdWn9haq06/5gcWBF4RVTm9To/1kUml9XdEr126HgBkRrVXLPvi0yzLTXEU5shSsoO6aO5IlAGFPUOPM9v/7s/N/9j3N+HZ6WGI9Aljsea9F1obpyu18U+VisNfqtXGv9pozHyhVp/8FyDvvFf6vU+uCwA1YztO/q/qjeGeWmNoVaV6Zhs9axAvUnb3t+vNgvalF986852ZzzCPfM1u3r8Pn3V963N1c+HRujn/D55nP0OytE/TdQn6GQAAAP//CY8w8gAAAAZJREFUAwDhmfc5LpsxPgAAAABJRU5ErkJggg==",
+        "botLabel": "Бот могущества",
+        "name": "Млечный Путь"
+      }
+    ]
+  },
+  {
+    "id": "Звёздный утёс",
+    "name": "Звёздный утёс",
+    "code": "000100000000000000000000000000000000000000000000000001000000",
+    "transitions": [
+      "Звёздная пропасть",
+      "Звёздная скала"
+    ]
+  },
+  {
+    "id": "Звёздная пропасть",
+    "name": "Звёздная пропасть",
+    "code": "100000000000000000000000000000000000000000001000000001000000",
+    "transitions": [
+      "Звёздная пустыня",
+      "Звёздная степь 1",
+      "Звёздный утёс"
+    ]
+  },
+  {
+    "id": "Звёздная пустыня",
+    "name": "Звёздная пустыня",
+    "code": "000000000000000000000000000000000000000000001000000000000000",
+    "transitions": [
+      "Звёздная пропасть"
+    ]
+  },
+  {
+    "id": "Звёздная степь 1",
+    "name": "Звёздная степь 1",
+    "code": "100000010000000000100000001000000000000000000001000000000000",
+    "transitions": [
+      "Звёздная пропасть",
+      "Звёздная степь 2",
+      "Звёздная степь 46",
+      "Звёздная степь 43",
+      "Звёздная степь 62"
+    ]
+  },
+  {
+    "id": "Звёздная степь 2",
+    "name": "Звёздная степь 2",
+    "code": "000000000000000000000100000000010000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 5",
+      "Звёздная степь 22"
+    ]
+  },
+  {
+    "id": "Звёздная степь 3",
+    "name": "Звёздная степь 3",
+    "code": "000000000000000010000100101000000000001000000100000000000000",
+    "transitions": [
+      "Звёздная степь 6",
+      "Звёздная степь 34",
+      "Звёздная степь 37",
+      "Звёздная степь 38",
+      "Звёздная степь 15",
+      "Звёздная степь 55"
+    ]
+  },
+  {
+    "id": "Звёздная степь 4",
+    "name": "Звёздная степь 4",
+    "code": "100000000001000100000000000000000000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 3",
+      "Звёздная степь 36",
+      "Звёздная степь 90"
+    ]
+  },
+  {
+    "id": "Звёздная степь 5",
+    "name": "Звёздная степь 5",
+    "code": "010000000011000000000000000000000100000000000000100000010000",
+    "transitions": [
+      "Звёздная степь 4",
+      "Звёздная степь 43",
+      "Звёздная степь 52",
+      "Звёздная степь 75",
+      "Звёздная степь 90",
+      "Звёздная степь 23"
+    ]
+  },
+  {
+    "id": "Звёздная степь 6",
+    "name": "Звёздная степь 6",
+    "code": "000000001000010000100000000000000100000000000001001000000000",
+    "transitions": [
+      "Звёздная степь 1",
+      "Звёздная степь 7",
+      "Звёздная степь 99",
+      "Звёздная степь 84",
+      "Звёздная степь 65",
+      "Звёздная степь 41"
+    ]
+  },
+  {
+    "id": "Звёздная степь 7",
+    "name": "Звёздная степь 7",
+    "code": "010000000000100100000000000000000000000000000010000000000000",
+    "transitions": [
+      "Звёздная степь 49",
+      "Звёздная степь 8",
+      "Звёздная степь 83",
+      "Звёздная степь 55"
+    ]
+  },
+  {
+    "id": "Звёздная степь 8",
+    "name": "Звёздная степь 8",
+    "code": "001000001000000000000110010000000000100000000000000000000000",
+    "transitions": [
+      "Звёздная степь 9",
+      "Звёздная степь 25",
+      "Звёздная степь 15",
+      "Звёздная степь 70",
+      "Звёздная степь 49",
+      "Звёздная степь 65"
+    ]
+  },
+  {
+    "id": "Звёздная степь 9",
+    "name": "Звёздная степь 9",
+    "code": "000100000000000000001000000000000000000010010000000000000000",
+    "transitions": [
+      "Звёздная степь 59",
+      "Звёздная степь 10",
+      "Звёздная степь 66",
+      "Звёздная степь 85"
+    ]
+  },
+  {
+    "id": "Звёздная степь 10",
+    "name": "Звёздная степь 10",
+    "code": "000010000000000000000010000000100000000000000100000000000000",
+    "transitions": [
+      "Звёздная степь 11",
+      "Звёздная степь 98",
+      "Звёздная степь 54",
+      "Звёздная степь 98"
+    ]
+  },
+  {
+    "id": "Звёздная степь 11",
+    "name": "Звёздная степь 11",
+    "code": "000000000000000000000000000000000000000000000000100010010000",
+    "transitions": [
+      "Звёздная степь 14",
+      "Звёздная степь 12",
+      "Звёздная степь 40"
+    ]
+  },
+  {
+    "id": "Звёздная степь 12",
+    "name": "Звёздная степь 12",
+    "code": "000000000000010000000000000000010000000000000000001000000000",
+    "transitions": [
+      "Звёздная степь 15",
+      "Звёздная степь 27",
+      "Звёздная степь 9"
+    ]
+  },
+  {
+    "id": "Звёздная степь 13",
+    "name": "Звёздная степь 13",
+    "code": "000000000000000010000100010000000000000010000000000000000000",
+    "transitions": [
+      "Звёздная степь 15",
+      "Звёздная степь 40",
+      "Звёздная степь 70",
+      "Звёздная степь 35"
+    ]
+  },
+  {
+    "id": "Звёздная степь 14",
+    "name": "Звёздная степь 14",
+    "code": "000000001000000000000000001000000010000000000000000000000010",
+    "transitions": [
+      "Звёздная степь 15",
+      "Звёздная степь 86",
+      "Звёздная степь 4",
+      "Звёздная степь 30"
+    ]
+  },
+  {
+    "id": "Звёздная степь 15",
+    "name": "Звёздная степь 15",
+    "code": "001000000000000000000000000000000001010010000010000000100000",
+    "transitions": [
+      "Звёздная степь 16",
+      "Звёздная степь 75",
+      "Звёздная степь 72",
+      "Звёздная степь 53",
+      "Звёздная степь 7",
+      "Звёздная степь 5"
+    ]
+  },
+  {
+    "id": "Звёздная степь 16",
+    "name": "Звёздная степь 16",
+    "code": "000010000000000000000000010000001100000000000010000000000110",
+    "transitions": [
+      "Звёздная степь 76",
+      "Звёздная степь 34",
+      "Звёздная степь 24",
+      "Звёздная степь 83",
+      "Звёздная степь 27",
+      "Звёздная степь 7",
+      "Звёздная степь 17"
+    ]
+  },
+  {
+    "id": "Звёздная степь 17",
+    "name": "Звёздная степь 17",
+    "code": "000000000000000000000000000000000000000000000000001000000010",
+    "transitions": [
+      "Звёздная степь 20",
+      "Звёздная степь 18"
+    ]
+  },
+  {
+    "id": "Звёздная степь 18",
+    "name": "Звёздная степь 18",
+    "code": "000000000000010000000000010000000000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 19",
+      "Звёздная степь 29"
+    ]
+  },
+  {
+    "id": "Звёздная степь 19",
+    "name": "Звёздная степь 19",
+    "code": "000000001000000010000000000100100100000001000001000000000000",
+    "transitions": [
+      "Звёздная степь 36",
+      "Звёздная степь 79",
+      "Звёздная степь 58",
+      "Звёздная степь 25",
+      "Звёздная степь 20",
+      "Звёздная степь 84",
+      "Звёздная степь 97"
+    ]
+  },
+  {
+    "id": "Звёздная степь 20",
+    "name": "Звёздная степь 20",
+    "code": "100010000000001000000000000000000010000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 21",
+      "Звёздная степь 15",
+      "Звёздная степь 86",
+      "Звёздная степь 91"
+    ]
+  },
+  {
+    "id": "Звёздная степь 21",
+    "name": "Звёздная степь 21",
+    "code": "000000001000000000000000010010000000000000000000000001100000",
+    "transitions": [
+      "Звёздная степь 40",
+      "Звёздная степь 22",
+      "Звёздная степь 63",
+      "Звёздная степь 43",
+      "Звёздная степь 16"
+    ]
+  },
+  {
+    "id": "Звёздная степь 22",
+    "name": "Звёздная степь 22",
+    "code": "000000010000000010000010010000000000000000000010001000000000",
+    "transitions": [
+      "Звёздная степь 25",
+      "Звёздная степь 20",
+      "Звёздная степь 19",
+      "Звёздная степь 94",
+      "Звёздная степь 21",
+      "Звёздная степь 16"
+    ]
+  },
+  {
+    "id": "Звёздная степь 23",
+    "name": "Звёздная степь 23",
+    "code": "000010000000000000000000000000000000000001000001100000000000",
+    "transitions": [
+      "Звёздная степь 78",
+      "Звёздная степь 95",
+      "Звёздная степь 12",
+      "Звёздная степь 98"
+    ]
+  },
+  {
+    "id": "Звёздная степь 24",
+    "name": "Звёздная степь 24",
+    "code": "000001000000000000100000101000000000000001010000000000000100",
+    "transitions": [
+      "Звёздная степь 2",
+      "Звёздная степь 14",
+      "Звёздная степь 56",
+      "Звёздная степь 86",
+      "Звёздная степь 33",
+      "Звёздная степь 93",
+      "Звёздная степь 69"
+    ]
+  },
+  {
+    "id": "Звёздная степь 25",
+    "name": "Звёздная степь 25",
+    "code": "000000000000000000000000000000000000000001000000001000000000",
+    "transitions": [
+      "Звёздная степь 26",
+      "Звёздная степь 15"
+    ]
+  },
+  {
+    "id": "Звёздная степь 26",
+    "name": "Звёздная степь 26",
+    "code": "000000000000000001000000000000000010000000010000000001000000",
+    "transitions": [
+      "Звёздная степь 18",
+      "Звёздная степь 46",
+      "Звёздная степь 46",
+      "Звёздная степь 56"
+    ]
+  },
+  {
+    "id": "Звёздная степь 27",
+    "name": "Звёздная степь 27",
+    "code": "000000100000000000000011001000000010010000000000001000000000",
+    "transitions": [
+      "Звёздная степь 32",
+      "Звёздная степь 39",
+      "Звёздная степь 5",
+      "Звёздная степь 39",
+      "Звёздная степь 93",
+      "Звёздная степь 32",
+      "Звёздная степь 50"
+    ]
+  },
+  {
+    "id": "Звёздная степь 28",
+    "name": "Звёздная степь 28",
+    "code": "000000000000000000000000010100000000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 27",
+      "Звёздная степь 41"
+    ]
+  },
+  {
+    "id": "Звёздная степь 29",
+    "name": "Звёздная степь 29",
+    "code": "000000000000000000001000000010000000100000000000000000000100",
+    "transitions": [
+      "Звёздная степь 28",
+      "Звёздная степь 65",
+      "Звёздная степь 25",
+      "Звёздная степь 40"
+    ]
+  },
+  {
+    "id": "Звёздная степь 30",
+    "name": "Звёздная степь 30",
+    "code": "000011000000000000000000000100010001000000001000100000000000",
+    "transitions": [
+      "Звёздная степь 31",
+      "Звёздная степь 67",
+      "Звёздная степь 20",
+      "Звёздная степь 90",
+      "Звёздная степь 59",
+      "Звёздная степь 89",
+      "Звёздная степь 12"
+    ]
+  },
+  {
+    "id": "Звёздная степь 31",
+    "name": "Звёздная степь 31",
+    "code": "100000101001000000000000000010000000000000000000000000010000",
+    "transitions": [
+      "Звёздная степь 99",
+      "Звёздная степь 77",
+      "Звёздная степь 49",
+      "Звёздная степь 95",
+      "Звёздная степь 70",
+      "Звёздная степь 33"
+    ]
+  },
+  {
+    "id": "Звёздная степь 32",
+    "name": "Звёздная степь 32",
+    "code": "000000000001000000000000000000001000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 10",
+      "Звёздная степь 14"
+    ]
+  },
+  {
+    "id": "Звёздная степь 33",
+    "name": "Звёздная степь 33",
+    "code": "000000000010000000000000011000000001000000001000001100000000",
+    "transitions": [
+      "Звёздная степь 3",
+      "Звёздная степь 58",
+      "Звёздная степь 62",
+      "Звёздная степь 84",
+      "Звёздная степь 47",
+      "Звёздная степь 98",
+      "Звёздная степь 47"
+    ]
+  },
+  {
+    "id": "Звёздная степь 34",
+    "name": "Звёздная степь 34",
+    "code": "000010000000100000001000001000000000000001000000000001000000",
+    "transitions": [
+      "Звёздная степь 80",
+      "Звёздная степь 4",
+      "Звёздная степь 16",
+      "Звёздная степь 45",
+      "Звёздная степь 61",
+      "Звёздная степь 93"
+    ]
+  },
+  {
+    "id": "Звёздная степь 35",
+    "name": "Звёздная степь 35",
+    "code": "000000000000000000000001000000000001000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 16",
+      "Звёздная степь 42"
+    ]
+  },
+  {
+    "id": "Звёздная степь 36",
+    "name": "Звёздная степь 36",
+    "code": "000000000000010000000000000000001000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 3",
+      "Звёздная степь 33"
+    ]
+  },
+  {
+    "id": "Звёздная степь 37",
+    "name": "Звёздная степь 37",
+    "code": "000100100000000000000010100000100000000000000000000000001000",
+    "transitions": [
+      "Звёздная степь 19",
+      "Звёздная степь 66",
+      "Звёздная степь 1",
+      "Звёздная степь 14",
+      "Звёздная степь 69",
+      "Звёздная степь 36"
+    ]
+  },
+  {
+    "id": "Звёздная степь 38",
+    "name": "Звёздная степь 38",
+    "code": "000000000000000000000000000000000000010000000000100010000000",
+    "transitions": [
+      "Звёздная степь 87",
+      "Звёздная степь 55",
+      "Звёздная степь 39"
+    ]
+  },
+  {
+    "id": "Звёздная степь 39",
+    "name": "Звёздная степь 39",
+    "code": "000000000010000000000000010000000000000000000000000000000100",
+    "transitions": [
+      "Звёздная степь 11",
+      "Звёздная степь 57",
+      "Звёздная степь 54"
+    ]
+  },
+  {
+    "id": "Звёздная степь 40",
+    "name": "Звёздная степь 40",
+    "code": "000001000000000100000000000000000000000000010000101000000000",
+    "transitions": [
+      "Звёздная степь 48",
+      "Звёздная степь 28",
+      "Звёздная степь 23",
+      "Звёздная степь 8",
+      "Звёздная степь 11"
+    ]
+  },
+  {
+    "id": "Звёздная степь 41",
+    "name": "Звёздная степь 41",
+    "code": "100000000000000000000000000000000000000000000000000000010000",
+    "transitions": [
+      "Звёздная степь 42",
+      "Звёздная степь 65"
+    ]
+  },
+  {
+    "id": "Звёздная степь 42",
+    "name": "Звёздная степь 42",
+    "code": "000000100000000000000000000000000000000000000010000000000000",
+    "transitions": [
+      "Звёздная степь 2",
+      "Звёздная степь 89"
+    ]
+  },
+  {
+    "id": "Звёздная степь 43",
+    "name": "Звёздная степь 43",
+    "code": "000010000000000000000000000000000000000001001000000010000010",
+    "transitions": [
+      "Звёздная степь 34",
+      "Звёздная степь 3",
+      "Звёздная степь 9",
+      "Звёздная степь 48",
+      "Звёздная степь 9"
+    ]
+  },
+  {
+    "id": "Звёздная степь 44",
+    "name": "Звёздная степь 44",
+    "code": "000000010010000000000000000000000000000001000101000000000000",
+    "transitions": [
+      "Звёздная степь 26",
+      "Звёздная степь 58",
+      "Звёздная степь 28",
+      "Звёздная степь 3",
+      "Звёздная степь 74"
+    ]
+  },
+  {
+    "id": "Звёздная степь 45",
+    "name": "Звёздная степь 45",
+    "code": "000100100000000100001100000000000000000000010000000000000010",
+    "transitions": [
+      "Звёздная степь 1",
+      "Звёздная степь 43",
+      "Звёздная степь 82",
+      "Звёздная степь 71",
+      "Звёздная степь 72",
+      "Звёздная степь 41",
+      "Звёздная степь 5"
+    ]
+  },
+  {
+    "id": "Звёздная степь 46",
+    "name": "Звёздная степь 46",
+    "code": "000000000000000010100000000000100000000000000010100000000000",
+    "transitions": [
+      "Звёздная степь 19",
+      "Звёздная степь 72",
+      "Звёздная степь 39",
+      "Звёздная степь 37",
+      "Звёздная степь 68"
+    ]
+  },
+  {
+    "id": "Звёздная степь 47",
+    "name": "Звёздная степь 47",
+    "code": "000000100000000100000000000000000010000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 48",
+      "Звёздная степь 6",
+      "Звёздная степь 42"
+    ]
+  },
+  {
+    "id": "Звёздная степь 48",
+    "name": "Звёздная степь 48",
+    "code": "000000000000010000000000000000010000000000000100000100000000",
+    "transitions": [
+      "Звёздная степь 49",
+      "Звёздная степь 61",
+      "Звёздная степь 25",
+      "Звёздная степь 3"
+    ]
+  },
+  {
+    "id": "Звёздная степь 49",
+    "name": "Звёздная степь 49",
+    "code": "000000000000001000000000011000000000000000001000001000100000",
+    "transitions": [
+      "Звёздная степь 27",
+      "Звёздная степь 57",
+      "Звёздная степь 32",
+      "Звёздная степь 12",
+      "Звёздная степь 56",
+      "Звёздная степь 52"
+    ]
+  },
+  {
+    "id": "Звёздная степь 50",
+    "name": "Звёздная степь 50",
+    "code": "000000000000100000000000000000000000000000000000001000000000",
+    "transitions": [
+      "Звёздная степь 73",
+      "Звёздная степь 60"
+    ]
+  },
+  {
+    "id": "Звёздная степь 51",
+    "name": "Звёздная степь 51",
+    "code": "000000100000000100000001010010001000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 93",
+      "Звёздная степь 77",
+      "Звёздная степь 13",
+      "Звёздная степь 38",
+      "Звёздная степь 74",
+      "Звёздная степь 75"
+    ]
+  },
+  {
+    "id": "Звёздная степь 52",
+    "name": "Звёздная степь 52",
+    "code": "000000000000000100000000000000000000000000001000000000000000",
+    "transitions": [
+      "Звёздная степь 8",
+      "Звёздная степь 99"
+    ]
+  },
+  {
+    "id": "Звёздная степь 53",
+    "name": "Звёздная степь 53",
+    "code": "000000000000000000000010000000000000000000001100000010000000",
+    "transitions": [
+      "Звёздная степь 54",
+      "Звёздная степь 93",
+      "Звёздная степь 92",
+      "Звёздная степь 68"
+    ]
+  },
+  {
+    "id": "Звёздная степь 54",
+    "name": "Звёздная степь 54",
+    "code": "000000100000000000000000000000100000000010000000000000000000",
+    "transitions": [
+      "Звёздная степь 55",
+      "Звёздная степь 87",
+      "Звёздная степь 87"
+    ]
+  },
+  {
+    "id": "Звёздная степь 55",
+    "name": "Звёздная степь 55",
+    "code": "000101000010010000000000000000101001000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 68",
+      "Звёздная степь 100",
+      "Звёздная степь 4",
+      "Звёздная степь 62",
+      "Звёздная степь 85",
+      "Звёздная степь 28",
+      "Звёздная степь 94"
+    ]
+  },
+  {
+    "id": "Звёздная степь 56",
+    "name": "Звёздная степь 56",
+    "code": "000000000000000000100010000000000011100000000000000000010000",
+    "transitions": [
+      "Звёздная степь 78",
+      "Звёздная степь 40",
+      "Звёздная степь 77",
+      "Звёздная степь 81",
+      "Звёздная степь 88",
+      "Звёздная степь 76"
+    ]
+  },
+  {
+    "id": "Звёздная степь 57",
+    "name": "Звёздная степь 57",
+    "code": "000000000001000000000110000000001000001000000000000000001000",
+    "transitions": [
+      "Звёздная степь 64",
+      "Звёздная степь 45",
+      "Звёздная степь 13",
+      "Звёздная степь 10",
+      "Звёздная степь 3",
+      "Звёздная степь 1"
+    ]
+  },
+  {
+    "id": "Звёздная степь 58",
+    "name": "Звёздная степь 58",
+    "code": "010100000010010000000000001000010000000000000000000010100000",
+    "transitions": [
+      "Звёздная степь 42",
+      "Звёздная степь 65",
+      "Звёздная степь 26",
+      "Звёздная степь 53",
+      "Звёздная степь 46",
+      "Звёздная степь 48",
+      "Звёздная степь 5",
+      "Звёздная степь 27"
+    ]
+  },
+  {
+    "id": "Звёздная степь 59",
+    "name": "Звёздная степь 59",
+    "code": "000000000010000000000000000000000000000000000000001001000000",
+    "transitions": [
+      "Звёздная степь 60",
+      "Звёздная степь 67",
+      "Звёздная степь 85"
+    ]
+  },
+  {
+    "id": "Звёздная степь 60",
+    "name": "Звёздная степь 60",
+    "code": "000000001001000000000000010000000100100000000000000000000000",
+    "transitions": [
+      "Звёздная степь 38",
+      "Звёздная степь 48",
+      "Звёздная степь 71",
+      "Звёздная степь 18",
+      "Звёздная степь 58"
+    ]
+  },
+  {
+    "id": "Звёздная степь 61",
+    "name": "Звёздная степь 61",
+    "code": "000000010010000001100100000000000000000000000000000000001010",
+    "transitions": [
+      "Звёздная степь 53",
+      "Звёздная степь 6",
+      "Звёздная степь 18",
+      "Звёздная степь 93",
+      "Звёздная степь 62",
+      "Звёздная степь 6",
+      "Звёздная степь 73"
+    ]
+  },
+  {
+    "id": "Звёздная степь 62",
+    "name": "Звёздная степь 62",
+    "code": "001000001000000000000000000000000000000000000100000000000000",
+    "transitions": [
+      "Звёздная степь 63",
+      "Звёздная степь 99",
+      "Звёздная степь 74"
+    ]
+  },
+  {
+    "id": "Звёздная степь 63",
+    "name": "Звёздная степь 63",
+    "code": "000000000000000000000000000000010000000000000000000010001010",
+    "transitions": [
+      "Звёздная степь 1",
+      "Звёздная степь 57",
+      "Звёздная степь 33",
+      "Звёздная степь 88"
+    ]
+  },
+  {
+    "id": "Звёздная степь 64",
+    "name": "Звёздная степь 64",
+    "code": "000000000000000000000010000100000000000000000000000001000000",
+    "transitions": [
+      "Звёздная степь 7",
+      "Звёздная степь 88",
+      "Звёздная степь 29"
+    ]
+  },
+  {
+    "id": "Звёздная степь 65",
+    "name": "Звёздная степь 65",
+    "code": "000000000010000000001000000000001000000000000000000000000010",
+    "transitions": [
+      "Звёздная степь 66",
+      "Звёздная степь 50",
+      "Звёздная степь 80",
+      "Звёздная степь 77"
+    ]
+  },
+  {
+    "id": "Звёздная степь 66",
+    "name": "Звёздная степь 66",
+    "code": "000000001010000000000000000100000010100000000000000000011000",
+    "transitions": [
+      "Звёздная степь 79",
+      "Звёздная степь 25",
+      "Звёздная степь 59",
+      "Звёздная степь 59",
+      "Звёздная степь 57",
+      "Звёздная степь 80",
+      "Звёздная степь 8"
+    ]
+  },
+  {
+    "id": "Звёздная степь 67",
+    "name": "Звёздная степь 67",
+    "code": "000000000000010000000000000000001010000000010001000000000000",
+    "transitions": [
+      "Звёздная степь 68",
+      "Звёздная степь 53",
+      "Звёздная степь 45",
+      "Звёздная степь 50",
+      "Звёздная степь 97"
+    ]
+  },
+  {
+    "id": "Звёздная степь 68",
+    "name": "Звёздная степь 68",
+    "code": "000000000000001010100000000000000000000000000000000100000000",
+    "transitions": [
+      "Звёздная степь 41",
+      "Звёздная степь 34",
+      "Звёздная степь 38",
+      "Звёздная степь 69"
+    ]
+  },
+  {
+    "id": "Звёздная степь 69",
+    "name": "Звёздная степь 69",
+    "code": "000000000000000000000000110000010000000001010000000000000100",
+    "transitions": [
+      "Звёздная степь 12",
+      "Звёздная степь 75",
+      "Звёздная степь 81",
+      "Звёздная степь 52",
+      "Звёздная степь 63",
+      "Звёздная степь 19"
+    ]
+  },
+  {
+    "id": "Звёздная степь 70",
+    "name": "Звёздная степь 70",
+    "code": "000000110000000000100000000000000000100000000001000000000000",
+    "transitions": [
+      "Звёздная степь 24",
+      "Звёздная степь 42",
+      "Звёздная степь 2",
+      "Звёздная степь 60",
+      "Звёздная степь 66"
+    ]
+  },
+  {
+    "id": "Звёздная степь 71",
+    "name": "Звёздная степь 71",
+    "code": "000000000010000000100000000000000000000000010000000000001000",
+    "transitions": [
+      "Звёздная степь 50",
+      "Звёздная степь 30",
+      "Звёздная степь 60",
+      "Звёздная степь 36"
+    ]
+  },
+  {
+    "id": "Звёздная степь 72",
+    "name": "Звёздная степь 72",
+    "code": "100000000000000000000000000000000000000000000000000000000100",
+    "transitions": [
+      "Звёздная степь 73",
+      "Звёздная степь 51"
+    ]
+  },
+  {
+    "id": "Звёздная степь 73",
+    "name": "Звёздная степь 73",
+    "code": "100000000000100000000100000000000000010000000000000010000000",
+    "transitions": [
+      "Звёздная степь 70",
+      "Звёздная степь 26",
+      "Звёздная степь 94",
+      "Звёздная степь 19",
+      "Звёздная степь 97"
+    ]
+  },
+  {
+    "id": "Звёздная степь 74",
+    "name": "Звёздная степь 74",
+    "code": "000001000000000010000000000000000000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 23",
+      "Звёздная степь 31"
+    ]
+  },
+  {
+    "id": "Звёздная степь 75",
+    "name": "Звёздная степь 75",
+    "code": "000000000000000000000000000000101000000000000000000000001100",
+    "transitions": [
+      "Звёздная степь 83",
+      "Звёздная степь 35",
+      "Звёздная степь 87",
+      "Звёздная степь 57"
+    ]
+  },
+  {
+    "id": "Звёздная степь 76",
+    "name": "Звёздная степь 76",
+    "code": "000001110000000000000101000000000010000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 79",
+      "Звёздная степь 96",
+      "Звёздная степь 2",
+      "Звёздная степь 23",
+      "Звёздная степь 48",
+      "Звёздная степь 55"
+    ]
+  },
+  {
+    "id": "Звёздная степь 77",
+    "name": "Звёздная степь 77",
+    "code": "100000000000000000000000000000000000000000001000000010010000",
+    "transitions": [
+      "Звёздная степь 73",
+      "Звёздная степь 42",
+      "Звёздная степь 72",
+      "Звёздная степь 66"
+    ]
+  },
+  {
+    "id": "Звёздная степь 78",
+    "name": "Звёздная степь 78",
+    "code": "000000000000000000000000000000000000100000000001000000101000",
+    "transitions": [
+      "Звёздная степь 79",
+      "Звёздная степь 53",
+      "Звёздная степь 44",
+      "Звёздная степь 91"
+    ]
+  },
+  {
+    "id": "Звёздная степь 79",
+    "name": "Звёздная степь 79",
+    "code": "000010000001000010100000100000001000000000000000000000100000",
+    "transitions": [
+      "Звёздная степь 69",
+      "Звёздная степь 83",
+      "Звёздная степь 24",
+      "Звёздная степь 87",
+      "Звёздная степь 60",
+      "Звёздная степь 3",
+      "Звёздная степь 2"
+    ]
+  },
+  {
+    "id": "Звёздная степь 80",
+    "name": "Звёздная степь 80",
+    "code": "000001000000000000000000000000010000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 81",
+      "Звёздная степь 16"
+    ]
+  },
+  {
+    "id": "Звёздная степь 81",
+    "name": "Звёздная степь 81",
+    "code": "000000000000000000100000100000010000000000000101000100001000",
+    "transitions": [
+      "Звёздная степь 45",
+      "Звёздная степь 92",
+      "Звёздная степь 34",
+      "Звёздная степь 18",
+      "Звёздная степь 26",
+      "Звёздная степь 18",
+      "Звёздная степь 32"
+    ]
+  },
+  {
+    "id": "Звёздная степь 82",
+    "name": "Звёздная степь 82",
+    "code": "000000010001000010000000000000000000000001000000000000000000",
+    "transitions": [
+      "Звёздная степь 80",
+      "Звёздная степь 79",
+      "Звёздная степь 2",
+      "Звёздная степь 77"
+    ]
+  },
+  {
+    "id": "Звёздная степь 83",
+    "name": "Звёздная степь 83",
+    "code": "100000000000000010000000000000000100000001000001000000000000",
+    "transitions": [
+      "Звёздная степь 6",
+      "Звёздная степь 48",
+      "Звёздная степь 73",
+      "Звёздная степь 93",
+      "Звёздная степь 21"
+    ]
+  },
+  {
+    "id": "Звёздная степь 84",
+    "name": "Звёздная степь 84",
+    "code": "000000000000000000000000000000000100100001010100000000000100",
+    "transitions": [
+      "Звёздная степь 26",
+      "Звёздная степь 25",
+      "Звёздная степь 20",
+      "Звёздная степь 39",
+      "Звёздная степь 20",
+      "Звёздная степь 28"
+    ]
+  },
+  {
+    "id": "Звёздная степь 85",
+    "name": "Звёздная степь 85",
+    "code": "000010010000000000000000000000000001000001000000000000100000",
+    "transitions": [
+      "Звёздная степь 54",
+      "Звёздная степь 3",
+      "Звёздная степь 25",
+      "Звёздная степь 41",
+      "Звёздная степь 92"
+    ]
+  },
+  {
+    "id": "Звёздная степь 86",
+    "name": "Звёздная степь 86",
+    "code": "000000000000000100000000000000000000000010000000000001000000",
+    "transitions": [
+      "Звёздная степь 54",
+      "Звёздная степь 6",
+      "Звёздная степь 66"
+    ]
+  },
+  {
+    "id": "Звёздная степь 87",
+    "name": "Звёздная степь 87",
+    "code": "000001010000000000000000100000000000011000000000000000000000",
+    "transitions": [
+      "Звёздная степь 61",
+      "Звёздная степь 80",
+      "Звёздная степь 88",
+      "Звёздная степь 7",
+      "Звёздная степь 57"
+    ]
+  },
+  {
+    "id": "Звёздная степь 88",
+    "name": "Звёздная степь 88",
+    "code": "000000000000000000000001010000001001000000000000000100001010",
+    "transitions": [
+      "Звёздная степь 76",
+      "Звёздная степь 23",
+      "Звёздная степь 95",
+      "Звёздная степь 90",
+      "Звёздная степь 76",
+      "Звёздная степь 87",
+      "Звёздная степь 96"
+    ]
+  },
+  {
+    "id": "Звёздная степь 89",
+    "name": "Звёздная степь 89",
+    "code": "000000000000000110000001000000000000000000000000000000000010",
+    "transitions": [
+      "Звёздная степь 74",
+      "Звёздная степь 25",
+      "Звёздная степь 19",
+      "Звёздная степь 96"
+    ]
+  },
+  {
+    "id": "Звёздная степь 90",
+    "name": "Звёздная степь 90",
+    "code": "010001000001000010000000000000000000000000000100000000000100",
+    "transitions": [
+      "Звёздная степь 28",
+      "Звёздная степь 59",
+      "Звёздная степь 61",
+      "Звёздная степь 53",
+      "Звёздная степь 46",
+      "Звёздная степь 4"
+    ]
+  },
+  {
+    "id": "Звёздная степь 91",
+    "name": "Звёздная степь 91",
+    "code": "100000010000000000000000000000000000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 72",
+      "Звёздная степь 64"
+    ]
+  },
+  {
+    "id": "Звёздная степь 92",
+    "name": "Звёздная степь 92",
+    "code": "000010000001000000000000000010010000000000000110000010000000",
+    "transitions": [
+      "Звёздная степь 67",
+      "Звёздная степь 12",
+      "Звёздная степь 78",
+      "Звёздная степь 26",
+      "Звёздная степь 76",
+      "Звёздная степь 70",
+      "Звёздная степь 9"
+    ]
+  },
+  {
+    "id": "Звёздная степь 93",
+    "name": "Звёздная степь 93",
+    "code": "000000000000000001000000000000000000000001000010001000011000",
+    "transitions": [
+      "Звёздная степь 100",
+      "Звёздная степь 31",
+      "Звёздная степь 47",
+      "Звёздная степь 40",
+      "Звёздная степь 92",
+      "Звёздная степь 73"
+    ]
+  },
+  {
+    "id": "Звёздная степь 94",
+    "name": "Звёздная степь 94",
+    "code": "000000010000000100000000000000001001100000000000001010000000",
+    "transitions": [
+      "Звёздная степь 29",
+      "Звёздная степь 18",
+      "Звёздная степь 27",
+      "Звёздная степь 51",
+      "Звёздная степь 42",
+      "Звёздная степь 91",
+      "Звёздная степь 42"
+    ]
+  },
+  {
+    "id": "Звёздная степь 95",
+    "name": "Звёздная степь 95",
+    "code": "000000001000000000000010000000001000010000000000000100000000",
+    "transitions": [
+      "Звёздная степь 89",
+      "Звёздная степь 62",
+      "Звёздная степь 68",
+      "Звёздная степь 96",
+      "Звёздная степь 79"
+    ]
+  },
+  {
+    "id": "Звёздная степь 96",
+    "name": "Звёздная степь 96",
+    "code": "010000100000000000000000000100000001000000000000000000001000",
+    "transitions": [
+      "Звёздная степь 97",
+      "Звёздная степь 45",
+      "Звёздная степь 21",
+      "Звёздная степь 21",
+      "Звёздная степь 9"
+    ]
+  },
+  {
+    "id": "Звёздная степь 97",
+    "name": "Звёздная степь 97",
+    "code": "000000000000000000000001001000000000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 32",
+      "Звёздная степь 82"
+    ]
+  },
+  {
+    "id": "Звёздная степь 98",
+    "name": "Звёздная степь 98",
+    "code": "000000000000011000000000000000000000000000000000000000000000",
+    "transitions": [
+      "Звёздная степь 52",
+      "Звёздная степь 39"
+    ]
+  },
+  {
+    "id": "Звёздная степь 99",
+    "name": "Звёздная степь 99",
+    "code": "000010100000000000000101000000000010000000000000000000101100",
+    "transitions": [
+      "Звёздная степь 79",
+      "Звёздная степь 18",
+      "Звёздная степь 25",
+      "Звёздная степь 18",
+      "Звёздная степь 47",
+      "Звёздная степь 36",
+      "Звёздная степь 37",
+      "Звёздная степь 7"
+    ]
+  },
+  {
+    "id": "Звёздная степь 100",
+    "name": "Звёздная степь 100",
+    "code": "000010000000000100000000000000000001000000001000000100000010",
+    "transitions": [
+      "Звёздная степь 48",
+      "Звёздная степь 28",
+      "Звёздная степь 17",
+      "Звёздная степь 49",
+      "Звёздная степь 69",
+      "Звёздная степь 44"
+    ]
+  }
+]
