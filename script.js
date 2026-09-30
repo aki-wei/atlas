@@ -2517,14 +2517,16 @@ function buildPathPanel(data, group, state) {
 	const panel = document.createElement("div");
 	panel.className = "tool-panel";
 	panel.innerHTML = `
+		<div class="swap-row">
+			<button type="button" class="swap-btn" id="swapPointsBtn" title="Поменять начальную и конечную локации местами" disabled>
+				<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+					<path d="M7 4l-4 4h3v10h2V8h3zM17 20l4-4h-3V6h-2v10h-3z" fill="currentColor"/>
+				</svg>
+				<span>Поменять местами</span>
+			</button>
+		</div>
 		<div class="points-row">
 			<div id="pointAHolder"></div>
-			<div class="swap-col">
-				<button type="button" class="swap-btn" id="swapPointsBtn" title="Поменять местами" disabled>
-					<span class="swap-arrow" aria-hidden="true">→</span>
-					<span class="swap-arrow" aria-hidden="true">←</span>
-				</button>
-			</div>
 			<div id="pointBHolder"></div>
 		</div>
 		<div class="waypoints-block">
@@ -2583,29 +2585,6 @@ function buildPathPanel(data, group, state) {
 		state.routeStale = true;
 		updateFindPathButton();
 	});
-
-	const swapCol = panel.querySelector(".swap-col");
-	function positionSwapButton() {
-		const mapA = pickerA.element.querySelector(".point-map");
-		const mapB = pickerB.element.querySelector(".point-map");
-		if (!mapA || !mapB) return;
-		const colRect = swapCol.getBoundingClientRect();
-		const aRect = mapA.getBoundingClientRect();
-		const bRect = mapB.getBoundingClientRect();
-		if (aRect.height === 0 || colRect.height === 0) return;
-		const centerY = (aRect.top + bRect.bottom) / 2;
-		const halfBtn = swapPointsBtn.offsetHeight / 2;
-		swapPointsBtn.style.top = (centerY - colRect.top - halfBtn) + "px";
-	}
-	window.addEventListener("resize", positionSwapButton);
-	if (typeof ResizeObserver === "function") {
-		const ro = new ResizeObserver(positionSwapButton);
-		ro.observe(pickerA.element.querySelector(".point-map"));
-		ro.observe(pickerB.element.querySelector(".point-map"));
-		ro.observe(swapCol);
-	}
-	if (document.fonts && document.fonts.ready) document.fonts.ready.then(positionSwapButton);
-	requestAnimationFrame(positionSwapButton);
 
 	function parseWaypoints() {
 		return waypointsInput.value.split(",").map(function(part) { return part.trim(); })
