@@ -498,9 +498,27 @@ button:active { transform: translateY(1px); }
 .graph-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; text-align: left; width: 100%; }
 .graph-title h3 { margin: 0; font-size: 17px; letter-spacing: 1px; color: var(--accent); }
 .graph-caption { margin: 0; font-size: 13px; color: var(--text-dim); text-align: right; }
-.graph-wrap { position: relative; height: min(60vh, 520px); overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background-color: rgba(130,90,40,0.1); box-shadow: inset 0 0 18px rgba(90,60,20,0.18); width: 100%; }
+.graph-wrap {
+	position: relative;
+	height: min(60vh, 520px);
+	overflow: hidden;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	background-color: rgba(130,90,40,0.1);
+	box-shadow: inset 0 0 18px rgba(90,60,20,0.18);
+	width: 100%;
+	contain: layout paint;
+}
 .graph-empty { margin: 40% 0 0; text-align: center; font-style: italic; color: var(--text-dim); }
-.graph-svg { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.graph-svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+	cursor: grab;
+	touch-action: none;
+	will-change: transform;
+	contain: layout paint;
+}
 .graph-svg.grabbing { cursor: grabbing; }
 .g-edge {
 	pointer-events: none;
@@ -722,5 +740,11 @@ button:active { transform: translateY(1px); }
 	.swap-btn { position: static; transform: none; flex-direction: row; opacity: 0.8; }
 	.swap-btn:active { transform: none; }
 	.colors-layout { flex-direction: column; }
-	.graph-wrap { height: 55vh; }
+	.graph-wrap { height: 60vh; }
+	.graph-toolbar { top: 8px; right: 8px; }
+	.graph-toolbar button { width: 28px; height: 28px; font-size: 14px; }
+	.graph-search { width: 110px; padding: 5px 8px; font-size: 13px; }
+	.graph-connect-toggle { font-size: 12px; padding: 5px 8px; bottom: 8px; right: 8px; }
+	.graph-connect-toggle input { width: 14px; height: 14px; }
+	.g-label { font-size: 7px; }
 }
