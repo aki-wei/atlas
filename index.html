@@ -12,34 +12,14 @@
 		<h1 class="site-title">АТЛАС CATWAR</h1>
 	</header>
 
-<div class="book-stage">
-	<div class="book">
-		<div class="tabs-left" id="tabsLeft"></div>
-		<div class="tabs-top" id="tabsTop"></div>
-		<div class="tabs-top-right" id="tabsTopRight"></div>
-		<div class="tabs-map-corner" id="tabsMapCorner"></div>
-		<div class="tabs-right" id="tabsRight"></div>
+	<div class="app">
+		<!-- Закладки слева: 7 штук, вертикальная колонка -->
+		<nav class="sidebar" id="sidebar"></nav>
 
-		<div class="pages">
-			<div class="page page-left" id="pageLeft">
-				<div class="page-head">
-					<h2 class="page-title">Добро пожаловать!</h2>
-					<p>Выберите вселенную и фракцию или посмотрите всю карту на закладке «Вся карта».</p>
-				</div>
-			</div>
-			<div class="page page-right" id="pageRight">
-				<p class="page-placeholder">Здесь появится карта раздела</p>
-			</div>
-
-			<button type="button" class="page-back" id="pageBack" title="Назад">
-				<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-					<path d="M15 4 7 12l8 8" fill="none" stroke="currentColor" stroke-width="2.6"
-						stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-			</button>
-		</div>
+		<!-- Основная область: заголовок раздела + вкладки Поиск пути / Проверка / Граф -->
+		<main class="content" id="content"></main>
 	</div>
-</div>
-<script src="script.js"></script>
+
+	<script src="script.js"></script>
 </body>
 </html>
