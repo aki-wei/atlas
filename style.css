@@ -328,6 +328,8 @@ button:active { transform: translateY(1px); }
 #map button.active, .point-map button.active, .graph-point-map button.active { background-color: var(--cell-active); }
 #map button.cell-deadend.active, .point-map button.cell-deadend.active { background-color: var(--deadend); }
 #map button.cell-self.active, .point-map button.cell-self.active { background-color: var(--self-loop); }
+.point-map button.cell-hidden.active { background-color: var(--hidden-cell); }
+.point-map button.cell-fast.active { background-color: var(--fast-cell); }
 .point-map button.cell-next.active { background-color: var(--path-color); }
 
 .map-clear {
@@ -795,7 +797,7 @@ button:active { transform: translateY(1px); }
 	.panel-section-title { font-size: 14px; }
 	.tool-panel { gap: 12px; }
 	.path-finder { gap: 12px; }
-	.points-row { flex-direction: column; align-items: flex-start; gap: 14px; }
+	.points-row { flex-direction: column; align-items: center; gap: 14px; }
 	.point-picker { width: 100%; }
 	.search-wrap { max-width: none; }
 	.search-panel input { padding: 11px 12px; font-size: 16px; } /* 16px — чтобы iOS не приближал страницу */
@@ -807,6 +809,18 @@ button:active { transform: translateY(1px); }
 	#findPathBtn { max-width: none; padding: 13px 0; font-size: 16px; }
 	#check { max-width: none; padding: 12px 0; }
 	.swap-btn { padding: 8px 12px; font-size: 14px; }
+
+	/* Центрируем карты, подписи и заголовки разделов */
+	.panel-section-title { text-align: center; }
+	.panel-column { align-items: center; }
+	.path-finder, .location-finder { align-items: center; }
+	.point-picker { align-items: center; text-align: center; }
+	.point-label, .point-name { text-align: center; }
+	.map-holder { margin-left: auto; margin-right: auto; }
+	.swap-row { justify-content: center; }
+	#result { justify-content: center; text-align: center; }
+	.path-message { text-align: center; }
+	.waypoints-block { margin: 0 auto; }
 
 	/* Найденный маршрут */
 	.path-route { width: 100%; margin-left: 0; padding: 8px 0; }
