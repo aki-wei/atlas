@@ -40,6 +40,103 @@ const groups = [
 	{ id: "settings", label: "Настройки", title: "Настройки", isSettings: true, svgIcon: ICON_GEAR }
 ];
 
+// Места жительства для настроек. group — вкладка, которая откроется по
+// умолчанию; area — id подгруппы в файле раздела (если она там уже есть),
+// для будущих карт можно просто дописать. Заголовок без группы-одиночки —
+// только подпись, выбираются пункты внутри
+const RESIDENCES = [
+	{ title: "Озёрная вселенная", group: "ov", items: [
+		{ key: "ov:all", label: "Озёрная вселенная: вся вселенная" },
+		{ label: "Одиночки ОВ", children: [
+			{ key: "ov:village", label: "Посёлок", area: "village" },
+			{ key: "ov:city", label: "Город", area: "city" }
+		] },
+		{ label: "Нейтры", children: [
+			{ key: "ov:mountains", label: "Горы", area: "neutral", idPrefix: "Горы" },
+			{ key: "ov:tunnels", label: "Туннели", area: "neutral", idPrefix: "Туннели" }
+		] },
+		{ key: "ov:thunder", label: "Грозовое племя", area: "thunder" },
+		{ key: "ov:river", label: "Речное племя", area: "river" },
+		{ key: "ov:wind", label: "Племя Ветра", area: "wind" },
+		{ key: "ov:shadow", label: "Племя Теней", area: "shadow" },
+		{ key: "ov:kpv", label: "Клан Падающей Воды", area: "kpv" },
+		{ key: "ov:sk", label: "Северный клан", area: "sk" },
+		{ key: "ov:home", label: "Домашние" }
+	] },
+	{ title: "Морская вселенная", group: "ov", items: [
+		{ key: "mv:all", label: "Морская вселенная: вся вселенная" },
+		{ key: "mv:loners", label: "Одиночки МВ" },
+		{ key: "mv:sun", label: "Племя Солнца" },
+		{ key: "mv:moon", label: "Племя Луны" },
+		{ key: "mv:sea", label: "Морское племя" }
+	] },
+	{ title: "Вселенная творцов", group: "vt", items: [
+		{ key: "vt:all", label: "Вселенная творцов: вся вселенная" },
+		{ key: "vt:loners", label: "Одиночки ВТ" },
+		{ key: "vt:mysteries", label: "Племя Неразгаданных Тайн" },
+		{ key: "vt:winged", label: "Крылатое племя" },
+		{ key: "vt:icerain", label: "Клан Ледяного Дождя" },
+		{ key: "vt:elves", label: "Эльфийские земли" },
+		{ key: "vt:blackwood", label: "Чернолесье" },
+		{ key: "vt:wreck", label: "Шайка Разбитого Корабля" },
+		{ key: "vt:muerte", label: "Санта-Муэрте" }
+	] },
+	{ title: "Звёздное племя", group: "zp", items: [{ key: "zp", label: "Звёздное племя" }], single: true },
+	{ title: "Сумрачный лес", group: "sl", items: [{ key: "sl", label: "Сумрачный лес" }], single: true },
+	{ title: "Душевая", group: "dush", items: [{ key: "dush", label: "Душевая" }], single: true }
+];
+function flatResidenceItems(items, out) {
+	out = out || [];
+	items.forEach(function(item) {
+		if (item.children) flatResidenceItems(item.children, out); else out.push(item);
+	});
+	return out;
+}
+function residenceByKey(key) {
+	for (let i = 0; i < RESIDENCES.length; i++) {
+		const flat = flatResidenceItems(RESIDENCES[i].items);
+		for (let j = 0; j < flat.length; j++) {
+			if (flat[j].key === key) return { block: RESIDENCES[i], item: flat[j] };
+		}
+	}
+	return null;
+}
+
+// Фильтр графа по месту жительства: если живёшь в Посёлке/Городе/Горах и т. п.,
+// на графе своей вкладки показывается только эта область карты
+function applyResidenceFilter(list, group) {
+	const none = { list: list, label: null };
+	const picked = (settings.residences || []).map(residenceByKey).filter(function(f) {
+		return f && f.block.group === group.id;
+	});
+	if (picked.length === 0) return none;
+	// если среди выбранного есть «вся вселенная» (пункт без области) — фильтра нет
+	if (picked.some(function(f) { return !f.item.area; })) return none;
+	const byArea = new Map();
+	const labels = [];
+	picked.forEach(function(f) {
+		const item = f.item;
+		const sub = (list.subgroups || []).find(function(x) { return x.id === item.area; });
+		if (!sub || !sub.ids || sub.ids.length === 0) return;
+		let ids = sub.ids.map(String);
+		if (item.idPrefix) ids = ids.filter(function(id) { return id.indexOf(item.idPrefix) === 0; });
+		if (ids.length === 0) return;
+		if (!byArea.has(sub.id)) byArea.set(sub.id, { sub: sub, ids: new Set() });
+		ids.forEach(function(id) { byArea.get(sub.id).ids.add(id); });
+		labels.push(item.label);
+	});
+	if (byArea.size === 0) return none;
+	const all = new Set();
+	byArea.forEach(function(v) { v.ids.forEach(function(id) { all.add(id); }); });
+	const out = list.filter(function(l) { return all.has(String(l.id)); });
+	if (out.length === 0) return none;
+	out.subgroups = [];
+	byArea.forEach(function(v) { out.subgroups.push(Object.assign({}, v.sub, { ids: Array.from(v.ids) })); });
+	out.parents = list.parents;
+	out.clans = list.clans;
+	return { list: out, label: labels.join(", ") };
+}
+
 const commonHints = { "С": "Сам в себя", "Т": "Тупик" };
 
 // ============================================================
@@ -102,6 +199,12 @@ function tagIcon(tag) {
 	if (tag.key === "custom") return tag.icon;
 	const def = LOCATION_TAGS[tag.key];
 	return def ? def.icon : undefined;
+}
+
+// у ботов обычно более проработанная (и часто просто более крупная в
+// оригинале) картинка, поэтому их иконку рядом с локацией показываем крупнее
+function tagIconClass(tag) {
+	return "loc-tag-icon" + (tag.key === "bot" ? " loc-tag-icon-bot" : "");
 }
 
 function tagLabel(tag) {
@@ -167,7 +270,7 @@ function renderDraftTagsColumn(holder, locationTags, deadendTags) {
 			const src = tagIcon(tag);
 			if (!src) return;
 			const icon = document.createElement("img");
-			icon.className = "loc-tag-icon";
+			icon.className = tagIconClass(tag);
 			icon.src = src;
 			icon.alt = "";
 			icon.title = tagLabel(tag);
@@ -181,7 +284,7 @@ function renderDraftTagsColumn(holder, locationTags, deadendTags) {
 				const src = tagIcon(tag);
 				if (!src) return;
 				const icon = document.createElement("img");
-				icon.className = "loc-tag-icon";
+				icon.className = tagIconClass(tag);
 				icon.src = src;
 				icon.alt = "";
 				const tagName = entry.name ? "«" + entry.name + "»" : "тупик";
@@ -205,7 +308,7 @@ function renderLocationTags(holder, location) {
 		const src = tagIcon(tag);
 		if (!src) return;
 		const icon = document.createElement("img");
-		icon.className = "loc-tag-icon";
+		icon.className = tagIconClass(tag);
 		icon.src = src;
 		icon.alt = "";
 		icon.title = tagLabel(tag);
@@ -233,9 +336,15 @@ function getTransitionType(transition) {
 	return "normal";
 }
 
-function getTransitionTitle(data, location, transition) {
+function getTransitionTitle(data, location, transition, cellIndex) {
 	if (typeof transition === "string") {
 		const normalized = normalizeAbbrev(transition);
+		// у тупика может быть своё имя (задаётся в черновике) — если оно
+		// есть, показываем его, и только если нет — просто «Тупик»
+		if (normalized === "Т" && location && location.deadends && cellIndex !== undefined) {
+			const info = location.deadends[String(cellIndex)];
+			if (info && info.name) return info.name;
+		}
 		const hints = hintsOf(data);
 		if (hints[normalized]) return hints[normalized];
 	}
@@ -270,8 +379,18 @@ function locationTagsMatch(location, trimmedQuery) {
 function findLocations(data, query) {
 	const trimmed = query.trim().toLowerCase();
 	if (!trimmed) return [];
+	// Поиск по названию подгруппы или её родителя («Нейтры», «Общие» и т. п.)
+	const groupIds = {};
+	(data.subgroups || []).forEach(function(sub) {
+		const parentName = sub.parent && data.parents ? data.parents[sub.parent] : "";
+		if (String(sub.name || "").toLowerCase().includes(trimmed) ||
+			String(parentName || "").toLowerCase().includes(trimmed)) {
+			(sub.ids || []).forEach(function(id) { groupIds[String(id)] = true; });
+		}
+	});
 	const direct = data.filter(function(location) {
-		return String(location.id).toLowerCase() === trimmed ||
+		return groupIds[String(location.id)] ||
+			String(location.id).toLowerCase() === trimmed ||
 			location.name.toLowerCase().includes(trimmed) ||
 			locationTagsMatch(location, trimmed);
 	});
@@ -294,7 +413,7 @@ function applyLocationInfo(cells, activeIndices, data, location) {
 		cell.classList.remove("cell-deadend", "cell-self");
 		cell.removeAttribute("title");
 		if (transition === undefined) return;
-		cell.title = getTransitionTitle(data, location, transition);
+		cell.title = getTransitionTitle(data, location, transition, cellIndex);
 		const type = getTransitionType(transition);
 		if (type === "deadend") cell.classList.add("cell-deadend");
 		else if (type === "self") cell.classList.add("cell-self");
@@ -504,7 +623,7 @@ function createRouteCard(data, location, nextId, tags) {
 		cell.tabIndex = -1;
 		cell.classList.add("active");
 		if (transition === undefined) return;
-		cell.title = getTransitionTitle(data, location, transition);
+		cell.title = getTransitionTitle(data, location, transition, index);
 		const type = getTransitionType(transition);
 		if (type === "deadend") cell.classList.add("cell-deadend");
 		else if (type === "self") cell.classList.add("cell-self");
@@ -932,7 +1051,7 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 			if (bit !== "1") return;
 			const transition = location.transitions[transitionIndex];
 			transitionIndex++;
-			if (transition !== undefined) cells[index].title = getTransitionTitle(data, location, transition);
+			if (transition !== undefined) cells[index].title = getTransitionTitle(data, location, transition, index);
 		});
 	}
 	function selectLocation(location, fromDraw) {
@@ -1069,7 +1188,9 @@ function loadSettings() {
 		theme: "light",
 		colors: Object.assign({}, DEFAULT_COLORS),
 		transitionSeconds: DEFAULT_TRANSITION_SECONDS,
-		homeland: "ov"
+		homeland: "ov",
+		residence: "ov:all",
+		residences: ["ov:all"]
 	};
 	try {
 		const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
@@ -1084,6 +1205,20 @@ function loadSettings() {
 			result.transitionSeconds = Math.round(saved.transitionSeconds);
 		}
 		if (typeof saved.homeland === "string") result.homeland = saved.homeland;
+		// Место жительства — конкретный пункт (племя и т. п.); если его нет
+		// (старые настройки), берём первый пункт той вкладки, что была выбрана
+		let keys = Array.isArray(saved.residences) ? saved.residences : [];
+		if (typeof saved.residence === "string") keys.push(saved.residence);
+		keys = keys.filter(function(k, i) { return typeof k === "string" && residenceByKey(k) && keys.indexOf(k) === i; });
+		if (keys.length === 0) {
+			const block = RESIDENCES.find(function(b) { return b.group === result.homeland; });
+			if (block) keys = [flatResidenceItems(block.items)[0].key];
+		}
+		if (keys.length > 0) {
+			result.residences = keys;
+			result.residence = (typeof saved.residence === "string" && keys.indexOf(saved.residence) >= 0) ? saved.residence : keys[keys.length - 1];
+			result.homeland = residenceByKey(result.residence).block.group;
+		}
 	} catch (error) {}
 	return result;
 }
@@ -1303,6 +1438,8 @@ function normalizeDraft(draft) {
 		if (!Array.isArray(node.props)) node.props = [];
 		if (!node.cells || typeof node.cells !== "object") node.cells = {};
 		node.locked = !!node.locked;
+		if (typeof node.idSuffix !== "string") node.idSuffix = "";
+		if (typeof node.idOverride !== "string") node.idOverride = "";
 		Object.keys(node.cells).forEach(function(key) {
 			const cell = node.cells[key];
 			if (!cell) return;
@@ -1325,11 +1462,47 @@ function loadDraft() {
 	return emptyDraft();
 }
 
-function draftExportId(node) {
-	return (node.name && node.name.trim()) ? node.name.trim() : node.id;
+function draftBaseId(node) {
+	return (node.name && node.name.trim()) ? node.name.trim() : String(node.id);
+}
+
+// Уникальные id для экспорта: Map «id узла черновика → id в файле».
+// Название может повторяться у разных локаций (например, «Валежник» у Реки и
+// у Теней) — тогда id получает уточнение «Название [Река]». Уточнение берётся
+// из поля idSuffix локации; если оно не задано, у второй и следующих локаций
+// с тем же названием подставляется номер «Название [2]». Локация с заданным
+// уточнением получает его всегда. idOverride — полный id, сохранённый при
+// импорте файла (например, «Туннели 22» для «Главный туннель Реки»)
+function draftExportIds(nodes) {
+	const result = new Map();
+	const taken = new Set();
+	function claim(node, candidate) {
+		let id = candidate, n = 2;
+		while (taken.has(id)) { id = candidate + " [" + n + "]"; n++; }
+		taken.add(id);
+		result.set(node.id, id);
+	}
+	const baseCount = new Map();
+	nodes.forEach(function(node) {
+		const base = draftBaseId(node);
+		baseCount.set(base, (baseCount.get(base) || 0) + 1);
+	});
+	// Сначала те, у кого id задан явно, — их id не должен «уехать» из-за соседей
+	nodes.forEach(function(node) {
+		const suffix = (node.idSuffix || "").trim();
+		if (node.idOverride && node.idOverride.trim() && !suffix) claim(node, node.idOverride.trim());
+		else if (suffix) claim(node, draftBaseId(node) + " [" + suffix + "]");
+	});
+	nodes.forEach(function(node) {
+		if (result.has(node.id)) return;
+		const base = draftBaseId(node);
+		claim(node, base);
+	});
+	return result;
 }
 
 function draftToRealLocations(nodes) {
+	const exportIds = draftExportIds(nodes);
 	return nodes.map(function(node) {
 		const cellIndices = Object.keys(node.cells).map(Number).sort(function(a, b) { return a - b; });
 		const codeArr = emptyDraftCode().split("");
@@ -1351,7 +1524,7 @@ function draftToRealLocations(nodes) {
 			else if (cell.type === "hollow") transitions.push("Дупло");
 			else if (cell.target) {
 				const targetNode = nodes.find(function(n) { return n.id === cell.target; });
-				transitions.push(targetNode ? draftExportId(targetNode) : "Т");
+				transitions.push(targetNode ? exportIds.get(targetNode.id) : "Т");
 				if (cell.type === "fast") cellTypes[index] = "fast";
 				else if (cell.type === "hidden") cellTypes[index] = "hidden";
 			} else if (cell.unknownName) {
@@ -1359,7 +1532,7 @@ function draftToRealLocations(nodes) {
 			} else transitions.push("Т");
 		});
 		const location = {
-			id: draftExportId(node),
+			id: exportIds.get(node.id),
 			name: node.name || "Без названия",
 			code: codeArr.join(""),
 			transitions: transitions
@@ -1381,9 +1554,24 @@ function realLocationsToDraftNodes(locations) {
 			cells: {},
 			locked: false
 		};
-		if (loc.id !== undefined && loc.id !== null) idMap[String(loc.id)] = node.id;
-		if (loc.name) idMap[loc.name] = node.id;
+		// Если id отличается от названия — сохраняем это, чтобы при экспорте
+		// id не потерялся: «Название [Река]» → уточнение «Река», иное → полный id
+		if (loc.id !== undefined && loc.id !== null && loc.name && String(loc.id) !== loc.name) {
+			const m = String(loc.id).match(/^(.*) \[([^\]]+)\]$/);
+			if (m && m[1] === loc.name.trim()) node.idSuffix = m[2];
+			else node.idOverride = String(loc.id);
+		}
 		return { source: loc, node: node, cellTypes: loc.cellTypes || {}, deadends: loc.deadends || {} };
+	});
+	// id локаций приоритетнее названий: при совпадении названия одной локации
+	// с id другой переход должен вести на локацию с этим id
+	items.forEach(function(item) {
+		const loc = item.source;
+		if (loc.id !== undefined && loc.id !== null) idMap[String(loc.id)] = item.node.id;
+	});
+	items.forEach(function(item) {
+		const loc = item.source;
+		if (loc.name && idMap[loc.name] === undefined) idMap[loc.name] = item.node.id;
 	});
 	items.forEach(function(item) {
 		const code = typeof item.source.code === "string" ? item.source.code : "";
@@ -1445,7 +1633,10 @@ function readPropertyIcon(file, callback) {
 	reader.onload = function() {
 		const img = new Image();
 		img.onload = function() {
-			const size = 48;
+			// 48 было мало: при увеличении показа (особенно у ботов, которых
+			// часто хочется показать покрупнее) картинка превращалась в кашу.
+			// 160 даёт запас по резкости, а вес PNG 160×160 всё ещё небольшой
+			const size = 160;
 			const canvas = document.createElement("canvas");
 			canvas.width = size; canvas.height = size;
 			const ctx = canvas.getContext("2d");
@@ -1733,6 +1924,13 @@ const NODE_W = GRID_W + FRAME_PAD * 2;
 const NODE_H = GRID_H + FRAME_PAD * 2;
 const LABEL_CLEARANCE = 16;
 const OVERLAP_MARGIN = 16;
+// Длиннее этого (в единицах графа) переход считается «длинным»: рисуется
+// бледно и без обхода областей, см. renderGraph
+const LONG_EDGE_LEN = 700;
+// Область «плотная», если переходов внутри неё больше стольки на локацию;
+// её переходы длиннее FAINT_EDGE_LEN рисуются бледно (класс faint)
+const DENSE_AREA_RATIO = 3;
+const FAINT_EDGE_LEN = 200;
 const ROUTE_VISIBLE_NODES = 4;
 
 const IS_TOUCH = (typeof window !== "undefined") && (
@@ -1836,10 +2034,58 @@ function compactLayout(pos, count) {
 		}
 		separateOverlapsOnce(pos, count, halfW, halfH);
 	}
+	// На больших плотных кластерах (вроде «Степей» — сотня локаций с решётчатыми
+	// связями) фиксированных 40 проходов не всегда хватает, чтобы убрать все
+	// наложения — продолжаем с запасом, пропорциональным числу локаций,
+	// но останавливаемся сразу, как только расталкивать больше нечего
 	const separateRounds = IS_TOUCH ? 20 : 40;
+	let stillOverlapping = false;
 	for (let round = 0; round < separateRounds; round++) {
-		if (!separateOverlapsOnce(pos, count, halfW, halfH)) break;
+		stillOverlapping = separateOverlapsOnce(pos, count, halfW, halfH);
+		if (!stillOverlapping) break;
 	}
+	// На больших плотных кластерах (сплошные решётчатые связи — например,
+	// «Степи», где у локации может быть под десяток соседей) парного
+	// расталкивания за разумное число проходов не хватает: часть наложений
+	// так и остаётся. Тогда гарантированно убираем все наложения разом,
+	// прижимая каждую локацию к ближайшей свободной ячейке сетки —
+	// для обычных некучных кластеров это не срабатывает и ничего не меняет
+	if (stillOverlapping) {
+		snapToGrid(pos, count, halfW * 2, halfH * 2);
+	}
+}
+
+// Гарантированно убирает все наложения: каждая локация переезжает в ближайшую
+// свободную ячейку регулярной сетки с шагом cellW×cellH (считаем от центра
+// наружу, чтобы расхождения с исходной раскладкой копились по краям,
+// а не в середине кластера)
+function snapToGrid(pos, count, cellW, cellH) {
+	const occupied = new Map();
+	const order = [];
+	for (let i = 0; i < count; i++) order.push(i);
+	order.sort(function(a, b) {
+		return (pos[a].x * pos[a].x + pos[a].y * pos[a].y) - (pos[b].x * pos[b].x + pos[b].y * pos[b].y);
+	});
+	order.forEach(function(i) {
+		let gx = Math.round(pos[i].x / cellW);
+		let gy = Math.round(pos[i].y / cellH);
+		let key = gx + "," + gy;
+		if (occupied.has(key)) {
+			let found = false;
+			for (let radius = 1; radius < 60 && !found; radius++) {
+				for (let dx = -radius; dx <= radius && !found; dx++) {
+					for (let dy = -radius; dy <= radius && !found; dy++) {
+						if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+						const key2 = (gx + dx) + "," + (gy + dy);
+						if (!occupied.has(key2)) { gx += dx; gy += dy; key = key2; found = true; }
+					}
+				}
+			}
+		}
+		occupied.set(key, true);
+		pos[i].x = gx * cellW;
+		pos[i].y = gy * cellH;
+	});
 }
 
 function activeCellIndices(location) {
@@ -1848,9 +2094,208 @@ function activeCellIndices(location) {
 	return indices;
 }
 
+// Раскладывает один кластер (целую вселенную без subgroups, либо одну
+// область вроде «Город») независимо — силы считаются ТОЛЬКО по рёбрам
+// внутри кластера, иначе соседние области перетягивают друг друга и
+// получается одна слипшаяся клякса вместо отдельных, но соединённых частей
+function layoutCluster(indices, edgesGlobal) {
+	const localIndexOf = new Map();
+	indices.forEach(function(globalIndex, localIndex) { localIndexOf.set(globalIndex, localIndex); });
+	const localEdges = [];
+	edgesGlobal.forEach(function(e) {
+		if (localIndexOf.has(e.a) && localIndexOf.has(e.b)) {
+			localEdges.push({ a: localIndexOf.get(e.a), b: localIndexOf.get(e.b) });
+		}
+	});
+	const n = indices.length;
+	const size = Math.sqrt(n) * 95;
+	const positions = n > 0 ? layoutGraph(n, localEdges, size) : [];
+	let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+	positions.forEach(function(p) {
+		minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+		minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+	});
+	if (n === 0) { minX = 0; maxX = 0; minY = 0; maxY = 0; }
+	return { positions: positions, w: maxX - minX, h: maxY - minY, minX: minX, minY: minY };
+}
+
+// Раскладка «по сторонам света» (areaLayout в файле раздела):
+// { center: "neutral", top: ["kpv"], left: ["city", "village"], bottom: ["river", "common", "wind"], right: [] }
+// Центральная область ставится первой, остальные — вокруг неё с нужной стороны.
+// Области одной стороны идут в порядке списка вдоль этой стороны. Каждая область
+// сдвигается вдоль стороны так, чтобы её переходы в уже стоящие области шли
+// почти по прямой (лимита на сдвиг нет), а при пересечении с другой областью
+// отодвигается дальше. Области, не названные в areaLayout, встают рядом снизу.
+// Возвращает новый groupOffsetX или null, если раскладку применить нельзя
+function placeAreasByCompass(clusters, spec, edgesGlobal, nodes, areas, groupOffsetX) {
+	const GAP = 75;
+	const byId = new Map();
+	clusters.forEach(function(c, i) { if (c.id) byId.set(c.id, i); });
+	if (!spec || !byId.has(spec.center)) return null;
+	const laidOf = new Map(); // индекс кластера → результат layoutCluster
+	const rects = [];         // { minX, maxX, minY, maxY, side, ci, ox, oy }
+	const placedGi = new Set();
+	const used = new Set();
+	function boxOf(laid, ox, oy) {
+		return {
+			minX: ox - NODE_W / 2, maxX: ox + laid.w + NODE_W / 2,
+			minY: oy - NODE_H / 2, maxY: oy + laid.h + NODE_H / 2 + LABEL_CLEARANCE
+		};
+	}
+	function overlaps(a, b) {
+		return a.minX - GAP < b.maxX && a.maxX + GAP > b.minX && a.minY - GAP < b.maxY && a.maxY + GAP > b.minY;
+	}
+	// Средний сдвиг по оси ("x" или "y"), при котором переходы области в уже
+	// стоящие области будут ровными; null, если таких переходов нет
+	function alignOffset(ci, laid, axis) {
+		const localIndexOf = new Map();
+		clusters[ci].indices.forEach(function(gi, li) { localIndexOf.set(gi, li); });
+		let sum = 0, count = 0;
+		edgesGlobal.forEach(function(e) {
+			const aIn = localIndexOf.has(e.a), bIn = localIndexOf.has(e.b);
+			if (aIn === bIn) return;
+			const inside = aIn ? e.a : e.b, outside = aIn ? e.b : e.a;
+			if (!placedGi.has(outside)) return;
+			const p = laid.positions[localIndexOf.get(inside)];
+			sum += nodes[outside][axis] - (axis === "x" ? p.x - laid.minX : p.y - laid.minY);
+			count++;
+		});
+		return count > 0 ? sum / count : null;
+	}
+	function place(ci, ox, oy) {
+		const laid = laidOf.get(ci);
+		laid.positions.forEach(function(p, li) {
+			const gi = clusters[ci].indices[li];
+			nodes[gi].x = p.x - laid.minX + ox;
+			nodes[gi].y = p.y - laid.minY + oy;
+			placedGi.add(gi);
+		});
+		return { ci: ci, ox: ox, oy: oy, box: boxOf(laid, ox, oy) };
+	}
+	// Центр
+	const cc = byId.get(spec.center);
+	laidOf.set(cc, layoutCluster(clusters[cc].indices, edgesGlobal));
+	used.add(cc);
+	const rectOf = new Map(); // индекс кластера → его прямоугольник из rects
+	const centerRect = place(cc, 0, 0);
+	rects.push(centerRect);
+	rectOf.set(cc, centerRect);
+	// Ставит область id с нужной стороны от области-якоря anchor (rect).
+	// prev — предыдущий сосед по той же стороне: при столкновении с ним
+	// идём дальше вдоль стороны, при столкновении с чужой — наружу
+	function placeBeside(id, side, anchor, prev) {
+		const ci = byId.get(id);
+		if (ci === undefined || used.has(ci)) return prev;
+		used.add(ci);
+		const baseLaid = layoutCluster(clusters[ci].indices, edgesGlobal);
+		const aw = laidOf.get(anchor.ci).w, ah = laidOf.get(anchor.ci).h;
+		const vertical = side === "left" || side === "right"; // стопка вдоль Y
+		// Пробуем четыре ориентации области (как есть, зеркало по X, по Y, по обеим)
+		// и берём ту, где её переходы в уже стоящие области выходят короче всего:
+		// так стыки смотрят на соседей, а не на дальнюю сторону
+		const localIdx = new Map();
+		clusters[ci].indices.forEach(function(gi, li) { localIdx.set(gi, li); });
+		let laid = null, along = 0, across = 0, bestCost = Infinity;
+		[[1, 1], [-1, 1], [1, -1], [-1, -1]].forEach(function(f) {
+			const cand = {
+				w: baseLaid.w, h: baseLaid.h, minX: baseLaid.minX, minY: baseLaid.minY,
+				positions: baseLaid.positions.map(function(p) {
+					return {
+						x: f[0] < 0 ? 2 * baseLaid.minX + baseLaid.w - p.x : p.x,
+						y: f[1] < 0 ? 2 * baseLaid.minY + baseLaid.h - p.y : p.y
+					};
+				})
+			};
+			const al = alignOffset(ci, cand, vertical ? "y" : "x");
+			const a0 = al !== null ? al : (vertical ? anchor.oy + (ah - cand.h) / 2 : anchor.ox + (aw - cand.w) / 2);
+			const c0 = side === "right" ? anchor.ox + aw + NODE_W + GAP
+				: side === "left" ? anchor.ox - cand.w - NODE_W - GAP
+				: side === "bottom" ? anchor.oy + ah + NODE_H + GAP + LABEL_CLEARANCE
+				: anchor.oy - cand.h - NODE_H - GAP - LABEL_CLEARANCE;
+			const ox = vertical ? c0 : a0, oy = vertical ? a0 : c0;
+			let cost = 0;
+			edgesGlobal.forEach(function(e) {
+				const aIn = localIdx.has(e.a), bIn = localIdx.has(e.b);
+				if (aIn === bIn) return;
+				const inside = aIn ? e.a : e.b, outside = aIn ? e.b : e.a;
+				if (!placedGi.has(outside)) return;
+				const p = cand.positions[localIdx.get(inside)];
+				cost += Math.hypot(p.x - cand.minX + ox - nodes[outside].x, p.y - cand.minY + oy - nodes[outside].y);
+			});
+			if (cost < bestCost) { bestCost = cost; laid = cand; along = a0; across = c0; }
+		});
+		laidOf.set(ci, laid);
+		for (let guard = 0; guard < 60; guard++) {
+			const ox = vertical ? across : along, oy = vertical ? along : across;
+			const box = boxOf(laid, ox, oy);
+			const hit = rects.find(function(r) { return overlaps(box, r.box); });
+			if (!hit) break;
+			if (prev && hit === prev) {
+				along = (vertical ? hit.box.maxY : hit.box.maxX) + GAP + (vertical ? NODE_H : NODE_W) / 2;
+			} else if (side === "right") across = hit.box.maxX + GAP + NODE_W / 2;
+			else if (side === "left") across = hit.box.minX - GAP - laid.w - NODE_W / 2;
+			else if (side === "bottom") across = hit.box.maxY + GAP + NODE_H / 2;
+			else across = hit.box.minY - GAP - laid.h - NODE_H / 2 - LABEL_CLEARANCE;
+		}
+		const r = place(ci, vertical ? across : along, vertical ? along : across);
+		rects.push(r);
+		rectOf.set(ci, r);
+		return r;
+	}
+	// Стороны центра: у right/left стопка идёт сверху вниз, у top/bottom — слева направо
+	["right", "left", "bottom", "top"].forEach(function(side) {
+		let prev = null;
+		(Array.isArray(spec[side]) ? spec[side] : []).forEach(function(id) {
+			prev = placeBeside(id, side, centerRect, prev);
+		});
+	});
+	// attach: [{ id, side, of }] — область id с стороны side от уже поставленной
+	// области of (не обязательно центральной), по порядку списка. Нужно, когда
+	// область теснее связана с соседкой по кольцу, чем с центром
+	(Array.isArray(spec.attach) ? spec.attach : []).forEach(function(a) {
+		const anchorIdx = a && byId.get(a.of);
+		const anchor = anchorIdx !== undefined && anchorIdx !== false ? rectOf.get(anchorIdx) : null;
+		if (anchor) placeBeside(a.id, a.side, anchor, null);
+	});
+	// Всё, что не названо в areaLayout, — рядом снизу, слева направо
+	let restX = null, restY = 0;
+	rects.forEach(function(r) { restY = Math.max(restY, r.box.maxY); });
+	restY += GAP + NODE_H / 2;
+	rects.forEach(function(r) { restX = restX === null ? r.box.minX + NODE_W / 2 : Math.min(restX, r.box.minX + NODE_W / 2); });
+	clusters.forEach(function(c, ci) {
+		if (used.has(ci)) return;
+		used.add(ci);
+		const laid = layoutCluster(c.indices, edgesGlobal);
+		laidOf.set(ci, laid);
+		rects.push(place(ci, restX, restY));
+		restX += laid.w + NODE_W + GAP;
+	});
+	// Сдвигаем всё так, чтобы левый верхний угол был в (groupOffsetX, 0)
+	let minX = Infinity, minY = Infinity, maxX = -Infinity;
+	rects.forEach(function(r) {
+		minX = Math.min(minX, r.box.minX + NODE_W / 2); minY = Math.min(minY, r.box.minY + NODE_H / 2);
+		maxX = Math.max(maxX, r.box.maxX - NODE_W / 2);
+	});
+	const shiftX = groupOffsetX - minX, shiftY = -minY;
+	clusters.forEach(function(c) {
+		c.indices.forEach(function(gi) { nodes[gi].x += shiftX; nodes[gi].y += shiftY; });
+	});
+	rects.forEach(function(r) {
+		const c = clusters[r.ci];
+		if (!c.name) return;
+		areas.push({
+			name: c.name, color: c.color, parentName: c.parentName, indices: c.indices.slice(),
+			minX: r.box.minX + shiftX, maxX: r.box.maxX + shiftX,
+			minY: r.box.minY + shiftY, maxY: r.box.maxY + shiftY
+		});
+	});
+	return groupOffsetX + (maxX - minX) + 220;
+}
+
 function buildMapModel(entries) {
 	const nodes = [], edges = [];
-	let offsetX = 0;
+	const areas = [];
+	let groupOffsetX = 0;
 	entries.forEach(function(entry) {
 		const list = entry.list;
 		const first = nodes.length;
@@ -1877,7 +2322,10 @@ function buildMapModel(entries) {
 				if (!directed.has(key)) directed.set(key, cellIndices[transitionIndex]);
 			});
 		});
-		const localEdges = [];
+		// Рёбра — глобальными индексами узлов (в пределах всего nodes[]), а не
+		// локальными индексами entry: так связи между РАЗНЫМИ областями
+		// (например, мост между Городом и Посёлком) всё равно построятся
+		const entryEdgesGlobal = [];
 		directed.forEach(function(fromCell, pair) {
 			const parts = pair.split(">");
 			const a = Number(parts[0]);
@@ -1887,23 +2335,219 @@ function buildMapModel(entries) {
 			if (both && a > b) return;
 			const edgeIndex = edges.length;
 			edges.push({ a: a, b: b, both: both, fromCell: fromCell, toCell: both ? directed.get(reverseKey) : undefined });
-			localEdges.push({ a: a - first, b: b - first, fromCell: fromCell });
+			entryEdgesGlobal.push({ a: a, b: b });
 			nodes[a].neighbors.push(b);
 			nodes[b].neighbors.push(a);
 			nodes[a].edgeIndices.push(edgeIndex);
 			nodes[b].edgeIndices.push(edgeIndex);
 		});
-		const size = Math.sqrt(list.length) * 95;
-		const positions = layoutGraph(list.length, localEdges, size);
-		let minX = Infinity, maxX = -Infinity, minY = Infinity;
-		positions.forEach(function(p) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); });
-		positions.forEach(function(p, i) {
-			nodes[first + i].x = p.x - minX + offsetX;
-			nodes[first + i].y = p.y - minY;
+
+		// Делим список на кластеры по subgroups (области вроде «Горы»,
+		// «Город», «Посёлок»), если они заданы в файле; локации, не попавшие
+		// ни в одну область, собираются в один безымянный «остаток»
+		const subgroups = (list.subgroups && list.subgroups.length > 0) ? list.subgroups : null;
+		let clusters;
+		if (subgroups) {
+			const assigned = new Set();
+			clusters = subgroups.map(function(sub) {
+				const indices = [];
+				(sub.ids || []).forEach(function(locId) {
+					const gi = indexById.get(String(locId));
+					if (gi !== undefined && !assigned.has(gi)) { assigned.add(gi); indices.push(gi); }
+				});
+				return { id: sub.id, name: sub.name, color: sub.color || null,
+					parentName: (sub.parent && list.parents) ? (list.parents[sub.parent] || null) : null, indices: indices };
+			}).filter(function(c) { return c.indices.length > 0; });
+			const rest = [];
+			list.forEach(function(location) {
+				const gi = indexById.get(String(location.id));
+				if (!assigned.has(gi)) rest.push(gi);
+			});
+			if (rest.length > 0) clusters.push({ id: null, name: null, indices: rest });
+		} else {
+			clusters = [{ id: null, name: null, indices: list.map(function(_, i) { return first + i; }) }];
+		}
+		// Порядок областей — не просто «крупные вперёд», а с учётом того, какие
+		// области связаны переходами друг с другом: иначе соседние в раскладке
+		// области могут оказаться вообще не связаны, а связанные — наоборот,
+		// разъехаться в разные концы карты, и линиям между ними приходится
+		// тянуться через чужие области по пути (как Посёлок через Туннели
+		// к Горному озеру).
+		//
+		// Если у области (Горы, в нашем примере) несколько соседей сразу
+		// (Туннели, Посёлок, Город — и между собой эти трое не связаны),
+		// в одну строку их всех рядом с Горами всё равно не поставить —
+		// порядок из одного ряда это принципиально не разрулит. На такой
+		// случай list.areaOrder — явный список id областей из файла раздела
+		// — просто побеждает автоподбор; области, не названные в нём,
+		// дописываются в конец в исходном порядке
+		// Раскладка по сторонам света (areaLayout) побеждает areaRows/areaOrder
+		if (list.areaLayout) {
+			const newOffset = placeAreasByCompass(clusters, list.areaLayout, entryEdgesGlobal, nodes, areas, groupOffsetX);
+			if (newOffset !== null) { groupOffsetX = newOffset; return; }
+		}
+		let orderedIdx;
+		// Перед каким порядковым местом в orderedIdx обязателен перенос строки
+		// (не по ширине, а потому что так явно задано в areaRows)
+		const forcedRowBreaks = new Set();
+		if (Array.isArray(list.areaRows) && list.areaRows.length > 0) {
+			const byId = new Map();
+			clusters.forEach(function(c, i) { if (c.id) byId.set(c.id, i); });
+			const used = new Set();
+			orderedIdx = [];
+			list.areaRows.forEach(function(row) {
+				if (orderedIdx.length > 0) forcedRowBreaks.add(orderedIdx.length);
+				(row || []).forEach(function(id) {
+					const i = byId.get(id);
+					if (i !== undefined && !used.has(i)) { orderedIdx.push(i); used.add(i); }
+				});
+			});
+			clusters.forEach(function(c, i) { if (!used.has(i)) orderedIdx.push(i); });
+		} else if (Array.isArray(list.areaOrder) && list.areaOrder.length > 0) {
+			const byId = new Map();
+			clusters.forEach(function(c, i) { if (c.id) byId.set(c.id, i); });
+			const used = new Set();
+			orderedIdx = [];
+			list.areaOrder.forEach(function(id) {
+				const i = byId.get(id);
+				if (i !== undefined && !used.has(i)) { orderedIdx.push(i); used.add(i); }
+			});
+			clusters.forEach(function(c, i) { if (!used.has(i)) orderedIdx.push(i); });
+		} else {
+			// Автоподбор: сначала считаем, сколько переходов связывает
+			// каждую пару областей...
+			const areaOfNode = new Map();
+			clusters.forEach(function(cluster, ci) {
+				cluster.indices.forEach(function(gi) { areaOfNode.set(gi, ci); });
+			});
+			const linkWeight = clusters.map(function() { return new Float64Array(clusters.length); });
+			entryEdgesGlobal.forEach(function(e) {
+				const ca = areaOfNode.get(e.a);
+				const cb = areaOfNode.get(e.b);
+				if (ca !== undefined && cb !== undefined && ca !== cb) {
+					linkWeight[ca][cb] += 1;
+					linkWeight[cb][ca] += 1;
+				}
+			});
+			// ...затем жадно (ХАХАХАХ) строим порядок: начинаем с самой крупной области,
+			// а дальше каждый раз добавляем ту из оставшихся, что сильнее всего
+			// связана с уже расставленными — тогда сильно связанные области
+			// почти всегда оказываются по соседству в строке
+			const byIndex = clusters.map(function(c, i) { return i; });
+			byIndex.sort(function(a, b) { return clusters[b].indices.length - clusters[a].indices.length; });
+			const placedSet = new Set();
+			orderedIdx = [];
+			if (byIndex.length > 0) {
+				orderedIdx.push(byIndex[0]);
+				placedSet.add(byIndex[0]);
+			}
+			while (orderedIdx.length < byIndex.length) {
+				let bestI = -1, bestScore = -1, bestSize = -1;
+				byIndex.forEach(function(ci) {
+					if (placedSet.has(ci)) return;
+					let score = 0;
+					placedSet.forEach(function(pi) { score += linkWeight[ci][pi]; });
+					if (score > bestScore || (score === bestScore && clusters[ci].indices.length > bestSize)) {
+						bestScore = score; bestI = ci; bestSize = clusters[ci].indices.length;
+					}
+				});
+				orderedIdx.push(bestI);
+				placedSet.add(bestI);
+			}
+		}
+		clusters = orderedIdx.map(function(ci) { return clusters[ci]; });
+
+		// Укладываем кластеры в строки слева направо с переносом (как текст),
+		// так что ни один прямоугольник-область не пересекается с соседним
+		const CLUSTER_GAP = 75;
+		const maxRowWidth = Math.max(1000, Math.sqrt(list.length) * 230);
+		let rowX = 0, rowY = 0, rowMaxH = 0, entryMaxX = 0, entryMaxY = 0, rowStartIdx = 0;
+		// Все уже расставленные (глобальные) индексы узлов — чтобы при подгонке
+		// следующей области не ссылаться на узлы, которые ещё не получили
+		// координаты (они пока 0,0, это не настоящая позиция)
+		const placedGi = new Set();
+		clusters.forEach(function(cluster, ci) {
+			const laid = layoutCluster(cluster.indices, entryEdgesGlobal);
+			const isNewRow = rowX > 0 && (forcedRowBreaks.has(ci) || rowX + laid.w > maxRowWidth);
+			if (isNewRow) {
+				rowX = 0;
+				rowY += rowMaxH + CLUSTER_GAP;
+				rowMaxH = 0;
+				rowStartIdx = ci;
+			}
+
+			// Подгонка под уже расставленных соседей — не просто общая линия
+			// (rowY у всех в строке одна и та же, rowX просто через зазор),
+			// а сдвиг именно под те локации, что соединены переходом с уже
+			// размещённой областью: тогда соединяющая линия идёт почти прямо,
+			// а не наискось через чужие области по пути.
+			// Для соседей в той же строке (не первая область строки) двигаем
+			// по Y — они и так уже друг с другом по горизонтали через зазор.
+			// Для первой области НОВОЙ строки двигаем по X — она и так уже
+			// ниже предыдущей строки, выравнивать нужно по горизонтали
+			let extraDx = 0, extraDy = 0;
+			if (ci > 0) {
+				const localIndexOf = new Map();
+				cluster.indices.forEach(function(gi, li) { localIndexOf.set(gi, li); });
+				let sum = 0, count = 0;
+				entryEdgesGlobal.forEach(function(e) {
+					const aIn = localIndexOf.has(e.a);
+					const bIn = localIndexOf.has(e.b);
+					if (aIn === bIn) return; // оба внутри области или оба снаружи — не граница
+					const insideGi = aIn ? e.a : e.b;
+					const outsideGi = aIn ? e.b : e.a;
+					if (!placedGi.has(outsideGi)) return;
+					const li = localIndexOf.get(insideGi);
+					if (ci === rowStartIdx) {
+						const localX = laid.positions[li].x - laid.minX;
+						sum += nodes[outsideGi].x - groupOffsetX - localX;
+					} else {
+						const localY = laid.positions[li].y - laid.minY;
+						sum += nodes[outsideGi].y - rowY - localY;
+					}
+					count++;
+				});
+				if (count > 0) {
+					const avg = sum / count;
+					// не даём подгонке увести область дальше её же размера —
+					// это просто подстройка внутри уже выбранной раскладки
+					// по строкам/столбцам, а не замена её на что-то другое
+					if (ci === rowStartIdx) {
+						extraDx = Math.max(-laid.w, Math.min(laid.w, avg));
+					} else {
+						extraDy = Math.max(-laid.h, Math.min(laid.h, avg));
+					}
+				}
+			}
+
+			laid.positions.forEach(function(p, li) {
+				const gi = cluster.indices[li];
+				nodes[gi].x = p.x - laid.minX + rowX + groupOffsetX + extraDx;
+				nodes[gi].y = p.y - laid.minY + rowY + extraDy;
+				placedGi.add(gi);
+			});
+			if (cluster.name) {
+				// Рамка области (с запасом по краям) — используется, чтобы линии
+				// переходов между ДРУГИМИ областями не проходили прямо по ней
+				areas.push({
+					name: cluster.name,
+					color: cluster.color,
+					parentName: cluster.parentName,
+					indices: cluster.indices.slice(),
+					minX: rowX + groupOffsetX + extraDx - NODE_W / 2,
+					maxX: rowX + groupOffsetX + extraDx + laid.w + NODE_W / 2,
+					minY: rowY + extraDy - NODE_H / 2,
+					maxY: rowY + extraDy + laid.h + NODE_H / 2 + LABEL_CLEARANCE
+				});
+			}
+			entryMaxX = Math.max(entryMaxX, rowX + groupOffsetX + extraDx + laid.w);
+			entryMaxY = Math.max(entryMaxY, rowY + extraDy + laid.h);
+			rowX += extraDx + laid.w + CLUSTER_GAP;
+			rowMaxH = Math.max(rowMaxH, laid.h + Math.max(0, extraDy));
 		});
-		offsetX += (maxX - minX) + 140;
+		groupOffsetX = entryMaxX + 220;
 	});
-	return { nodes: nodes, edges: edges };
+	return { nodes: nodes, edges: edges, areas: areas };
 }
 
 function cellPaths(location) {
@@ -1945,6 +2589,60 @@ function boundaryPoint(from, to) {
 	return { x: to.x + dx * t, y: to.y + dy * t };
 }
 
+// Пересекает ли отрезок p1→p2 прямоугольник rect (с запасом pad)? Обычный
+// отсекающий тест (вариант Лиана—Барски): сводим отрезок к параметру t∈[0,1]
+// и проверяем, остаётся ли допустимый диапазон непустым
+function segmentHitsRect(p1, p2, rect, pad) {
+	const left = rect.minX - pad, right = rect.maxX + pad;
+	const top = rect.minY - pad, bottom = rect.maxY + pad;
+	const dx = p2.x - p1.x, dy = p2.y - p1.y;
+	let t0 = 0, t1 = 1;
+	const checks = [[-dx, p1.x - left], [dx, right - p1.x], [-dy, p1.y - top], [dy, bottom - p1.y]];
+	for (let i = 0; i < checks.length; i++) {
+		const p = checks[i][0], q = checks[i][1];
+		if (p === 0) {
+			if (q < 0) return false;
+		} else {
+			const r = q / p;
+			if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+			else { if (r < t0) return false; if (r < t1) t1 = r; }
+		}
+	}
+	return t0 < t1 - 1e-6;
+}
+
+// Путь перехода между p1 и p2: если он по прямой проходит через ЧУЖУЮ область
+// (не ту, которой принадлежит сам переход), огибаем её — выходим за её
+// рамку сверху/снизу или слева/справа (смотря что короче) одним изгибом.
+// skipAreas — области обоих концов перехода, их не огибаем
+function routeAroundAreas(p1, p2, areas, skipAreas) {
+	let blocker = null;
+	for (let i = 0; i < areas.length; i++) {
+		const area = areas[i];
+		if (skipAreas.indexOf(area) >= 0) continue;
+		if (segmentHitsRect(p1, p2, area, 20)) { blocker = area; break; }
+	}
+	if (!blocker) return [p1, p2];
+	const margin = 36;
+	const dx = p2.x - p1.x, dy = p2.y - p1.y;
+	if (Math.abs(dx) >= Math.abs(dy)) {
+		// переход в основном горизонтальный — огибаем область сверху или снизу
+		const aboveY = blocker.minY - margin, belowY = blocker.maxY + margin;
+		const midX = (blocker.minX + blocker.maxX) / 2;
+		const t = (midX - p1.x) / (dx || 1e-6);
+		const lineY = p1.y + dy * t;
+		const y = Math.abs(lineY - aboveY) <= Math.abs(lineY - belowY) ? aboveY : belowY;
+		return [p1, { x: blocker.minX - margin, y: y }, { x: blocker.maxX + margin, y: y }, p2];
+	}
+	// переход в основном вертикальный — огибаем область слева или справа
+	const leftX = blocker.minX - margin, rightX = blocker.maxX + margin;
+	const midY = (blocker.minY + blocker.maxY) / 2;
+	const t = (midY - p1.y) / (dy || 1e-6);
+	const lineX = p1.x + dx * t;
+	const x = Math.abs(lineX - leftX) <= Math.abs(lineX - rightX) ? leftX : rightX;
+	return [p1, { x: x, y: blocker.minY - margin }, { x: x, y: blocker.maxY + margin }, p2];
+}
+
 const GRAPH_CONNECT_KEY = "atlas.graph.connect";
 function loadGraphConnect() {
 	try { return localStorage.getItem(GRAPH_CONNECT_KEY) !== "0"; } catch (e) { return true; }
@@ -1974,6 +2672,7 @@ function renderGraph(wrap, entries, routeIds) {
 	const model = buildMapModel(entries);
 	const nodes = model.nodes;
 	const edges = model.edges;
+	const areas = model.areas;
 	const tip = wrap.querySelector(".graph-tip");
 	const card = wrap.querySelector(".graph-card");
 	const searchInput = wrap.querySelector(".graph-search");
@@ -1990,19 +2689,59 @@ function renderGraph(wrap, entries, routeIds) {
 	pattern.appendChild(svgEl("rect", { width: CELL_W, height: CELL_H, "class": "g-cell-empty" }));
 	defs.appendChild(pattern);
 	svg.appendChild(defs);
+	const frameLayer = svgEl("g");
+	svg.appendChild(frameLayer);
+	areas.forEach(function(area) {
+		const c = area.color || "#888";
+		frameLayer.appendChild(svgEl("rect", {
+			"class": "g-area-frame", x: area.minX - 8, y: area.minY - 22,
+			width: area.maxX - area.minX + 16, height: area.maxY - area.minY + 30, rx: 10,
+			stroke: c, fill: c
+		}));
+		const label = svgEl("text", { "class": "g-area-label", x: area.minX, y: area.minY - 8, fill: c });
+		label.textContent = area.name;
+		frameLayer.appendChild(label);
+	});
 	const nodeLayer = svgEl("g");
 	const edgeTopLayer = svgEl("g");
 	svg.appendChild(nodeLayer);
 	svg.appendChild(edgeTopLayer);
 
+	// Своя область каждого узла (если есть) — переход не огибает область,
+	// которой принадлежит сам (иначе переход внутри своей же области
+	// огибал бы сам себя)
+	const nodeAreas = new Map();
+	areas.forEach(function(area) {
+		area.indices.forEach(function(gi) { nodeAreas.set(gi, area); });
+	});
+
+	// Плотные области (много переходов на локацию, как Степи ЗП: ~4.6) —
+	// длинные переходы внутри них рисуем бледно, иначе сплошная сетка линий.
+	// При наведении на локацию они проявляются, как обычные
+	const areaEdgeCount = new Map();
+	edges.forEach(function(edge) {
+		const area = nodeAreas.get(edge.a);
+		if (area && area === nodeAreas.get(edge.b)) areaEdgeCount.set(area, (areaEdgeCount.get(area) || 0) + 1);
+	});
 	const edgeEls = edges.map(function(edge) {
 		const from = nodes[edge.a];
 		const to = nodes[edge.b];
 		const fromPt = cellGlobalPoint(from, edge.fromCell);
 		const toPt = edge.both ? cellGlobalPoint(to, edge.toCell) : boundaryPoint(from, to);
+		const skipAreas = [nodeAreas.get(edge.a), nodeAreas.get(edge.b)];
+		// Очень длинные переходы (через пол-графа) не огибаем зигзагом — рисуем
+		// прямой бледной пунктирной линией (класс long), при наведении на узел
+		// она проявляется. Порог — LONG_EDGE_LEN; обычные рёбра ~50–300
+		const isLong = Math.hypot(toPt.x - fromPt.x, toPt.y - fromPt.y) > LONG_EDGE_LEN;
+		const ownArea = nodeAreas.get(edge.a);
+		const isFaint = !isLong && ownArea && ownArea === nodeAreas.get(edge.b) &&
+			(areaEdgeCount.get(ownArea) || 0) / Math.max(1, ownArea.indices.length) > DENSE_AREA_RATIO &&
+			Math.hypot(toPt.x - fromPt.x, toPt.y - fromPt.y) > FAINT_EDGE_LEN;
+		const points = isLong ? [fromPt, toPt] : routeAroundAreas(fromPt, toPt, areas, skipAreas);
+		const d = points.map(function(p, i) { return (i === 0 ? "M" : "L") + p.x + "," + p.y; }).join(" ");
 		const line = svgEl("path", {
-			"class": "g-edge" + (edge.both ? "" : " one"),
-			fill: "none", d: "M" + fromPt.x + "," + fromPt.y + " L" + toPt.x + "," + toPt.y
+			"class": "g-edge" + (edge.both ? "" : " one") + (isLong ? " long" : "") + (isFaint ? " faint" : ""),
+			fill: "none", d: d
 		});
 		edgeTopLayer.appendChild(line);
 		return { outer: line, inner: line };
@@ -2039,7 +2778,7 @@ function renderGraph(wrap, entries, routeIds) {
 		if (transitionIndex < 0) return null;
 		const transition = node.location.transitions[transitionIndex];
 		if (transition === undefined) return null;
-		return getTransitionTitle(node.list, node.location, transition);
+		return getTransitionTitle(node.list, node.location, transition, cellIndex);
 	}
 	function updateTip(node, e) {
 		tip.textContent = cellHintAt(node, clientToGraphPoint(e)) || node.location.name;
@@ -2054,6 +2793,21 @@ function renderGraph(wrap, entries, routeIds) {
 		const group = svgEl("g", { "class": "g-node", transform: "translate(" + (node.x - NODE_W / 2) + "," + (node.y - NODE_H / 2) + ")" });
 		group.appendChild(svgEl("rect", { "class": "g-frame", width: NODE_W, height: NODE_H, rx: 2.5, stroke: node.color, "stroke-width": 1.6 }));
 		group.appendChild(svgEl("rect", { x: FRAME_PAD, y: FRAME_PAD, width: GRID_W, height: GRID_H, fill: "url(#graph-cells)" }));
+		const borderIds = node.location.borders;
+		const clanDefs = node.list.clans;
+		if (borderIds && borderIds.length > 0 && clanDefs) {
+			const DASH = 7;
+			borderIds.forEach(function(clanId, bi) {
+				const clan = clanDefs[clanId];
+				if (!clan) return;
+				group.appendChild(svgEl("rect", {
+					"class": "g-border", x: -3.5, y: -3.5, width: NODE_W + 7, height: NODE_H + 7, rx: 4,
+					stroke: clan.color,
+					"stroke-dasharray": DASH + " " + (DASH * (borderIds.length - 1)),
+					"stroke-dashoffset": -bi * DASH
+				}));
+			});
+		}
 		const paths = cellPaths(node.location);
 		Object.keys(paths).forEach(function(type) {
 			if (paths[type]) group.appendChild(svgEl("path", { d: paths[type], "class": "c-" + type }));
@@ -2305,6 +3059,33 @@ function renderGraph(wrap, entries, routeIds) {
 	wrap.querySelector(".graph-zoom-out").addEventListener("click", function() { zoomFromCenter(1.4); });
 	wrap.querySelector(".graph-fit").addEventListener("click", fitView);
 
+	// Подсветить узлы области на пару секунд и показать её целиком —
+	// как при наведении на обычную локацию, только сразу для всей группы
+	function locateArea(area) {
+		closeCard();
+		fitToNodes(area.indices);
+		svg.classList.add("dim");
+		lit.forEach(function(element) { element.classList.remove("hl"); });
+		lit = area.indices.map(function(index) { return nodeEls[index]; });
+		lit.forEach(function(element) { element.classList.add("hl"); });
+		clearTimeout(locateArea.timer);
+		locateArea.timer = setTimeout(clearHighlight, 2200);
+	}
+	function findMatchingAreas(trimmed) {
+		const found = areas.filter(function(area) { return area.name.toLowerCase().includes(trimmed); });
+		const parentNames = [];
+		areas.forEach(function(area) {
+			if (area.parentName && area.parentName.toLowerCase().includes(trimmed) && parentNames.indexOf(area.parentName) < 0) parentNames.push(area.parentName);
+		});
+		parentNames.forEach(function(pn) {
+			const members = areas.filter(function(a) { return a.parentName === pn; });
+			if (found.some(function(a) { return a.name === pn; })) return;
+			const indices = [];
+			members.forEach(function(a) { a.indices.forEach(function(i) { indices.push(i); }); });
+			found.unshift({ name: pn, indices: indices });
+		});
+		return found;
+	}
 	function findMatchingNodes(query) {
 		const trimmed = query.trim().toLowerCase();
 		if (!trimmed) return [];
@@ -2317,14 +3098,28 @@ function renderGraph(wrap, entries, routeIds) {
 	}
 	function runSearch() {
 		const query = searchInput.value;
+		const trimmed = query.trim().toLowerCase();
 		searchResults.innerHTML = "";
 		searchInput.classList.remove("not-found");
-		if (!query.trim()) return;
+		if (!trimmed) return;
+		const matchedAreas = findMatchingAreas(trimmed);
 		const matches = findMatchingNodes(query);
-		if (matches.length === 0) {
+		if (matchedAreas.length === 0 && matches.length === 0) {
 			searchResults.innerHTML = '<p class="search-empty">Локация не найдена</p>';
 			return;
 		}
+		matchedAreas.forEach(function(area) {
+			const optionButton = document.createElement("button");
+			optionButton.type = "button";
+			optionButton.className = "search-option search-option-area";
+			optionButton.textContent = area.name + ", " + area.indices.length + " лок.";
+			optionButton.addEventListener("click", function() {
+				searchResults.innerHTML = "";
+				searchInput.value = area.name;
+				locateArea(area);
+			});
+			searchResults.appendChild(optionButton);
+		});
 		matches.forEach(function(index) {
 			const node = nodes[index];
 			const optionButton = document.createElement("button");
@@ -2342,9 +3137,15 @@ function renderGraph(wrap, entries, routeIds) {
 	searchInput.addEventListener("input", runSearch);
 	searchInput.addEventListener("keydown", function(e) {
 		if (e.key !== "Enter") return;
+		const trimmed = searchInput.value.trim().toLowerCase();
+		const matchedAreas = findMatchingAreas(trimmed);
 		const matches = findMatchingNodes(searchInput.value);
-		searchInput.classList.toggle("not-found", matches.length === 0);
-		if (matches.length > 0) {
+		searchInput.classList.toggle("not-found", matchedAreas.length === 0 && matches.length === 0);
+		if (matchedAreas.length > 0) {
+			searchResults.innerHTML = "";
+			searchInput.value = matchedAreas[0].name;
+			locateArea(matchedAreas[0]);
+		} else if (matches.length > 0) {
 			searchResults.innerHTML = "";
 			searchInput.value = nodes[matches[0]].location.name;
 			locateNode(matches[0]);
@@ -2384,14 +3185,50 @@ function withHints(list, section) {
 	list.hints = Object.assign({}, commonHints, section.hints || {});
 	return list;
 }
+// Файл раздела бывает либо старым простым массивом локаций, либо новым
+// объектом { subgroups, locations } — subgroups нужен графу, чтобы не
+// перемешивать области (Город, Горы и т. п.) между собой при раскладке
+function unwrapSectionData(data) {
+	if (Array.isArray(data)) return { list: data, subgroups: [], areaOrder: null, areaRows: null, areaLayout: null };
+	if (data && Array.isArray(data.locations)) {
+		return {
+			list: data.locations,
+			subgroups: Array.isArray(data.subgroups) ? data.subgroups : [],
+			// Необязательный ручной порядок областей для графа (id из subgroups) —
+			// см. buildMapModel; без него порядок подбирается автоматически
+			areaOrder: Array.isArray(data.areaOrder) ? data.areaOrder : null,
+			// Необязательная ручная раскладка по СТРОКАМ: массив массивов id
+			// областей — каждая внутренняя строка идёт своим рядом (перенос
+			// принудительный, не по ширине). Нужна, когда просто порядка в одну
+			// строку недостаточно — например, область хотим опустить ниже
+			// остальных, а не просто подвинуть по горизонтали. Если задано,
+			// имеет приоритет над areaOrder
+			areaRows: Array.isArray(data.areaRows) ? data.areaRows : null,
+			// Необязательная раскладка по сторонам света, см. placeAreasByCompass;
+			// побеждает areaRows
+			areaLayout: data.areaLayout && typeof data.areaLayout === "object" ? data.areaLayout : null,
+				clans: data.clans || null,
+				parents: data.parents || null
+		};
+	}
+	throw new Error("Ожидался массив локаций или объект { locations: [...] }");
+}
+
 function loadSection(section, force) {
 	if (!force && sectionCache.has(section.id)) return sectionCache.get(section.id);
 	const request = fetch(section.file, { cache: "no-store" })
 		.then(function(response) {
 			if (!response.ok) return { status: "missing", list: withHints([], section) };
-			return response.json().then(function(list) {
-				if (!Array.isArray(list)) throw new Error("Ожидался массив локаций");
-				return { status: "ok", list: withHints(list, section) };
+			return response.json().then(function(data) {
+				const unwrapped = unwrapSectionData(data);
+				const list = withHints(unwrapped.list, section);
+				list.subgroups = unwrapped.subgroups;
+				list.areaOrder = unwrapped.areaOrder;
+				list.areaRows = unwrapped.areaRows;
+				list.areaLayout = unwrapped.areaLayout;
+				list.clans = unwrapped.clans;
+				list.parents = unwrapped.parents;
+				return { status: "ok", list: list };
 			});
 		})
 		.catch(function(error) {
@@ -2407,14 +3244,40 @@ function loadGroupData(group) {
 	if (files.length === 0) return Promise.resolve({ status: "ok", list: withHints([], group) });
 	return Promise.all(files.map(function(file) {
 		return fetch(file, { cache: "no-store" })
-			.then(function(response) { if (!response.ok) return []; return response.json(); })
-			.catch(function() { return []; });
+			.then(function(response) { if (!response.ok) return { list: [], subgroups: [] }; return response.json(); })
+			.then(function(data) {
+				try {
+					return unwrapSectionData(data);
+				} catch (e) {
+					return { list: [], subgroups: [] };
+				}
+			})
+			.catch(function() { return { list: [], subgroups: [] }; });
 	})).then(function(parts) {
 		const merged = [];
-		parts.forEach(function(list) {
-			if (Array.isArray(list)) list.forEach(function(loc) { merged.push(loc); });
+		const subgroups = [];
+		let areaOrder = null;
+		let areaRows = null;
+		let areaLayout = null;
+		let clans = null;
+		let parents = null;
+		parts.forEach(function(part) {
+			if (!clans && part.clans) clans = part.clans;
+			if (!parents && part.parents) parents = part.parents;
+			part.list.forEach(function(loc) { merged.push(loc); });
+			part.subgroups.forEach(function(sub) { subgroups.push(sub); });
+			if (!areaOrder && Array.isArray(part.areaOrder)) areaOrder = part.areaOrder;
+			if (!areaRows && Array.isArray(part.areaRows)) areaRows = part.areaRows;
+			if (!areaLayout && part.areaLayout) areaLayout = part.areaLayout;
 		});
-		return { status: merged.length > 0 ? "ok" : "missing", list: withHints(merged, group) };
+		const list = withHints(merged, group);
+		list.subgroups = subgroups;
+		list.areaOrder = areaOrder;
+		list.areaRows = areaRows;
+		list.areaLayout = areaLayout;
+		list.clans = clans;
+		list.parents = parents;
+		return { status: merged.length > 0 ? "ok" : "missing", list: list };
 	});
 }
 
@@ -2870,9 +3733,34 @@ function buildGraphPanel(data, group, state) {
 	const wrap = panel.querySelector(".graph-wrap");
 	const caption = panel.querySelector(".graph-caption");
 	if (data.length === 0) { wrap.innerHTML = '<p class="graph-empty">Данных пока нет</p>'; return panel; }
+	const legend = panel.querySelector(".graph-legend");
+	if (data.clans) {
+		Object.keys(data.clans).forEach(function(k) {
+			const item = document.createElement("span");
+			item.className = "graph-legend-item";
+			const sw = document.createElement("i");
+			sw.style.background = data.clans[k].color;
+			item.appendChild(sw);
+			item.appendChild(document.createTextNode(data.clans[k].name));
+			legend.appendChild(item);
+		});
+	}
+	const hint = document.createElement("p");
+	hint.className = "graph-residence-hint";
+	hint.appendChild(document.createTextNode("Вы можете изменить своё местоположение в "));
+	const link = document.createElement("a");
+	link.href = "#";
+	link.textContent = "настройках";
+	link.addEventListener("click", function(e) { e.preventDefault(); openSettingsHomeland(); });
+	hint.appendChild(link);
+	hint.appendChild(document.createTextNode("."));
+	panel.insertBefore(hint, wrap);
 	const routeIds = state.route ? state.route.path : null;
-	const stats = renderGraph(wrap, [{ section: group, list: data, color: group.color || GRAPH_COLORS[0] }], routeIds);
-	const parts = ["локаций: " + stats.nodes, "переходов: " + stats.edges];
+	const filtered = applyResidenceFilter(data, group);
+	const stats = renderGraph(wrap, [{ section: group, list: filtered.list, color: group.color || GRAPH_COLORS[0] }], routeIds);
+	const parts = [];
+	if (filtered.label) parts.push("ваш район: " + filtered.label);
+	parts.push("локаций: " + stats.nodes, "переходов: " + stats.edges);
 	if (routeIds && stats.routeNodes > 0) parts.push("в маршруте: " + stats.routeNodes);
 	caption.textContent = parts.join(", ");
 	return panel;
@@ -2953,6 +3841,12 @@ function buildGroupPage(group) {
 // ============================================================
 //  Страница настроек
 // ============================================================
+let pendingSettingsSection = null;
+function openSettingsHomeland() {
+	pendingSettingsSection = "homeland";
+	openGroup(groups.find(function(g) { return g.isSettings; }));
+}
+
 function buildSettingsPage() {
 	content.innerHTML = `
 		<h2 class="page-title">Настройки</h2>
@@ -2987,7 +3881,7 @@ function buildSettingsPage() {
 		</div>
 		<div class="settings-section" id="sectionHomeland" hidden>
 			<button type="button" class="settings-back">← <span>Назад</span></button>
-			<p class="settings-hint">Выберите, где вы находитесь. Эта вселенная будет открываться по умолчанию.</p>
+			<p class="settings-hint">Выберите, где вы живёте — можно отметить несколько вариантов сразу (нажмите повторно, чтобы снять). Выбор сохраняется на устройстве: эта вкладка открывается по умолчанию, а на графе показывается только ваш район (Посёлок, Город, Горы, Туннели и т. п.).</p>
 			<div class="homeland-list" id="homelandList"></div>
 		</div>
 	`;
@@ -3079,22 +3973,71 @@ function buildSettingsPage() {
 	});
 
 	const homelandList = content.querySelector("#homelandList");
+	const openTitles = new Set();
 	function renderHomelandList() {
 		homelandList.innerHTML = "";
-		groups.filter(function(g) { return !g.isDraft && !g.isSettings; }).forEach(function(group) {
+		function leaf(item, block, parent) {
 			const btn = document.createElement("button");
 			btn.type = "button";
-			btn.className = "homeland-btn" + (group.id === settings.homeland ? " current" : "");
-			btn.textContent = group.title;
+			btn.className = "homeland-btn" + (settings.residences.indexOf(item.key) >= 0 ? " current" : "");
+			btn.setAttribute("aria-pressed", settings.residences.indexOf(item.key) >= 0 ? "true" : "false");
+			btn.textContent = item.label;
 			btn.addEventListener("click", function() {
-				settings.homeland = group.id;
+				const at = settings.residences.indexOf(item.key);
+				if (at >= 0) {
+					// снять галочку можно, пока остаётся хотя бы один вариант
+					if (settings.residences.length > 1) {
+						settings.residences.splice(at, 1);
+						if (settings.residence === item.key) {
+							settings.residence = settings.residences[settings.residences.length - 1];
+							settings.homeland = residenceByKey(settings.residence).block.group;
+						}
+					}
+				} else {
+					settings.residences.push(item.key);
+					settings.residence = item.key;
+					settings.homeland = block.group;
+				}
 				saveSettings(); renderHomelandList();
 			});
-			homelandList.appendChild(btn);
+			parent.appendChild(btn);
+		}
+		function dropdown(title, parent, hasCurrent) {
+			const d = document.createElement("details");
+			d.className = "homeland-dd" + (hasCurrent ? " has-current" : "");
+			d.open = openTitles.has(title) || hasCurrent;
+			d.addEventListener("toggle", function() { if (d.open) openTitles.add(title); else openTitles.delete(title); });
+			const sm = document.createElement("summary");
+			sm.textContent = title;
+			d.appendChild(sm);
+			const box = document.createElement("div");
+			box.className = "homeland-dd-body";
+			d.appendChild(box);
+			parent.appendChild(d);
+			return box;
+		}
+		function hasCur(items) { return flatResidenceItems(items).some(function(x) { return settings.residences.indexOf(x.key) >= 0; }); }
+		function renderItems(items, block, parent) {
+			items.forEach(function(item) {
+				if (item.children) renderItems(item.children, block, dropdown(item.label, parent, hasCur(item.children)));
+				else leaf(item, block, parent);
+			});
+		}
+		groups.forEach(function(g) {
+			const blocks = RESIDENCES.filter(function(b) { return b.group === g.id; });
+			if (blocks.length === 0) return;
+			if (blocks.length === 1 && blocks[0].single) { leaf(blocks[0].items[0], blocks[0], homelandList); return; }
+			const all = [].concat.apply([], blocks.map(function(b) { return b.items; }));
+			const box = dropdown(g.label, homelandList, hasCur(all));
+			blocks.forEach(function(block) {
+				if (blocks.length === 1) renderItems(block.items, block, box);
+				else renderItems(block.items, block, dropdown(block.title, box, hasCur(block.items)));
+			});
 		});
 	}
 
 	showMenu();
+	if (pendingSettingsSection === "homeland") { pendingSettingsSection = null; content.querySelector("#openHomeland").click(); }
 	ensureFooter();
 }
 
@@ -3133,6 +4076,11 @@ function buildDraftPage() {
 				<span>Название</span>
 				<input type="text" class="draft-node-name" placeholder="Без названия">
 			</label>
+			<label class="draft-field draft-id-field">
+				<span>Уточнение для id (если название занято)</span>
+				<input type="text" class="draft-node-suffix" placeholder="напр. Река или Тени">
+				<span class="draft-id-hint"></span>
+			</label>
 			<div class="draft-field">
 				<span>Свойства и типы локации</span>
 				<div class="draft-props-chips"></div>
@@ -3170,6 +4118,8 @@ function buildDraftPage() {
 
 	const nodesFlow = content.querySelector(".draft-nodes-flow");
 	const nameInput = content.querySelector(".draft-node-name");
+	const suffixInput = content.querySelector(".draft-node-suffix");
+	const idHint = content.querySelector(".draft-id-hint");
 	const saveNote = content.querySelector(".draft-save-note");
 	const propsChipsHolder = content.querySelector(".draft-props-chips");
 	const typeSelect = content.querySelector(".draft-transition-type-select");
@@ -3192,11 +4142,14 @@ function buildDraftPage() {
 		unknownOpt.value = UNKNOWN_TARGET;
 		unknownOpt.textContent = "Неизвестно (выбрать позже)";
 		transitionSelect.appendChild(unknownOpt);
+		const exportIds = draftExportIds(draftState.nodes);
 		draftState.nodes.forEach(function(node) {
 			if (node.id === currentNodeId) return;
 			const opt = document.createElement("option");
 			opt.value = node.id;
-			opt.textContent = node.name || "Без названия";
+			// у локаций с одинаковым названием показываем id, под которым они уйдут в файл
+			const exportId = exportIds.get(node.id);
+			opt.textContent = (exportId && node.name && exportId !== draftBaseId(node)) ? exportId : (node.name || "Без названия");
 			transitionSelect.appendChild(opt);
 		});
 	}
@@ -3286,7 +4239,29 @@ function buildDraftPage() {
 	nameInput.addEventListener("input", function() {
 		const node = findNode(selectedNodeId);
 		if (node) { node.name = nameInput.value; renderNodeCard(node); }
+		refreshIdHint();
 	});
+	suffixInput.addEventListener("input", function() {
+		const node = findNode(selectedNodeId);
+		if (node) { node.idSuffix = suffixInput.value; renderNodeCard(node); }
+		refreshIdHint();
+	});
+	// Показывает, под каким id локация уйдёт в файл, если он не совпадает
+	// с названием (название занято другой локацией или задано уточнение)
+	function refreshIdHint() {
+		const node = findNode(selectedNodeId);
+		idHint.textContent = "";
+		idHint.classList.remove("warn");
+		if (!node) return;
+		const exportId = draftExportIds(draftState.nodes).get(node.id);
+		const base = draftBaseId(node);
+		if (exportId && exportId !== base) {
+			const dup = draftState.nodes.some(function(n) { return n !== node && draftBaseId(n) === base; });
+			idHint.textContent = (dup && !(node.idSuffix || "").trim()
+				? "Название уже занято — при экспорте id будет «" : "id при экспорте: «") + exportId + "»";
+			if (dup) idHint.classList.add("warn");
+		}
+	}
 
 	function renderProps() {
 		propsChipsHolder.innerHTML = "";
@@ -3558,6 +4533,9 @@ function buildDraftPage() {
 		const node = findNode(selectedNodeId);
 		nameInput.disabled = !node;
 		nameInput.value = node ? (node.name || "") : "";
+		suffixInput.disabled = !node;
+		suffixInput.value = node ? (node.idSuffix || "") : "";
+		refreshIdHint();
 		renderProps();
 	}
 
