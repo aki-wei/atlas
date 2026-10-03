@@ -303,6 +303,7 @@ button:active { transform: translateY(1px); }
 .search-results .search-option:last-child { border-bottom: none; }
 .search-option { width: auto; padding: 7px 12px; border-radius: 999px; background-color: var(--surface-alt); border: 1px solid var(--border); font-size: 13px; }
 .search-option:hover { background-color: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.search-option-area { font-weight: 700; border-style: dashed; }
 .search-empty { color: var(--text-dim); font-size: 14px; margin: 0; padding: 8px 12px; }
 
 /* ---------- Карта локации ---------- */
@@ -339,6 +340,13 @@ button:active { transform: translateY(1px); }
 
 .loc-tags { position: absolute; top: 0; left: 100%; display: flex; flex-direction: column; gap: 4px; }
 .loc-tag-icon { display: block; width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }
+/* у ботов обычно более проработанная модель — показываем её крупнее остальных
+   значков рядом с локацией (сам файл иконки теперь тоже сохраняется крупнее,
+   см. readPropertyIcon, так что увеличение не размывает картинку) */
+/* У ботов обычно более проработанная и крупная модель, чем у простых значков —
+   иконка сохраняется с запасом по разрешению (160×160, см. readPropertyIcon),
+   поэтому увеличенный показ здесь не теряет резкость */
+.loc-tag-icon-bot { width: 60px; height: 60px; }
 
 /* ---------- Поиск пути ---------- */
 .path-finder { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; text-align: left; }
@@ -465,6 +473,8 @@ button:active { transform: translateY(1px); }
 .homeland-list { display: flex; flex-direction: column; gap: 10px; max-width: 420px; width: 100%; }
 .homeland-btn { padding: 14px 18px; font-size: 16px; font-weight: 600; border-radius: 8px; }
 .homeland-btn.current { border-color: var(--accent); background-color: var(--accent-soft); color: var(--accent); }
+.homeland-heading { margin-top: 8px; padding: 0 4px; font-size: 14px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); }
+.homeland-btn.sub { margin-left: 14px; padding: 9px 14px; font-size: 15px; font-weight: 500; }
 
 .colors-layout { display: flex; flex-direction: row; align-items: flex-start; gap: 24px; flex-wrap: wrap; width: 100%; }
 .color-rows { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 260px; flex: 0 1 260px; }
@@ -554,6 +564,12 @@ button:active { transform: translateY(1px); }
 .graph-svg.dim .g-edge.route:not(.hl) { opacity: 0.85; }
 .graph-svg.dim .g-node.route:not(.hl) { opacity: 1; }
 .graph-svg.dim .g-edge:not(.hl) { opacity: 0.1; }
+.g-edge.long:not(.route) { opacity: 0.2; stroke-dasharray: 8 6; }
+.g-edge.faint:not(.route) { opacity: 0.16; }
+.graph-svg.dim .g-edge.faint.hl:not(.route) { opacity: 0.85; }
+.graph-svg.dim .g-edge.faint:not(.hl):not(.route) { opacity: 0.04; }
+.graph-svg.dim .g-edge.long.hl:not(.route) { opacity: 0.85; }
+.graph-svg.dim .g-edge.long:not(.hl):not(.route) { opacity: 0.05; }
 .graph-svg.dim .g-node:not(.hl) { opacity: 0.3; }
 .graph-toolbar { position: absolute; top: 10px; right: 10px; z-index: 2; display: flex; gap: 6px; }
 .graph-toolbar button { width: 32px; height: 32px; padding: 0; font-size: 16px; }
@@ -637,6 +653,7 @@ button:active { transform: translateY(1px); }
 .draft-mini-grid-wrap { position: relative; }
 .draft-mini-grid { display: grid; grid-template-columns: repeat(10, var(--dn-cell-w)); grid-template-rows: repeat(6, var(--dn-cell-h)); gap: var(--dn-gap); background-color: var(--map-bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
 .draft-mini-grid-wrap .loc-tag-icon { width: 22px; height: 22px; }
+.draft-mini-grid-wrap .loc-tag-icon-bot { width: 46px; height: 46px; }
 
 /* Правый столбик иконок карточки черновика: сверху — свойства локации,
    ниже — свойства тупиков, выбранных у клеток этой локации */
@@ -663,6 +680,8 @@ button:active { transform: translateY(1px); }
 .draft-field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--text-dim); }
 .draft-field input[type="text"] { width: 100%; padding: 7px 10px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: inherit; font-size: 15px; }
 .draft-field input[type="text"]:disabled { opacity: 0.5; }
+.draft-id-hint { min-height: 1em; font-size: 12px; color: var(--text-dim); }
+.draft-id-hint.warn { color: var(--deadend); }
 .draft-field.deadend-field { border-left: 3px solid var(--deadend); padding-left: 10px; }
 .draft-field.deadend-field[hidden] { display: none !important; }
 
@@ -721,44 +740,114 @@ button:active { transform: translateY(1px); }
 }
 
 @media (max-width: 700px) {
-	.app { flex-direction: column; }
-	.app.sidebar-collapsed .sidebar { width: auto; padding: 6px 8px; }
+	:root { --panel-indent: 0px; --content-pad: 12px; }
+	html, body { max-width: 100%; overflow-x: hidden; }
 
-	.sidebar {
-		position: sticky;
-		top: 0;
-		z-index: 5;
-		max-height: none;
-		flex-direction: row;
-		gap: 6px;
-		padding: 8px;
-		border-right: none;
-		border-bottom: 1px solid var(--border);
-		overflow-x: auto;
-		overflow-y: hidden;
-		-webkit-overflow-scrolling: touch;
-		scrollbar-width: thin;
-		width: auto;
-		flex-wrap: nowrap;
+	/* Шапка компактнее */
+	.site-title { padding: 10px; font-size: 17px; letter-spacing: 1.5px; }
+	.page-title { font-size: 20px; }
+	.page-subtitle { font-size: 14px; }
+
+	/* Закладки — нижняя панель, как в мобильных приложениях */
+	.app { display: block; min-height: 0; }
+	.sidebar-toggle { display: none; }
+	.sidebar,
+	.app.sidebar-collapsed .sidebar {
+		position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 50;
+		width: 100%; max-height: none; align-self: auto;
+		flex-direction: row; flex-wrap: nowrap; justify-content: space-between; gap: 3px;
+		padding: 5px 6px calc(5px + env(safe-area-inset-bottom, 0px));
+		background-color: var(--surface);
+		backdrop-filter: none;
+		border-right: none; border-top: 1px solid var(--border);
+		box-shadow: 0 -3px 12px rgba(40,25,5,0.25);
+		overflow: hidden;
 	}
-	.sidebar::-webkit-scrollbar { height: 6px; }
-	.sidebar::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 3px; }
-	.sidebar-toggle { width: 44px; height: 44px; margin: 0 8px 0 0; padding: 0; }
-
-	.tab-left { flex: 0 0 auto; width: 56px; height: 44px; padding: 4px; border-radius: 8px; border-right: 1px solid rgba(0,0,0,0.35); }
-	.tab-left .tab-label { font-size: 12px; }
+	.app.sidebar-collapsed .tab-left,
+	.tab-left {
+		display: flex; flex-direction: column-reverse; align-items: center; justify-content: center;
+		flex: 1 1 0; min-width: 0; width: auto; height: 50px; padding: 3px 0 2px; gap: 2px;
+		border-radius: 10px; border: 1px solid rgba(0,0,0,0.25);
+		text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+		opacity: 0.82;
+	}
+	.tab-left.active { opacity: 1; filter: none; box-shadow: inset 0 0 0 2px rgba(255,255,255,0.85), 0 1px 4px rgba(0,0,0,0.3); }
+	/* подпись и значок видны всегда (на телефоне нет наведения) */
+	.tab-left .tab-label,
+	.tab-left .tab-icon,
+	.tab-left:hover .tab-label, .tab-left.active .tab-label,
+	.tab-left:hover .tab-icon, .tab-left.active .tab-icon {
+		position: static; inset: auto; opacity: 1; display: flex; align-items: center; justify-content: center;
+	}
+	.tab-left .tab-label { font-size: 9px; letter-spacing: 0; padding: 0; line-height: 1; white-space: nowrap; max-width: 100%; overflow: hidden; }
 	.tab-left .tab-icon img,
 	.tab-left .tab-icon svg { width: 22px; height: 22px; }
-	.tab-left-draft { margin-top: 0; margin-left: 0; }
 
-	.content { padding: 12px; }
-	.path-route { width: calc(100vw - 24px); margin-left: -12px; padding: 8px 12px; }	.points-row { flex-direction: column; align-items: flex-start; }
-	.colors-layout { flex-direction: column; }
-	.graph-wrap { height: 60vh; }
-	.graph-toolbar { top: 8px; right: 8px; }
-	.graph-toolbar button { width: 28px; height: 28px; font-size: 14px; }
-	.graph-search { width: 110px; padding: 5px 8px; font-size: 13px; }
-	.graph-connect-toggle { font-size: 12px; padding: 5px 8px; bottom: 8px; right: 8px; }
-	.graph-connect-toggle input { width: 14px; height: 14px; }
+	/* Содержимое: место под нижнюю панель, ничего не вылезает вбок */
+	.content { padding: 12px 12px calc(76px + env(safe-area-inset-bottom, 0px)); overflow: visible; }
+	.tool-tabs { gap: 6px; flex-wrap: nowrap; }
+	.tool-tab { min-width: 0; padding: 10px 6px; font-size: 13px; letter-spacing: 0; line-height: 1.2; }
+
+	/* Поиск пути и проверка: одна колонка во всю ширину */
+	.panels-row { flex-direction: column; gap: 22px; padding-left: 0; }
+	.panels-row > .panel-column { flex: 0 0 auto; width: 100%; min-width: 0; }
+	.panel-column.check-column .location-finder { margin-top: 0; }
+	.panel-section-title { font-size: 14px; }
+	.tool-panel { gap: 12px; }
+	.path-finder { gap: 12px; }
+	.points-row { flex-direction: column; align-items: flex-start; gap: 14px; }
+	.point-picker { width: 100%; }
+	.search-wrap { max-width: none; }
+	.search-panel input { padding: 11px 12px; font-size: 16px; } /* 16px — чтобы iOS не приближал страницу */
+	.search-panel button { padding: 11px 14px; }
+	.search-results { max-height: 45vh; }
+	.search-results .search-option { padding: 12px; font-size: 15px; }
+	.waypoints-block { max-width: none; }
+	.waypoints-block input[type="text"] { padding: 11px 12px; font-size: 16px; }
+	#findPathBtn { max-width: none; padding: 13px 0; font-size: 16px; }
+	#check { max-width: none; padding: 12px 0; }
+	.swap-btn { padding: 8px 12px; font-size: 14px; }
+
+	/* Найденный маршрут */
+	.path-route { width: 100%; margin-left: 0; padding: 8px 0; }
+	.path-cards { justify-content: flex-start; }
+	.route-player { padding: 8px; }
+
+	/* Граф */
+	.graph-title { flex-direction: column; align-items: flex-start; gap: 2px; }
+	.graph-title h3 { font-size: 16px; }
+	.graph-caption { text-align: left; font-size: 12px; }
+	.graph-wrap { height: 62vh; min-height: 320px; }
+	.graph-toolbar { top: 8px; right: 8px; left: 8px; justify-content: flex-end; }
+	.graph-toolbar button { width: 34px; height: 34px; font-size: 16px; flex-shrink: 0; }
+	.graph-search-wrap { flex: 1 1 auto; min-width: 0; }
+	.graph-search { width: 100%; padding: 7px 10px; font-size: 16px; }
+	.graph-connect-toggle { font-size: 12px; padding: 5px 8px; bottom: 8px; right: 8px; max-width: calc(100% - 16px); }
+	.graph-connect-toggle input { width: 16px; height: 16px; }
+	.graph-card { left: 8px; right: 8px; bottom: 44px; max-height: 55%; overflow: auto; }
+	.graph-legend { font-size: 13px; gap: 6px 14px; }
 	.g-label { font-size: 7px; }
+
+	/* Настройки */
+	.settings-menu, .homeland-list { max-width: none; }
+	.settings-menu-btn, .homeland-btn { padding: 14px 16px; }
+	.colors-layout { flex-direction: column; gap: 16px; }
 }
+
+/* Области и границы на графе */
+.g-area-frame { fill-opacity: 0.05; stroke-opacity: 0.45; stroke-width: 1.2; stroke-dasharray: 5 4; pointer-events: none; }
+.g-area-label { font-size: 13px; font-weight: 600; opacity: 0.85; pointer-events: none; }
+.g-border { fill: none; stroke-width: 2.4; pointer-events: none; }
+/* Раскрывающиеся списки места жительства */
+.homeland-dd { border: 1px solid var(--border, rgba(128,128,128,.35)); border-radius: 8px; overflow: hidden; }
+.homeland-dd > summary { cursor: pointer; padding: 14px 18px; font-size: 16px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+.homeland-dd > summary::-webkit-details-marker { display: none; }
+.homeland-dd > summary::after { content: "›"; transition: transform .15s; color: var(--text-dim); }
+.homeland-dd[open] > summary::after { transform: rotate(90deg); }
+.homeland-dd.has-current > summary { color: var(--accent); }
+.homeland-dd-body { display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px 14px; }
+.homeland-dd-body .homeland-btn { padding: 10px 14px; font-size: 15px; font-weight: 500; }
+.homeland-dd-body .homeland-dd > summary { padding: 10px 14px; font-size: 15px; font-weight: 500; }
+
+.graph-residence-hint { margin: 0 0 10px; font-size: 14px; color: var(--text-dim); }
+.graph-residence-hint a { color: var(--accent); text-decoration: underline; cursor: pointer; }
