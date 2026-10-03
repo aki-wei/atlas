@@ -627,7 +627,13 @@ function createRouteCard(data, location, nextId, tags) {
 		const type = getTransitionType(transition);
 		if (type === "deadend") cell.classList.add("cell-deadend");
 		else if (type === "self") cell.classList.add("cell-self");
-		else if (nextId !== undefined) {
+		else {
+			// невидимые и «пятисекундные» переходы окрашиваем своими цветами из настроек
+			const cellType = location.cellTypes && location.cellTypes[index];
+			if (cellType === "hidden") cell.classList.add("cell-hidden");
+			else if (cellType === "fast") cell.classList.add("cell-fast");
+		}
+		if (type !== "deadend" && type !== "self" && nextId !== undefined) {
 			const destination = findLocationById(data, transition);
 			if (destination && String(destination.id) === String(nextId)) cell.classList.add("cell-next");
 		}
@@ -4614,7 +4620,8 @@ const PREVIEW_DATA = (function() {
 	const code = [];
 	for (let i = 0; i < 60; i++) code.push(cells.indexOf(i) >= 0 ? "1" : "0");
 	return withHints([
-		{ id: 1, name: "Пример", code: code.join(""), transitions: [2, "Т", "С", 2, 2, 3, 3, 3] },
+		{ id: 1, name: "Пример", code: code.join(""), transitions: [2, "Т", "С", 2, 3, 3, 3, 3],
+		  cellTypes: { "34": "hidden", "55": "fast" } },
 		{ id: 2, name: "Следующая локация", code: "0".repeat(60), transitions: [] },
 		{ id: 3, name: "Другая локация", code: "0".repeat(60), transitions: [] }
 	], {});
