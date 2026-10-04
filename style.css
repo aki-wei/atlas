@@ -747,6 +747,7 @@ button:active { transform: translateY(1px); }
 .draft-transition-type-select { width: 100%; padding: 6px 8px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: inherit; font-size: 14px; }
 .draft-transition-type-select:disabled { opacity: 0.5; }
 .draft-transition-target { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text-dim); flex-wrap: wrap; }
+.draft-transition-target[hidden] { display: none; }
 .draft-transition-select { flex: 1; min-width: 0; padding: 6px 8px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
 .draft-transition-unknown-name { flex: 1; min-width: 140px; padding: 6px 8px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 14px; }
 .draft-transition-hint { margin: 2px 0 0; font-size: 13px; color: var(--text-dim); }
