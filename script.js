@@ -2378,6 +2378,7 @@ function saveDraftToStorage(draft) {
 }
 
 let draftState = null;
+let draftCanvasCollapsed = new Set(); // id свёрнутых на поле подгрупп ("" — «Без подгруппы»)
 let draftClipboard = null;   // копия локации (глубокий клон), живёт, пока открыта страница
 let draftHistory = { stack: [], index: -1 }; // снимки черновика для Ctrl+Z / Ctrl+Y
 const DRAFT_HISTORY_LIMIT = 100;
@@ -6445,7 +6446,10 @@ function buildDraftPage() {
 	targetPanel.addEventListener("keydown", function(e) { if (e.key === "Escape") { setTargetPanelOpen(false); targetBtn.focus(); } });
 	function closeTargetOutside(e) {
 		if (!document.body.contains(targetPicker)) { document.removeEventListener("click", closeTargetOutside); return; }
-		if (!targetPicker.contains(e.target)) setTargetPanelOpen(false);
+		// кнопка папки при клике перерисовывается и к этому моменту уже отсоединена от DOM,
+		// поэтому смотрим на путь события, а не только на contains()
+		const path = e.composedPath ? e.composedPath() : [];
+		if (path.indexOf(targetPicker) < 0 && !targetPicker.contains(e.target)) setTargetPanelOpen(false);
 	}
 	document.addEventListener("click", closeTargetOutside);
 
@@ -6869,14 +6873,89 @@ function buildDraftPage() {
 		return card;
 	}
 
+	// Поле: локации по секциям-подгруппам, секцию можно свернуть кликом по заголовку
+	function nodeAreaKey(node) {
+		return (node.area && draftGroupFind(draftState.subgroups, node.area)) ? node.area : "";
+	}
+	function expandNodeGroup(node) {
+		let key = nodeAreaKey(node);
+		draftCanvasCollapsed.delete(key);
+		let sg = key ? draftGroupFind(draftState.subgroups, key) : null;
+		for (let guard = 0; sg && sg.parentGroup && guard < 30; guard++) {
+			draftCanvasCollapsed.delete(sg.parentGroup);
+			sg = draftGroupFind(draftState.subgroups, sg.parentGroup);
+		}
+	}
 	function renderCanvas() {
 		const scroller = nodesFlow.parentElement;
 		const savedTop = scroller ? scroller.scrollTop : 0;
 		nodesFlow.innerHTML = "";
+		const subgroups = draftState.subgroups;
+		const byArea = new Map();
 		draftState.nodes.forEach(function(node) {
-			nodesFlow.appendChild(createNodeCard(node));
-			renderNodeCard(node);
+			const key = nodeAreaKey(node);
+			if (!byArea.has(key)) byArea.set(key, []);
+			byArea.get(key).push(node);
 		});
+		function addCards(parent, list) {
+			const cards = document.createElement("div");
+			cards.className = "draft-group-cards";
+			parent.appendChild(cards);
+			list.forEach(function(node) {
+				cards.appendChild(createNodeCard(node));
+				renderNodeCard(node);
+			});
+		}
+		function addSection(key, name, color, depth, own, total) {
+			const collapsed = draftCanvasCollapsed.has(key);
+			const sec = document.createElement("div");
+			sec.className = "draft-section";
+			sec.style.marginLeft = (depth * 18) + "px";
+			const head = document.createElement("button");
+			head.type = "button";
+			head.className = "draft-section-head";
+			head.setAttribute("aria-expanded", collapsed ? "false" : "true");
+			head.title = collapsed ? "Развернуть подгруппу" : "Свернуть подгруппу";
+			const arrow = document.createElement("span");
+			arrow.className = "draft-section-arrow"; arrow.textContent = collapsed ? "▸" : "▾";
+			const dot = document.createElement("i");
+			dot.className = "draft-section-dot"; dot.style.background = color || "#888";
+			const text = document.createElement("span");
+			text.textContent = name;
+			const cnt = document.createElement("span");
+			cnt.className = "draft-section-count"; cnt.textContent = String(total);
+			head.appendChild(arrow); head.appendChild(dot); head.appendChild(text); head.appendChild(cnt);
+			head.addEventListener("click", function() {
+				if (draftCanvasCollapsed.has(key)) draftCanvasCollapsed.delete(key); else draftCanvasCollapsed.add(key);
+				renderCanvas();
+			});
+			sec.appendChild(head);
+			nodesFlow.appendChild(sec);
+			if (!collapsed && own.length > 0) addCards(sec, own);
+		}
+		nodesFlow.classList.add("sectioned");
+		if (subgroups.length === 0) {
+			addCards(nodesFlow, draftState.nodes);
+		} else {
+			const total = function(sg) {
+				let n = (byArea.get(sg.id) || []).length;
+				draftGroupDescendants(subgroups, sg.id).forEach(function(id) { n += (byArea.get(id) || []).length; });
+				return n;
+			};
+			draftGroupTree(subgroups).forEach(function(entry) {
+				const sg = entry.sg;
+				let cur = sg.parentGroup ? draftGroupFind(subgroups, sg.parentGroup) : null;
+				for (let guard = 0; cur && guard < 30; guard++) {
+					if (draftCanvasCollapsed.has(cur.id)) return; // родитель свёрнут — вложенное скрыто
+					cur = cur.parentGroup ? draftGroupFind(subgroups, cur.parentGroup) : null;
+				}
+				const count = total(sg);
+				if (count === 0) return;
+				addSection(sg.id, sg.name, sg.color, entry.depth, byArea.get(sg.id) || [], count);
+			});
+			const loose = byArea.get("") || [];
+			if (loose.length > 0) addSection("", "Без подгруппы", "#999", 0, loose, loose.length);
+		}
 		if (scroller) scroller.scrollTop = savedTop;
 	}
 
@@ -7162,7 +7241,9 @@ function buildDraftPage() {
 			const action = btn.dataset.action;
 			if (action === "add") {
 				const id = nextDraftNodeId();
-				draftState.nodes.push({ id: id, name: "", props: [], cells: {}, locked: false });
+				const fresh = { id: id, name: "", props: [], cells: {}, locked: false };
+				draftState.nodes.push(fresh);
+				expandNodeGroup(fresh);
 				selectedNodeId = id;
 				selectedCell = null;
 				refreshInspector(); refreshTransitionTool(); renderCanvas();
@@ -7216,6 +7297,7 @@ function buildDraftPage() {
 		// подгруппа могла быть удалена после копирования
 		if (copy.area && !draftState.subgroups.some(function(sg) { return sg.id === copy.area; })) copy.area = "";
 		draftState.nodes.push(copy);
+		expandNodeGroup(copy);
 		selectedNodeId = copy.id;
 		selectedCell = null;
 		refreshInspector(); refreshTransitionTool(); renderCanvas();
