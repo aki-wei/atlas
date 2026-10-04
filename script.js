@@ -6164,6 +6164,8 @@ function buildDraftPage() {
 	if (!draftState) draftState = loadDraft();
 	let selectedNodeId = draftState.nodes[0] ? draftState.nodes[0].id : null;
 	let selectedCell = null;
+	// «Кисть свойств»: снимок свойств источника и отмеченные локации
+	const brush = { active: false, sourceId: null, multi: false, marks: new Set(), props: [], deadendProps: [] };
 
 	content.innerHTML = `
 		<h2 class="page-title">Рыба — черновик карты</h2>
@@ -6171,7 +6173,14 @@ function buildDraftPage() {
 			<button type="button" class="draft-btn" data-action="add">Добавить локацию</button>
 			<button type="button" class="draft-btn" data-action="copy" title="Копировать выбранную локацию (Ctrl+C)">Копировать</button>
 			<button type="button" class="draft-btn" data-action="paste" title="Вставить копию локации (Ctrl+V)">Вставить</button>
+			<button type="button" class="draft-btn" data-action="brush" title="Взять свойства выбранной локации и перенести на другие">Копировать свойства</button>
 			<button type="button" class="draft-btn draft-btn-danger" data-action="clear">Очистить карту</button>
+		</div>
+		<div class="draft-brush-bar" hidden>
+			<span class="draft-brush-text"></span>
+			<label class="draft-brush-multi"><input type="checkbox"> Несколько локаций</label>
+			<button type="button" class="draft-btn draft-brush-apply" hidden>Применить</button>
+			<button type="button" class="draft-btn draft-brush-cancel">Отмена</button>
 		</div>
 		<div class="draft-groups" id="draftGroups">
 			<button type="button" class="draft-groups-title draft-groups-toggle" aria-expanded="true" title="Свернуть / развернуть подгруппы">
@@ -6742,6 +6751,8 @@ function buildDraftPage() {
 		if (!card) return;
 		card.classList.toggle("selected", node.id === selectedNodeId);
 		card.classList.toggle("locked", node.locked);
+		card.classList.toggle("brush-marked", brush.active && brush.marks.has(node.id));
+		card.classList.toggle("brush-source", brush.active && brush.sourceId === node.id);
 		const lockBtn = card.querySelector(".draft-node-lock");
 		lockBtn.textContent = node.locked ? "🔒" : "🔓";
 		lockBtn.classList.toggle("locked", node.locked);
@@ -6811,6 +6822,7 @@ function buildDraftPage() {
 			cellEl.className = "draft-mini-cell";
 			cellEl.addEventListener("click", function(e) {
 				e.stopPropagation();
+				if (brush.active) { brushPick(node); return; }
 				handleCardCellClick(node, i);
 			});
 			grid.appendChild(cellEl);
@@ -6839,6 +6851,7 @@ function buildDraftPage() {
 			renderNodeCard(node);
 		});
 		card.addEventListener("click", function() {
+			if (brush.active) { brushPick(node); return; }
 			const prevCell = selectedCell;
 			const prevNodeId = selectedNodeId;
 			selectedNodeId = node.id;
@@ -7157,6 +7170,8 @@ function buildDraftPage() {
 				copySelectedNode();
 			} else if (action === "paste") {
 				pasteNode();
+			} else if (action === "brush") {
+				if (brush.active) brushStop(); else brushStart();
 			} else if (action === "clear") {
 				if (!confirm("Удалить все локации и подгруппы черновика? Это нельзя отменить.")) return;
 				draftState.nodes = [];
@@ -7246,6 +7261,7 @@ function buildDraftPage() {
 	if (draftKeyHandler) document.removeEventListener("keydown", draftKeyHandler);
 	draftKeyHandler = function(e) {
 		if (!content.contains(saveNote)) return; // страница «Рыба» уже закрыта
+		if (e.key === "Escape" && brush.active) { brushStop(); return; }
 		if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
 		const code = e.code;
 		const key = e.key.toLowerCase();
@@ -7266,10 +7282,121 @@ function buildDraftPage() {
 	};
 	document.addEventListener("keydown", draftKeyHandler);
 
-	function flashNote(text) {
+	let flashTimer = null;
+	function flashNote(text, ms) {
 		saveNote.textContent = text;
-		setTimeout(function() { saveNote.textContent = ""; }, 2500);
+		clearTimeout(flashTimer);
+		flashTimer = setTimeout(function() { saveNote.textContent = ""; }, ms || 2500);
 	}
+
+	// ---- Кисть свойств (как «формат по образцу» в Word) ----
+	const brushBar = content.querySelector(".draft-brush-bar");
+	const brushText = brushBar.querySelector(".draft-brush-text");
+	const brushMulti = brushBar.querySelector(".draft-brush-multi input");
+	const brushApplyBtn = brushBar.querySelector(".draft-brush-apply");
+	const brushToolBtn = content.querySelector('.draft-btn[data-action="brush"]');
+	function brushUpdateUi() {
+		const src = findNode(brush.sourceId);
+		brushText.textContent = "Свойства «" + ((src && src.name) || "без названия") + "» взяты. " +
+			(brush.multi ? "Отметьте локации и нажмите «Применить»." : "Кликните по локации, на которую перенести.");
+		brushApplyBtn.hidden = !brush.multi;
+		brushApplyBtn.textContent = "Применить (" + brush.marks.size + ")";
+		brushApplyBtn.disabled = brush.marks.size === 0;
+	}
+	function brushStart() {
+		const src = findNode(selectedNodeId);
+		if (!src) { flashNote("Сначала выберите локацию, свойства которой нужно скопировать"); return; }
+		brush.active = true;
+		brush.sourceId = src.id;
+		brush.marks.clear();
+		brush.props = JSON.parse(JSON.stringify(src.props || []));
+		const dead = [];
+		Object.keys(src.cells || {}).forEach(function(key) {
+			const c = src.cells[key];
+			if (!c || c.type !== "deadend") return;
+			(c.deadendProps || []).forEach(function(tag) {
+				if (!dead.some(function(e) { return tagIdentity(e) === tagIdentity(tag); })) dead.push(JSON.parse(JSON.stringify(tag)));
+			});
+		});
+		brush.deadendProps = dead;
+		brushBar.hidden = false;
+		brushToolBtn.textContent = "Отменить копирование свойств";
+		nodesFlow.classList.add("brush-mode");
+		brushUpdateUi();
+		renderCanvas();
+	}
+	function brushStop() {
+		brush.active = false;
+		brush.marks.clear();
+		brushBar.hidden = true;
+		brushToolBtn.textContent = "Копировать свойства";
+		nodesFlow.classList.remove("brush-mode");
+		renderCanvas();
+	}
+	// Добавляет недостающие свойства. Свойства тупика переносятся только в клетки-тупики цели.
+	function brushApplyTo(target) {
+		const result = { added: 0, deadSkipped: false };
+		brush.props.forEach(function(tag) {
+			const copy = JSON.parse(JSON.stringify(tag));
+			if (isConnectorTag(copy) && Array.isArray(copy.links)) {
+				const before = copy.links.length;
+				copy.links = copy.links.filter(function(link) { return link !== target.id; });
+				if (before > 0 && copy.links.length === 0) return; // связь только с самой целью — нечего переносить
+			}
+			if (target.props.some(function(e) { return tagIdentity(e) === tagIdentity(copy); })) return;
+			target.props.push(copy);
+			result.added++;
+		});
+		if (brush.deadendProps.length) {
+			const deadCells = Object.keys(target.cells).map(function(k) { return target.cells[k]; })
+				.filter(function(c) { return c && c.type === "deadend"; });
+			if (deadCells.length === 0) result.deadSkipped = true;
+			deadCells.forEach(function(cell) {
+				if (!Array.isArray(cell.deadendProps)) cell.deadendProps = [];
+				brush.deadendProps.forEach(function(tag) {
+					if (cell.deadendProps.some(function(e) { return tagIdentity(e) === tagIdentity(tag); })) return;
+					cell.deadendProps.push(JSON.parse(JSON.stringify(tag)));
+					result.added++;
+				});
+			});
+		}
+		return result;
+	}
+	function brushApply(ids) {
+		let done = 0, locked = 0, noDead = 0;
+		ids.forEach(function(id) {
+			const target = findNode(id);
+			if (!target || target.id === brush.sourceId) return;
+			if (target.locked) { locked++; return; }
+			const r = brushApplyTo(target);
+			done++;
+			if (r.deadSkipped) noDead++;
+		});
+		brushStop();
+		refreshInspector(); refreshTransitionTool();
+		let msg = "Свойства перенесены: " + done + " лок.";
+		if (noDead) msg += ". Свойства тупика пропущены у " + noDead + " (нет тупика)";
+		if (locked) msg += ". Заблокированных пропущено: " + locked;
+		flashNote(msg, 6000);
+	}
+	function brushPick(node) {
+		if (node.id === brush.sourceId) { flashNote("Это локация-источник"); return; }
+		if (brush.multi) {
+			if (brush.marks.has(node.id)) brush.marks.delete(node.id); else brush.marks.add(node.id);
+			brushUpdateUi();
+			renderNodeCard(node);
+		} else {
+			brushApply([node.id]);
+		}
+	}
+	brushMulti.addEventListener("change", function() {
+		brush.multi = brushMulti.checked;
+		brush.marks.clear();
+		brushUpdateUi();
+		renderCanvas();
+	});
+	brushApplyBtn.addEventListener("click", function() { brushApply(Array.from(brush.marks)); });
+	brushBar.querySelector(".draft-brush-cancel").addEventListener("click", brushStop);
 	content.querySelector("#draftSaveMapBtn").addEventListener("click", function() {
 		const ok = saveDraftToStorage(draftState);
 		flashNote(ok ? "Сохранено на этом устройстве" : "Не удалось сохранить");
