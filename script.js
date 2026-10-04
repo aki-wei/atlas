@@ -2378,6 +2378,10 @@ function saveDraftToStorage(draft) {
 }
 
 let draftState = null;
+let draftClipboard = null;   // копия локации (глубокий клон), живёт, пока открыта страница
+let draftHistory = { stack: [], index: -1 }; // снимки черновика для Ctrl+Z / Ctrl+Y
+const DRAFT_HISTORY_LIMIT = 100;
+let draftKeyHandler = null;  // текущий обработчик Ctrl+C / Ctrl+V (чтобы не копились при пересборке)
 let draftNodeSeq = 0;
 let draftPropSeq = 0;
 
@@ -6165,6 +6169,8 @@ function buildDraftPage() {
 		<h2 class="page-title">Рыба — черновик карты</h2>
 		<div class="draft-toolbar">
 			<button type="button" class="draft-btn" data-action="add">Добавить локацию</button>
+			<button type="button" class="draft-btn" data-action="copy" title="Копировать выбранную локацию (Ctrl+C)">Копировать</button>
+			<button type="button" class="draft-btn" data-action="paste" title="Вставить копию локации (Ctrl+V)">Вставить</button>
 			<button type="button" class="draft-btn draft-btn-danger" data-action="clear">Очистить карту</button>
 		</div>
 		<div class="draft-groups" id="draftGroups">
@@ -6174,6 +6180,10 @@ function buildDraftPage() {
 				<span class="draft-groups-badge"></span>
 			</button>
 			<div class="draft-groups-body">
+				<div class="draft-groups-tools">
+					<button type="button" class="draft-group-tool" data-fold="collapse">Свернуть все</button>
+					<button type="button" class="draft-group-tool" data-fold="expand">Развернуть все</button>
+				</div>
 				<div class="draft-groups-list"></div>
 				<div class="draft-groups-add">
 					<input type="color" class="draft-group-color" value="#888888" title="Цвет подгруппы">
@@ -6283,7 +6293,156 @@ function buildDraftPage() {
 	const UNKNOWN_TARGET = "";
 	function findNode(id) { return draftState.nodes.find(function(node) { return node.id === id; }); }
 
+	// Свой выпадающий список для выбора локации перехода: подгруппы — «папки»,
+	// при открытии развёрнута только подгруппа редактируемой локации (и её родители).
+	// Обычный <select> остаётся скрытым и хранит значение — остальной код работает с ним
+	transitionSelect.hidden = true;
+	const targetPicker = document.createElement("div");
+	targetPicker.className = "draft-target-picker";
+	targetPicker.innerHTML = '<button type="button" class="draft-target-btn" aria-expanded="false"><span class="draft-target-label"></span><span class="draft-target-caret">▾</span></button>' +
+		'<div class="draft-target-panel" hidden><input type="text" class="draft-target-search" placeholder="Поиск локации" autocomplete="off"><div class="draft-target-list"></div></div>';
+	transitionSelect.parentNode.insertBefore(targetPicker, transitionSelect);
+	const targetBtn = targetPicker.querySelector(".draft-target-btn");
+	const targetLabel = targetPicker.querySelector(".draft-target-label");
+	const targetPanel = targetPicker.querySelector(".draft-target-panel");
+	const targetSearch = targetPicker.querySelector(".draft-target-search");
+	const targetList = targetPicker.querySelector(".draft-target-list");
+	let pickerNodeId = null;
+	let pickerOpenGroups = new Set();
+	function targetNodeLabel(node, exportIds) {
+		// у локаций с одинаковым названием показываем id, под которым они уйдут в файл
+		const exportId = exportIds.get(node.id);
+		return (exportId && node.name && exportId !== draftBaseId(node)) ? exportId : (node.name || "Без названия");
+	}
+	function syncTargetLabel() {
+		const node = transitionSelect.value ? findNode(transitionSelect.value) : null;
+		targetLabel.textContent = node ? targetNodeLabel(node, draftExportIds(draftState.nodes)) : "Неизвестно (выбрать позже)";
+	}
+	function setTargetPanelOpen(open) {
+		targetPanel.hidden = !open;
+		targetBtn.setAttribute("aria-expanded", open ? "true" : "false");
+		targetPicker.classList.toggle("open", open);
+	}
+	function openTargetPanel() {
+		// открыта только подгруппа текущей локации и её родители, остальные свёрнуты
+		pickerOpenGroups = new Set();
+		const cur = findNode(pickerNodeId);
+		let area = cur && cur.area && draftGroupFind(draftState.subgroups, cur.area) ? draftGroupFind(draftState.subgroups, cur.area) : null;
+		if (!area) pickerOpenGroups.add("");
+		for (let guard = 0; area && guard < 30; guard++) {
+			pickerOpenGroups.add(area.id);
+			area = area.parentGroup ? draftGroupFind(draftState.subgroups, area.parentGroup) : null;
+		}
+		targetSearch.value = "";
+		renderTargetList();
+		setTargetPanelOpen(true);
+		if (!IS_TOUCH) targetSearch.focus();
+	}
+	function chooseTarget(id) {
+		transitionSelect.value = id;
+		transitionSelect.dispatchEvent(new Event("change"));
+		syncTargetLabel();
+		setTargetPanelOpen(false);
+	}
+	function renderTargetList() {
+		const scrollTop = targetList.scrollTop;
+		targetList.innerHTML = "";
+		const query = targetSearch.value.trim().toLowerCase();
+		const subgroups = draftState.subgroups;
+		const exportIds = draftExportIds(draftState.nodes);
+		const currentValue = transitionSelect.value;
+		const byArea = new Map();
+		// от новых к старым: последние добавленные локации — сверху
+		draftState.nodes.slice().reverse().forEach(function(node) {
+			if (node.id === pickerNodeId) return;
+			const label = targetNodeLabel(node, exportIds);
+			if (query && label.toLowerCase().indexOf(query) < 0) return;
+			const key = (node.area && draftGroupFind(subgroups, node.area)) ? node.area : "";
+			if (!byArea.has(key)) byArea.set(key, []);
+			byArea.get(key).push({ id: node.id, label: label });
+		});
+		function addItem(id, label, depth) {
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "draft-target-item" + (id === currentValue ? " current" : "");
+			btn.style.paddingLeft = (10 + depth * 14) + "px";
+			btn.textContent = label;
+			btn.addEventListener("click", function() { chooseTarget(id); });
+			targetList.appendChild(btn);
+		}
+		function addFolder(key, name, color, depth, count) {
+			const isOpen = !!query || pickerOpenGroups.has(key);
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "draft-target-folder";
+			btn.style.paddingLeft = (6 + depth * 14) + "px";
+			btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+			const arrow = document.createElement("span");
+			arrow.className = "draft-target-arrow"; arrow.textContent = isOpen ? "▾" : "▸";
+			const dot = document.createElement("i");
+			dot.className = "draft-target-dot"; dot.style.background = color || "#888";
+			const text = document.createElement("span");
+			text.className = "draft-target-fname"; text.textContent = name;
+			const cnt = document.createElement("span");
+			cnt.className = "draft-target-count"; cnt.textContent = String(count);
+			btn.appendChild(arrow); btn.appendChild(dot); btn.appendChild(text); btn.appendChild(cnt);
+			btn.addEventListener("click", function() {
+				if (query) return;
+				if (pickerOpenGroups.has(key)) pickerOpenGroups.delete(key); else pickerOpenGroups.add(key);
+				renderTargetList();
+			});
+			targetList.appendChild(btn);
+			return isOpen;
+		}
+		if (!query) addItem(UNKNOWN_TARGET, "Неизвестно (выбрать позже)", 0);
+		const tree = draftGroupTree(subgroups);
+		function total(sg) {
+			let n = (byArea.get(sg.id) || []).length;
+			draftGroupDescendants(subgroups, sg.id).forEach(function(id) { n += (byArea.get(id) || []).length; });
+			return n;
+		}
+		const hiddenDepth = [];
+		tree.forEach(function(entry) {
+			const sg = entry.sg;
+			// вложенная подгруппа видна только если все её родители развёрнуты
+			if (!query) {
+				let cur = sg.parentGroup ? draftGroupFind(subgroups, sg.parentGroup) : null;
+				for (let guard = 0; cur && guard < 30; guard++) {
+					if (!pickerOpenGroups.has(cur.id)) return;
+					cur = cur.parentGroup ? draftGroupFind(subgroups, cur.parentGroup) : null;
+				}
+			}
+			const count = total(sg);
+			if (count === 0) return;
+			const isOpen = addFolder(sg.id, sg.name, sg.color, entry.depth, count);
+			if (isOpen) (byArea.get(sg.id) || []).forEach(function(it) { addItem(it.id, it.label, entry.depth + 1); });
+		});
+		const loose = byArea.get("") || [];
+		if (loose.length > 0) {
+			if (subgroups.length === 0) loose.forEach(function(it) { addItem(it.id, it.label, 0); });
+			else if (addFolder("", "Без подгруппы", "#999", 0, loose.length)) loose.forEach(function(it) { addItem(it.id, it.label, 1); });
+		}
+		if (query && targetList.children.length === 0) {
+			const empty = document.createElement("div");
+			empty.className = "draft-target-empty"; empty.textContent = "Ничего не найдено";
+			targetList.appendChild(empty);
+		}
+		targetList.scrollTop = scrollTop;
+	}
+	targetBtn.addEventListener("click", function() {
+		if (targetPanel.hidden) openTargetPanel(); else setTargetPanelOpen(false);
+	});
+	targetSearch.addEventListener("input", renderTargetList);
+	targetPanel.addEventListener("keydown", function(e) { if (e.key === "Escape") { setTargetPanelOpen(false); targetBtn.focus(); } });
+	function closeTargetOutside(e) {
+		if (!document.body.contains(targetPicker)) { document.removeEventListener("click", closeTargetOutside); return; }
+		if (!targetPicker.contains(e.target)) setTargetPanelOpen(false);
+	}
+	document.addEventListener("click", closeTargetOutside);
+
 	function renderTransitionTargetOptions(currentNodeId) {
+		pickerNodeId = currentNodeId;
+		setTargetPanelOpen(false);
 		transitionSelect.innerHTML = "";
 		const unknownOpt = document.createElement("option");
 		unknownOpt.value = UNKNOWN_TARGET;
@@ -6530,6 +6689,7 @@ function buildDraftPage() {
 			transitionTarget.hidden = false;
 			renderTransitionTargetOptions(node.id);
 			transitionSelect.value = cell.target || UNKNOWN_TARGET;
+			syncTargetLabel();
 		}
 		if (cell && cell.type === "deadend") {
 			deadendFields.hidden = false;
@@ -6823,6 +6983,20 @@ function buildDraftPage() {
 		groupSelect.value = node ? (node.area || "") : "";
 		groupSelect.disabled = !node;
 	}
+	// Подгруппы-«папки»: свёрнутая подгруппа прячет свои настройки и вложенные подгруппы.
+	// Какие свёрнуты — запоминается на устройстве
+	const GROUP_FOLDS_KEY = "atlas.draft.groupFolds";
+	const foldedGroups = (function() {
+		try { return new Set(JSON.parse(localStorage.getItem(GROUP_FOLDS_KEY) || "[]")); } catch (e) { return new Set(); }
+	})();
+	function saveFolds() { try { localStorage.setItem(GROUP_FOLDS_KEY, JSON.stringify(Array.from(foldedGroups))); } catch (e) {} }
+	groupsBox.querySelectorAll(".draft-group-tool").forEach(function(btn) {
+		btn.addEventListener("click", function() {
+			if (btn.dataset.fold === "collapse") draftState.subgroups.forEach(function(sg) { foldedGroups.add(sg.id); });
+			else foldedGroups.clear();
+			saveFolds(); renderGroups();
+		});
+	});
 	function renderGroups() {
 		groupsList.innerHTML = "";
 		groupsBadge.textContent = draftState.subgroups.length > 0 ? "· " + draftState.subgroups.length : "";
@@ -6835,13 +7009,34 @@ function buildDraftPage() {
 			pruneBorders(removedId);
 			renderGroups(); refreshGroupSelect(); renderCanvas();
 		}
+		function hiddenByFolder(sg) {
+			let cur = sg.parentGroup ? draftGroupFind(draftState.subgroups, sg.parentGroup) : null;
+			for (let guard = 0; cur && guard < 30; guard++) {
+				if (foldedGroups.has(cur.id)) return true;
+				cur = cur.parentGroup ? draftGroupFind(draftState.subgroups, cur.parentGroup) : null;
+			}
+			return false;
+		}
 		draftGroupTree(draftState.subgroups).forEach(function(entry) {
 			const sg = entry.sg;
+			if (hiddenByFolder(sg)) return;
+			const folded = foldedGroups.has(sg.id);
+			const kidCount = draftGroupDescendants(draftState.subgroups, sg.id).size;
 			const item = document.createElement("div");
-			item.className = "draft-group-item";
+			item.className = "draft-group-item" + (folded ? " folded" : "");
 			item.style.marginLeft = (entry.depth * 18) + "px";
 			const row = document.createElement("div");
 			row.className = "draft-group-row";
+			const fold = document.createElement("button");
+			fold.type = "button"; fold.className = "draft-group-fold";
+			fold.textContent = folded ? "▸" : "▾";
+			fold.setAttribute("aria-expanded", folded ? "false" : "true");
+			fold.title = folded ? "Развернуть подгруппу" : "Свернуть подгруппу";
+			fold.addEventListener("click", function() {
+				if (foldedGroups.has(sg.id)) foldedGroups.delete(sg.id); else foldedGroups.add(sg.id);
+				saveFolds(); renderGroups();
+			});
+			row.appendChild(fold);
 			const color = document.createElement("input");
 			color.type = "color"; color.value = /^#[0-9a-fA-F]{6}$/.test(sg.color || "") ? sg.color : "#888888";
 			color.addEventListener("input", function() { sg.color = color.value; });
@@ -6852,7 +7047,7 @@ function buildDraftPage() {
 			const count = document.createElement("span");
 			count.className = "draft-group-count";
 			const n = draftState.nodes.filter(function(x) { return x.area === sg.id; }).length;
-			count.textContent = n + " лок.";
+			count.textContent = (kidCount > 0 && folded ? kidCount + " подгр., " : "") + n + " лок.";
 			count.title = "id подгруппы в файле: " + sg.id;
 			const remove = document.createElement("button");
 			remove.type = "button"; remove.className = "draft-transition-remove"; remove.textContent = "×";
@@ -6911,7 +7106,7 @@ function buildDraftPage() {
 			});
 			parentLabel.appendChild(parentText); parentLabel.appendChild(parentSelect);
 			opts.appendChild(parentLabel);
-			opts.appendChild(count); opts.appendChild(remove);
+			row.appendChild(count); row.appendChild(remove);
 			item.appendChild(row);
 			groupsList.appendChild(item);
 		});
@@ -6958,6 +7153,10 @@ function buildDraftPage() {
 				selectedNodeId = id;
 				selectedCell = null;
 				refreshInspector(); refreshTransitionTool(); renderCanvas();
+			} else if (action === "copy") {
+				copySelectedNode();
+			} else if (action === "paste") {
+				pasteNode();
 			} else if (action === "clear") {
 				if (!confirm("Удалить все локации и подгруппы черновика? Это нельзя отменить.")) return;
 				draftState.nodes = [];
@@ -6970,6 +7169,102 @@ function buildDraftPage() {
 			}
 		});
 	});
+
+	// Копирование: берём название, подгруппу, свойства, границы и клетки (с целями переходов).
+	// Не копируем: id, уточнение id, импортированный id и замок — копия всегда разблокирована.
+	function copySelectedNode() {
+		const node = findNode(selectedNodeId);
+		if (!node) { flashNote("Сначала выберите локацию"); return; }
+		draftClipboard = JSON.parse(JSON.stringify({
+			name: node.name || "",
+			area: node.area || "",
+			props: node.props || [],
+			cells: node.cells || {},
+			borders: Array.isArray(node.borders) ? node.borders : undefined
+		}));
+		flashNote("Скопировано: " + (node.name || "без названия"));
+	}
+	function pasteNode() {
+		if (!draftClipboard) { flashNote("Нечего вставлять — сначала скопируйте локацию"); return; }
+		const data = JSON.parse(JSON.stringify(draftClipboard));
+		const copy = {
+			id: nextDraftNodeId(),
+			name: data.name,
+			area: data.area,
+			props: data.props,
+			cells: data.cells,
+			locked: false,
+			idSuffix: "",
+			idOverride: ""
+		};
+		if (data.borders) copy.borders = data.borders;
+		// подгруппа могла быть удалена после копирования
+		if (copy.area && !draftState.subgroups.some(function(sg) { return sg.id === copy.area; })) copy.area = "";
+		draftState.nodes.push(copy);
+		selectedNodeId = copy.id;
+		selectedCell = null;
+		refreshInspector(); refreshTransitionTool(); renderCanvas();
+		flashNote("Вставлена копия");
+	}
+
+	// Ctrl+C / Ctrl+V (Cmd на Mac) — не трогаем, пока курсор в поле или списке
+	// ---- История изменений: снимок черновика после каждого действия ----
+	let historyTimer = null;
+	function commitHistory() {
+		clearTimeout(historyTimer); historyTimer = null;
+		const snap = JSON.stringify(draftState);
+		const h = draftHistory;
+		if (h.index >= 0 && h.stack[h.index] === snap) return;
+		h.stack.length = h.index + 1; // новое действие отрезает «redo»
+		h.stack.push(snap);
+		if (h.stack.length > DRAFT_HISTORY_LIMIT) h.stack.shift();
+		h.index = h.stack.length - 1;
+	}
+	function scheduleHistory() {
+		clearTimeout(historyTimer);
+		historyTimer = setTimeout(commitHistory, 350); // печать в поле склеиваем в один шаг
+	}
+	function restoreHistory(step) {
+		commitHistory(); // сначала фиксируем то, что человек сделал только что
+		const h = draftHistory;
+		const target = h.index + step;
+		if (target < 0 || target >= h.stack.length) { flashNote(step < 0 ? "Больше нечего отменять" : "Больше нечего повторять"); return; }
+		h.index = target;
+		draftState = normalizeDraft(JSON.parse(h.stack[target]));
+		if (!findNode(selectedNodeId)) selectedNodeId = draftState.nodes[0] ? draftState.nodes[0].id : null;
+		selectedCell = null;
+		renderGroups();
+		refreshInspector(); refreshTransitionTool(); renderCanvas();
+		flashNote(step < 0 ? "Отменено" : "Повторено");
+	}
+	commitHistory(); // начальная точка (при повторном открытии вкладки ничего не дублируется)
+	["click", "input", "change", "keyup", "pointerup", "drop"].forEach(function(type) {
+		content.addEventListener(type, scheduleHistory);
+	});
+
+	// Ctrl+C / Ctrl+V / Ctrl+Z / Ctrl+Y (Cmd на Mac) — не трогаем, пока курсор в поле или списке
+	if (draftKeyHandler) document.removeEventListener("keydown", draftKeyHandler);
+	draftKeyHandler = function(e) {
+		if (!content.contains(saveNote)) return; // страница «Рыба» уже закрыта
+		if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+		const code = e.code;
+		const key = e.key.toLowerCase();
+		const is = function(letter) { return key === letter || code === "Key" + letter.toUpperCase(); };
+		const isCopy = is("c") && !e.shiftKey;
+		const isPaste = is("v") && !e.shiftKey;
+		const isUndo = is("z") && !e.shiftKey;
+		const isRedo = is("y") || (is("z") && e.shiftKey);
+		if (!isCopy && !isPaste && !isUndo && !isRedo) return;
+		const t = e.target;
+		if (t && t.closest && t.closest("input, textarea, select, [contenteditable], [role='listbox'], .draft-target-panel")) return;
+		if (isCopy && window.getSelection && String(window.getSelection()).length) return; // выделен обычный текст
+		e.preventDefault();
+		if (isCopy) copySelectedNode();
+		else if (isPaste) pasteNode();
+		else if (isUndo) restoreHistory(-1);
+		else restoreHistory(1);
+	};
+	document.addEventListener("keydown", draftKeyHandler);
 
 	function flashNote(text) {
 		saveNote.textContent = text;
@@ -7008,6 +7303,7 @@ function buildDraftPage() {
 				renderGroups();
 				refreshInspector(); refreshTransitionTool(); renderCanvas();
 				saveDraftToStorage(draftState);
+				commitHistory();
 				flashNote("Импортировано и сохранено");
 			} catch (err) {
 				alert("Не удалось прочитать файл — похоже, это не черновик карты и не файл локаций");
