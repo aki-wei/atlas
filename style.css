@@ -1153,3 +1153,11 @@ button:active { transform: translateY(1px); }
 .draft-target-count { flex: 0 0 auto; font-size: 12px; font-weight: 500; color: var(--text-dim); }
 .draft-target-empty { padding: 8px 10px; font-size: 13px; color: var(--text-dim); }
 .draft-transition-select[hidden] { display: none; }
+/* Кисть свойств */
+.draft-brush-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 8px; padding: 8px 10px; border: 1px dashed var(--accent); border-radius: 8px; background-color: var(--accent-soft); font-size: 14px; }
+.draft-brush-bar[hidden] { display: none; }
+.draft-brush-multi { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.draft-brush-multi input { width: auto; }
+.draft-nodes-flow.brush-mode .draft-node { cursor: copy; }
+.draft-node.brush-source { border-style: dashed; border-color: var(--accent); }
+.draft-node.brush-marked { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background-color: var(--accent-soft); }
