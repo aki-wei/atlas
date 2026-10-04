@@ -47,7 +47,7 @@
       "sk"
     ]
   ],
-  "areaLayout": {"center": "neutral", "top": ["kpv"], "left": ["city"], "right": ["river", "village"], "attach": [{"id": "common", "side": "right", "of": "river"}, {"id": "wind", "side": "right", "of": "common"}]},
+  "areaLayout": {"center": "neutral", "top": ["kpv"], "left": ["city"], "right": ["river"], "bottom": ["village"], "attach": [{"id": "common", "side": "right", "of": "river"}, {"id": "wind", "side": "right", "of": "common"}]},
   "subgroups": [
     {
       "id": "city",
