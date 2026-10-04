@@ -259,6 +259,7 @@ const BOT_TAGS = {
 	inflator: { label: "Бот-надуватель" },
 	quest: { label: "Квестовый бот" },
 	connector: { label: "Бот-переходник" },
+	combat: { label: "Боевой бот" },
 	plain: { label: "Бот" }
 };
 
@@ -306,7 +307,7 @@ function tagLabel(tag) {
 	if (tag.key === "bot") {
 		const bot = BOT_TAGS[tag.bot];
 		const kindLabel = bot ? bot.label : (tag.botLabel || def.label);
-		return kindLabel + (tag.name ? " «" + tag.name + "»" : "");
+		return kindLabel + (tag.name ? " «" + tag.name + "»" : "") + (tag.bot === "combat" && tag.level ? " (" + tag.level + " бу)" : "");
 	}
 	if (def.hasLevel && tag.level !== undefined) {
 		return def.label + " (" + (def.levelUnit || "уровень") + " " + tag.level + ")";
@@ -346,11 +347,25 @@ function tagTipLabel(tag) {
 	return names.length ? base + " (" + names.join(", ") + ")" : base;
 }
 
+// Выпадающий список уровня боевых умений (1–9) для боевого бота
+function createCombatLevelSelect(current) {
+	const select = document.createElement("select");
+	select.className = "prop-bot-level";
+	select.title = "Уровень боевых умений (бу)";
+	for (let i = 1; i <= 9; i++) {
+		const opt = document.createElement("option");
+		opt.value = String(i); opt.textContent = i + " бу";
+		select.appendChild(opt);
+	}
+	select.value = String(current >= 1 && current <= 9 ? current : 1);
+	return select;
+}
+
 function tagIdentity(tag) {
 	const parts = [tag.key];
 	if (tag.key === "spawn") parts.push(tag.spawn || "");
 	if (tag.key === "hunt" || tag.key === "poisonHunt") parts.push(tag.hunt || "", tag.huntLabel || "");
-	if (tag.key === "bot") parts.push(tag.bot || "", tag.name || "", tag.botLabel || "", tag.bot === "connector" ? (Array.isArray(tag.links) ? tag.links.map(String).sort().join(",") : "") : "");
+	if (tag.key === "bot") parts.push(tag.bot || "", tag.name || "", tag.botLabel || "", tag.bot === "connector" ? (Array.isArray(tag.links) ? tag.links.map(String).sort().join(",") : "") : "", tag.bot === "combat" ? String(tag.level || "") : "");
 	if (tag.key === "custom") parts.push(tag.customLabel || "", tag.customKind || "");
 	if (tag.key === "climb" || tag.key === "swim") parts.push(String(tag.level));
 	return parts.join("|");
@@ -420,10 +435,10 @@ const CAN_HOVER = !!(window.matchMedia && window.matchMedia("(hover: hover)").ma
 // Ключ вида свойства для фильтра иконок на графе: имя бота не учитывается,
 // чтобы все «Блоггеры» (например) выбирались одним пунктом
 function tagFilterKey(tag) {
-	return tagIdentity(tag.key === "bot" ? Object.assign({}, tag, { name: "", links: [] }) : tag);
+	return tagIdentity(tag.key === "bot" ? Object.assign({}, tag, { name: "", links: [], level: undefined }) : tag);
 }
 function tagFilterLabel(tag) {
-	return tagLabel(tag.key === "bot" ? Object.assign({}, tag, { name: "", links: [] }) : tag);
+	return tagLabel(tag.key === "bot" ? Object.assign({}, tag, { name: "", links: [], level: undefined }) : tag);
 }
 function allTagsOfLocation(location) {
 	const out = (location.tags || []).slice();
@@ -2145,7 +2160,17 @@ function draftToExportData(draft) {
 		delete out.extraIds;
 		if (!out.neutral) delete out.neutral;
 		if (!out.parentGroup) delete out.parentGroup;
-		out.ids = draft.nodes.filter(function(n) { return n.area === sg.id; })
+		// «внутренние» подгруппы (subarea) граф считает частью родителя — их локации остаются и в его ids
+		const owns = function(n) {
+			let cur = draftGroupFind(draft.subgroups, n.area);
+			for (let guard = 0; cur && guard < 30; guard++) {
+				if (cur.id === sg.id) return true;
+				if (!cur.subarea || !cur.parentGroup) return false;
+				cur = draftGroupFind(draft.subgroups, cur.parentGroup);
+			}
+			return false;
+		};
+		out.ids = draft.nodes.filter(owns)
 			.map(function(n) { return exportIds.get(n.id); })
 			.concat(sg.extraIds || []);
 		return out;
@@ -2172,6 +2197,19 @@ function sectionFileToDraft(parsed) {
 	const byId = new Map();
 	parsed.locations.forEach(function(loc, i) { if (loc && loc.id !== undefined && loc.id !== null) byId.set(String(loc.id), nodes[i]); });
 	const subgroups = [];
+	const rawGroups = new Map();
+	(Array.isArray(parsed.subgroups) ? parsed.subgroups : []).forEach(function(sg) { if (sg && sg.id !== undefined) rawGroups.set(String(sg.id), sg); });
+	// вложена ли подгруппа childId (на любую глубину) в ancestorId
+	function rawIsInside(childId, ancestorId) {
+		const seen = new Set();
+		let cur = rawGroups.get(String(childId));
+		while (cur && cur.parentGroup !== undefined && !seen.has(String(cur.id))) {
+			seen.add(String(cur.id));
+			if (String(cur.parentGroup) === String(ancestorId)) return true;
+			cur = rawGroups.get(String(cur.parentGroup));
+		}
+		return false;
+	}
 	(Array.isArray(parsed.subgroups) ? parsed.subgroups : []).forEach(function(sg) {
 		if (!sg || sg.id === undefined) return;
 		const def = Object.assign({}, sg);
@@ -2180,7 +2218,8 @@ function sectionFileToDraft(parsed) {
 		delete def.ids;
 		(Array.isArray(sg.ids) ? sg.ids : []).forEach(function(id) {
 			const node = byId.get(String(id));
-			if (node && !node.area) node.area = def.id;
+			// локация может числиться и в родителе, и во вложенной подгруппе — выигрывает вложенная
+			if (node && (!node.area || rawIsInside(def.id, node.area))) node.area = def.id;
 			else if (!node) def.extraIds.push(id);
 		});
 		subgroups.push(def);
@@ -2442,6 +2481,7 @@ function saveCustomKind(tag) {
 	const template = Object.assign({}, tag);
 	delete template.name; // имя бота — у конкретной локации, а не у вида
 	delete template.links; // куда ведёт бот-переходник — тоже у конкретной локации
+	delete template.level; // уровень боевых умений — тоже у конкретной локации
 	const all = loadCustomKinds();
 	const list = Array.isArray(all[tag.key]) ? all[tag.key] : [];
 	const identity = tagIdentity(template);
@@ -2861,6 +2901,7 @@ function createPropertyPicker(onAdd, options) {
 			chosenBotKind = key;
 			connLinks.element.hidden = key !== "connector";
 			if (typeof kindField !== "undefined") kindField.style.display = key === "custom" ? "" : "none";
+			if (typeof levelField !== "undefined") levelField.style.display = key === "combat" ? "" : "none";
 			if (typeof preview !== "undefined" && !pendingIcon) preview.style.backgroundImage = key === "connector" ? "url(\"" + CONNECTOR_DEFAULT_ICON + "\")" : "";
 			kindsRow.querySelectorAll(".prop-list-btn").forEach(function(b) { b.classList.toggle("selected", b === btn); });
 		}
@@ -2874,9 +2915,11 @@ function createPropertyPicker(onAdd, options) {
 		kindsRow.appendChild(otherBtn);
 		// сохранённый вид бота-переходника не добавляется сразу — нужно ещё выбрать локации
 		appendSavedKinds(kindsRow, "bot", false, function(template) {
-			if (template.bot !== "connector") { handleAdd(template); return; }
-			chosenBotKind = "connector";
-			connLinks.element.hidden = false;
+			if (template.bot !== "connector" && template.bot !== "combat") { handleAdd(template); return; }
+			// бот-переходник и боевой бот добавляются не сразу: нужно ещё выбрать локации / уровень
+			chosenBotKind = template.bot;
+			connLinks.element.hidden = template.bot !== "connector";
+			levelField.style.display = template.bot === "combat" ? "" : "none";
 			kindField.style.display = "none";
 			kindsRow.querySelectorAll(".prop-list-btn").forEach(function(b) { b.classList.remove("selected"); });
 			pendingIcon = template.icon;
@@ -2899,6 +2942,9 @@ function createPropertyPicker(onAdd, options) {
 		sub.appendChild(detailsRow);
 		const kindField = detailsRow.querySelector(".prop-bot-kind");
 		kindField.style.display = "none";
+		const levelField = createCombatLevelSelect(1);
+		levelField.style.display = "none";
+		kindField.parentNode.insertBefore(levelField, kindField.nextSibling);
 		const nameField = detailsRow.querySelector(".prop-bot-name");
 		const iconField = detailsRow.querySelector(".prop-custom-icon-input");
 		const preview = detailsRow.querySelector(".prop-icon-preview");
@@ -2923,6 +2969,11 @@ function createPropertyPicker(onAdd, options) {
 				const picked = connLinks.getLinks();
 				if (picked.length === 0) { alert("Выберите хотя бы одну локацию, в которую ведёт бот-переходник"); return; }
 				tag.links = picked;
+			}
+			if (chosenBotKind === "combat") {
+				const level = Math.round(Number(levelField.value));
+				if (!(level >= 1 && level <= 9)) { alert("Уровень боевых умений — от 1 до 9"); return; }
+				tag.level = level;
 			}
 			const name = nameField.value.trim();
 			saveCustomKind(tag);
@@ -3072,6 +3123,7 @@ function openPropEditor(holder, list, index, onDone) {
 			chosen = key;
 			connLinks.element.hidden = key !== "connector";
 			if (typeof kindField !== "undefined") kindField.style.display = key === "custom" ? "" : "none";
+			if (typeof levelField !== "undefined") levelField.style.display = key === "combat" ? "" : "none";
 			kindsRow.querySelectorAll(".prop-list-btn").forEach(function(b) { b.classList.toggle("selected", b === btn); });
 		}
 		let customBtn;
@@ -3088,6 +3140,9 @@ function openPropEditor(holder, list, index, onDone) {
 		const row = addRow();
 		const kindField = addField(row, "prop-bot-kind", "Вид бота", tag.botLabel || "");
 		kindField.style.display = chosen === "custom" ? "" : "none";
+		const levelField = createCombatLevelSelect(tag.level);
+		levelField.style.display = chosen === "combat" ? "" : "none";
+		row.appendChild(levelField);
 		const nameField = addField(row, "prop-bot-name", "Имя бота (необязательно)", tag.name || "");
 		addIconControls(row, tagIcon(tag));
 		build = function() {
@@ -3104,6 +3159,7 @@ function openPropEditor(holder, list, index, onDone) {
 				if (picked.length === 0) { alert("Выберите хотя бы одну локацию, в которую ведёт бот-переходник"); return null; }
 				next.links = picked;
 			}
+			if (chosen === "combat") next.level = Math.min(9, Math.max(1, Math.round(Number(levelField.value)) || 1));
 			const name = nameField.value.trim();
 			if (name) next.name = name;
 			return next;
@@ -5023,12 +5079,35 @@ function withHints(list, section) {
 // Файл раздела бывает либо старым простым массивом локаций, либо новым
 // объектом { subgroups, locations } — subgroups нужен графу, чтобы не
 // перемешивать области (Город, Горы и т. п.) между собой при раскладке
+// Подгруппа с subarea: true и parentGroup — «внутренняя» (как Горы и Туннели в нейтрах):
+// для «Рыбы» это отдельная подгруппа, а граф по-прежнему видит одну область-родителя
+// (делит её сам по началу id, см. NEUTRAL_SUBAREAS), поэтому здесь сворачиваем обратно
+function foldSubareas(list) {
+	const src = Array.isArray(list) ? list : [];
+	const byId = new Map();
+	src.forEach(function(sg) { if (sg && sg.id !== undefined) byId.set(String(sg.id), sg); });
+	const isFolded = function(sg) { return !!(sg && sg.subarea && sg.parentGroup !== undefined && byId.has(String(sg.parentGroup))); };
+	if (!src.some(isFolded)) return src;
+	const copies = new Map();
+	src.forEach(function(sg) { if (sg && !isFolded(sg)) copies.set(sg, Object.assign({}, sg)); });
+	src.forEach(function(sg) {
+		if (!isFolded(sg)) return;
+		let owner = byId.get(String(sg.parentGroup));
+		for (let guard = 0; isFolded(owner) && guard < 30; guard++) owner = byId.get(String(owner.parentGroup));
+		const target = copies.get(owner);
+		if (!target) return;
+		const ids = Array.isArray(target.ids) ? target.ids.slice() : [];
+		(Array.isArray(sg.ids) ? sg.ids : []).forEach(function(id) { if (ids.indexOf(id) < 0) ids.push(id); });
+		target.ids = ids;
+	});
+	return src.filter(function(sg) { return copies.has(sg); }).map(function(sg) { return copies.get(sg); });
+}
 function unwrapSectionData(data) {
 	if (Array.isArray(data)) return { list: data, subgroups: [], areaOrder: null, areaRows: null, areaLayout: null };
 	if (data && Array.isArray(data.locations)) {
 		return {
 			list: data.locations,
-			subgroups: Array.isArray(data.subgroups) ? data.subgroups : [],
+			subgroups: foldSubareas(data.subgroups),
 			// Необязательный ручной порядок областей для графа (id из subgroups) —
 			// см. buildMapModel; без него порядок подбирается автоматически
 			areaOrder: Array.isArray(data.areaOrder) ? data.areaOrder : null,
@@ -6166,7 +6245,7 @@ function buildDraftPage() {
 	let selectedNodeId = draftState.nodes[0] ? draftState.nodes[0].id : null;
 	let selectedCell = null;
 	// «Кисть свойств»: снимок свойств источника и отмеченные локации
-	const brush = { active: false, sourceId: null, multi: false, marks: new Set(), props: [], deadendProps: [] };
+	const brush = { active: false, mode: "props", area: "", sourceId: null, multi: false, marks: new Set(), props: [], deadendProps: [] };
 
 	content.innerHTML = `
 		<h2 class="page-title">Рыба — черновик карты</h2>
@@ -6175,6 +6254,7 @@ function buildDraftPage() {
 			<button type="button" class="draft-btn" data-action="copy" title="Копировать выбранную локацию (Ctrl+C)">Копировать</button>
 			<button type="button" class="draft-btn" data-action="paste" title="Вставить копию локации (Ctrl+V)">Вставить</button>
 			<button type="button" class="draft-btn" data-action="brush" title="Взять свойства выбранной локации и перенести на другие">Копировать свойства</button>
+			<button type="button" class="draft-btn" data-action="brushArea" title="Взять подгруппу выбранной локации и назначить другим">Копировать подгруппу</button>
 			<button type="button" class="draft-btn draft-btn-danger" data-action="clear">Очистить карту</button>
 		</div>
 		<div class="draft-brush-bar" hidden>
@@ -6518,7 +6598,8 @@ function buildDraftPage() {
 		node.cells[selectedCell.index] = {
 			type: typeSelect.value,
 			target: null,
-			unknownName: prev.unknownName || "",
+			// «неизвестная цель» нужна только переходам, у которых есть куда вести
+			unknownName: (typeSelect.value === "normal" || typeSelect.value === "hidden" || typeSelect.value === "fast") ? (prev.unknownName || "") : "",
 			deadendName: prev.deadendName || "",
 			deadendProps: prev.deadendProps || []
 		};
@@ -7251,8 +7332,11 @@ function buildDraftPage() {
 				copySelectedNode();
 			} else if (action === "paste") {
 				pasteNode();
-			} else if (action === "brush") {
-				if (brush.active) brushStop(); else brushStart();
+			} else if (action === "brush" || action === "brushArea") {
+				const mode = action === "brushArea" ? "area" : "props";
+				const same = brush.active && brush.mode === mode;
+				if (brush.active) brushStop();
+				if (!same) brushStart(mode);
 			} else if (action === "clear") {
 				if (!confirm("Удалить все локации и подгруппы черновика? Это нельзя отменить.")) return;
 				draftState.nodes = [];
@@ -7377,17 +7461,23 @@ function buildDraftPage() {
 	const brushMulti = brushBar.querySelector(".draft-brush-multi input");
 	const brushApplyBtn = brushBar.querySelector(".draft-brush-apply");
 	const brushToolBtn = content.querySelector('.draft-btn[data-action="brush"]');
+	const brushAreaBtn = content.querySelector('.draft-btn[data-action="brushArea"]');
 	function brushUpdateUi() {
 		const src = findNode(brush.sourceId);
-		brushText.textContent = "Свойства «" + ((src && src.name) || "без названия") + "» взяты. " +
+		const areaSg = brush.area ? draftGroupFind(draftState.subgroups, brush.area) : null;
+		brushText.textContent = (brush.mode === "area"
+			? "Подгруппа «" + (areaSg ? areaSg.name : "Без подгруппы") + "» взята у «" + ((src && src.name) || "без названия") + "». "
+			: "Свойства «" + ((src && src.name) || "без названия") + "» взяты. ") +
 			(brush.multi ? "Отметьте локации и нажмите «Применить»." : "Кликните по локации, на которую перенести.");
 		brushApplyBtn.hidden = !brush.multi;
 		brushApplyBtn.textContent = "Применить (" + brush.marks.size + ")";
 		brushApplyBtn.disabled = brush.marks.size === 0;
 	}
-	function brushStart() {
+	function brushStart(mode) {
 		const src = findNode(selectedNodeId);
-		if (!src) { flashNote("Сначала выберите локацию, свойства которой нужно скопировать"); return; }
+		if (!src) { flashNote("Сначала выберите локацию-образец"); return; }
+		brush.mode = mode || "props";
+		brush.area = nodeAreaKey(src);
 		brush.active = true;
 		brush.sourceId = src.id;
 		brush.marks.clear();
@@ -7402,7 +7492,8 @@ function buildDraftPage() {
 		});
 		brush.deadendProps = dead;
 		brushBar.hidden = false;
-		brushToolBtn.textContent = "Отменить копирование свойств";
+		if (brush.mode === "area") brushAreaBtn.textContent = "Отменить копирование подгруппы";
+		else brushToolBtn.textContent = "Отменить копирование свойств";
 		nodesFlow.classList.add("brush-mode");
 		brushUpdateUi();
 		renderCanvas();
@@ -7412,6 +7503,7 @@ function buildDraftPage() {
 		brush.marks.clear();
 		brushBar.hidden = true;
 		brushToolBtn.textContent = "Копировать свойства";
+		brushAreaBtn.textContent = "Копировать подгруппу";
 		nodesFlow.classList.remove("brush-mode");
 		renderCanvas();
 	}
@@ -7450,13 +7542,21 @@ function buildDraftPage() {
 			const target = findNode(id);
 			if (!target || target.id === brush.sourceId) return;
 			if (target.locked) { locked++; return; }
+			if (brush.mode === "area") {
+				target.area = brush.area;
+				expandNodeGroup(target);
+				done++;
+				return;
+			}
 			const r = brushApplyTo(target);
 			done++;
 			if (r.deadSkipped) noDead++;
 		});
+		const wasArea = brush.mode === "area";
 		brushStop();
+		if (wasArea) renderGroups();
 		refreshInspector(); refreshTransitionTool();
-		let msg = "Свойства перенесены: " + done + " лок.";
+		let msg = (wasArea ? "Подгруппа назначена: " : "Свойства перенесены: ") + done + " лок.";
 		if (noDead) msg += ". Свойства тупика пропущены у " + noDead + " (нет тупика)";
 		if (locked) msg += ". Заблокированных пропущено: " + locked;
 		flashNote(msg, 6000);
