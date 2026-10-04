@@ -86,10 +86,16 @@ const RESIDENCES = [
 	{ title: "Душевая", group: "dush", items: [{ key: "dush", label: "Душевая" }], single: true }
 ];
 // Подобласти внутри нейтров ОВ (по началу id локации)
+// takesRest: сюда же относятся нейтральные локации без «говорящего» префикса
+// (Горное озеро, Зловонное ущелье и т. п. — всё это горные тропы)
 const NEUTRAL_SUBAREAS = [
-	{ label: "Горы", prefixes: ["Горы"] },
+	{ label: "Горы", prefixes: ["Горы"], takesRest: true },
 	{ label: "Туннели", prefixes: TUNNEL_PREFIXES }
 ];
+function matchesNeutralSub(sa, id) {
+	if (idHasPrefix(id, sa.prefixes)) return true;
+	return !!sa.takesRest && !NEUTRAL_SUBAREAS.some(function(other) { return other !== sa && idHasPrefix(id, other.prefixes); });
+}
 function idHasPrefix(id, prefixes) {
 	id = String(id);
 	return prefixes.some(function(p) { return id.indexOf(p) === 0; });
@@ -3367,6 +3373,40 @@ function layoutCluster(indices, edgesGlobal) {
 	return { positions: positions, w: maxX - minX, h: maxY - minY, minX: minX, minY: minY };
 }
 
+// Раскладка области. Если область поделена на части (cluster.groups — у нейтров
+// это Горы и Туннели), каждая часть раскладывается отдельно, а части ставятся
+// рядом друг с другом, не перемешиваясь: так их рамки на графе не накладываются
+function layoutClusterOf(cluster, edgesGlobal) {
+	if (!cluster.groups || cluster.groups.length < 2) return layoutCluster(cluster.indices, edgesGlobal);
+	const GAP_BETWEEN = 170;
+	const blocks = cluster.groups.map(function(g) { return layoutCluster(g, edgesGlobal); });
+	function arrange(horizontal) {
+		let off = 0, w = 0, h = 0;
+		const offs = blocks.map(function(b) {
+			const o = off;
+			if (horizontal) { off += b.w + NODE_W + GAP_BETWEEN; w = off - NODE_W - GAP_BETWEEN; h = Math.max(h, b.h); }
+			else { off += b.h + NODE_H + LABEL_CLEARANCE + GAP_BETWEEN; h = off - NODE_H - LABEL_CLEARANCE - GAP_BETWEEN; w = Math.max(w, b.w); }
+			return o;
+		});
+		return { offs: offs, w: w, h: h };
+	}
+	const hor = arrange(true), ver = arrange(false);
+	// карта ложится вширь (экран широкий), поэтому части ставим рядом по горизонтали:
+	// так граф целиком получается ниже и масштаб, а с ним и иконки, остаются крупнее
+	const horizontal = true;
+	const pick = horizontal ? hor : ver;
+	const positions = [];
+	blocks.forEach(function(b, bi) {
+		b.positions.forEach(function(p) {
+			positions.push({
+				x: p.x - b.minX + (horizontal ? pick.offs[bi] : 0),
+				y: p.y - b.minY + (horizontal ? 0 : pick.offs[bi])
+			});
+		});
+	});
+	return { positions: positions, w: pick.w, h: pick.h, minX: 0, minY: 0 };
+}
+
 // Раскладка «по сторонам света» (areaLayout в файле раздела):
 // { center: "neutral", top: ["kpv"], left: ["city", "village"], bottom: ["river", "common", "wind"], right: [] }
 // Центральная область ставится первой, остальные — вокруг неё с нужной стороны.
@@ -3422,7 +3462,7 @@ function placeAreasByCompass(clusters, spec, edgesGlobal, nodes, areas, groupOff
 	}
 	// Центр
 	const cc = byId.get(spec.center);
-	laidOf.set(cc, layoutCluster(clusters[cc].indices, edgesGlobal));
+	laidOf.set(cc, layoutClusterOf(clusters[cc], edgesGlobal));
 	used.add(cc);
 	const rectOf = new Map(); // индекс кластера → его прямоугольник из rects
 	const centerRect = place(cc, 0, 0);
@@ -3435,7 +3475,7 @@ function placeAreasByCompass(clusters, spec, edgesGlobal, nodes, areas, groupOff
 		const ci = byId.get(id);
 		if (ci === undefined || used.has(ci)) return prev;
 		used.add(ci);
-		const baseLaid = layoutCluster(clusters[ci].indices, edgesGlobal);
+		const baseLaid = layoutClusterOf(clusters[ci], edgesGlobal);
 		const aw = laidOf.get(anchor.ci).w, ah = laidOf.get(anchor.ci).h;
 		const vertical = side === "left" || side === "right"; // стопка вдоль Y
 		// Пробуем четыре ориентации области (как есть, зеркало по X, по Y, по обеим)
@@ -3513,7 +3553,7 @@ function placeAreasByCompass(clusters, spec, edgesGlobal, nodes, areas, groupOff
 	clusters.forEach(function(c, ci) {
 		if (used.has(ci)) return;
 		used.add(ci);
-		const laid = layoutCluster(c.indices, edgesGlobal);
+		const laid = layoutClusterOf(c, edgesGlobal);
 		laidOf.set(ci, laid);
 		rects.push(place(ci, restX, restY));
 		restX += laid.w + NODE_W + GAP;
@@ -3538,6 +3578,61 @@ function placeAreasByCompass(clusters, spec, edgesGlobal, nodes, areas, groupOff
 		});
 	});
 	return groupOffsetX + (maxX - minX) + 220;
+}
+
+// Контур объединения прямоугольников { minX, maxX, minY, maxY } одним путём SVG
+function rectsUnionPath(rects) {
+	const xs = [], ys = [];
+	rects.forEach(function(r) { xs.push(r.minX, r.maxX); ys.push(r.minY, r.maxY); });
+	const ux = xs.filter(function(v, i) { return xs.indexOf(v) === i; }).sort(function(a, b) { return a - b; });
+	const uy = ys.filter(function(v, i) { return ys.indexOf(v) === i; }).sort(function(a, b) { return a - b; });
+	const occ = [];
+	for (let i = 0; i < ux.length - 1; i++) {
+		occ.push([]);
+		for (let j = 0; j < uy.length - 1; j++) {
+			const cx = (ux[i] + ux[i + 1]) / 2, cy = (uy[j] + uy[j + 1]) / 2;
+			occ[i].push(rects.some(function(r) { return cx > r.minX && cx < r.maxX && cy > r.minY && cy < r.maxY; }));
+		}
+	}
+	function filled(i, j) { return i >= 0 && j >= 0 && i < occ.length && j < occ[0].length && occ[i][j]; }
+	const next = new Map(); // "x,y" → список исходящих рёбер
+	function addEdge(x1, y1, x2, y2) {
+		const key = x1 + "," + y1;
+		if (!next.has(key)) next.set(key, []);
+		next.get(key).push({ x: x2, y: y2, used: false });
+	}
+	for (let i = 0; i < occ.length; i++) {
+		for (let j = 0; j < occ[i].length; j++) {
+			if (!occ[i][j]) continue;
+			if (!filled(i, j - 1)) addEdge(ux[i], uy[j], ux[i + 1], uy[j]);
+			if (!filled(i + 1, j)) addEdge(ux[i + 1], uy[j], ux[i + 1], uy[j + 1]);
+			if (!filled(i, j + 1)) addEdge(ux[i + 1], uy[j + 1], ux[i], uy[j + 1]);
+			if (!filled(i - 1, j)) addEdge(ux[i], uy[j + 1], ux[i], uy[j]);
+		}
+	}
+	let d = "";
+	next.forEach(function(list, startKey) {
+		list.forEach(function(first) {
+			if (first.used) return;
+			const sp = startKey.split(",").map(Number);
+			const pts = [{ x: sp[0], y: sp[1] }];
+			let edge = first;
+			for (let guard = 0; guard < 10000 && edge; guard++) {
+				edge.used = true;
+				const key = edge.x + "," + edge.y;
+				if (key === startKey) break;
+				pts.push({ x: edge.x, y: edge.y });
+				edge = (next.get(key) || []).find(function(e) { return !e.used; });
+			}
+			// убираем лишние точки на прямых
+			const keep = pts.filter(function(p, i) {
+				const a = pts[(i + pts.length - 1) % pts.length], b = pts[(i + 1) % pts.length];
+				return !((a.x === p.x && p.x === b.x) || (a.y === p.y && p.y === b.y));
+			});
+			d += keep.map(function(p, i) { return (i === 0 ? "M" : "L") + p.x + "," + p.y; }).join(" ") + " Z ";
+		});
+	});
+	return d.trim();
 }
 
 function buildMapModel(entries) {
@@ -3617,6 +3712,17 @@ function buildMapModel(entries) {
 				return { id: sub.id, name: sub.name, color: sub.color || null,
 					parentName: (sub.parent && list.parents) ? (list.parents[sub.parent] || null) : null, indices: indices };
 			}).filter(function(c) { return c.indices.length > 0; });
+			// Нейтры делим на Горы и Туннели: раскладываются порознь, не смешиваясь
+			clusters.forEach(function(c) {
+				if (c.id !== "neutral") return;
+				const parts = NEUTRAL_SUBAREAS.map(function(sa) {
+					return c.indices.filter(function(gi) { return matchesNeutralSub(sa, nodes[gi].location.id); });
+				}).filter(function(part) { return part.length > 0; });
+				const covered = parts.reduce(function(sum, part) { return sum + part.length; }, 0);
+				if (parts.length < 2 || covered !== c.indices.length) return;
+				c.groups = parts;
+				c.indices = [].concat.apply([], parts);
+			});
 			const rest = [];
 			list.forEach(function(location) {
 				const gi = indexById.get(String(location.id));
@@ -3726,7 +3832,7 @@ function buildMapModel(entries) {
 		// координаты (они пока 0,0, это не настоящая позиция)
 		const placedGi = new Set();
 		clusters.forEach(function(cluster, ci) {
-			const laid = layoutCluster(cluster.indices, entryEdgesGlobal);
+			const laid = layoutClusterOf(cluster, entryEdgesGlobal);
 			const isNewRow = rowX > 0 && (forcedRowBreaks.has(ci) || rowX + laid.w > maxRowWidth);
 			if (isNewRow) {
 				rowX = 0;
@@ -3997,18 +4103,41 @@ function renderGraph(wrap, entries, routeIds) {
 		const kids = areaChildIds(graphSubgroups, "neutral").map(function(id) { return areaById[id]; }).filter(Boolean);
 		const nc = nested.color || "#888";
 		if (kids.length > 0) {
-			const all = [nested].concat(kids);
-			const outer = {
-				minX: Math.min.apply(null, all.map(function(a) { return a.minX; })) - 24,
-				maxX: Math.max.apply(null, all.map(function(a) { return a.maxX; })) + 24,
-				minY: Math.min.apply(null, all.map(function(a) { return a.minY; })) - 46,
-				maxY: Math.max.apply(null, all.map(function(a) { return a.maxY; })) + 16
-			};
-			frameLayer.appendChild(svgEl("rect", {
-				"class": "g-area-frame", x: outer.minX, y: outer.minY, width: outer.maxX - outer.minX,
-				height: outer.maxY - outer.minY, rx: 14, stroke: nc, fill: nc, "stroke-dasharray": "7 5"
+			// Общая рамка нейтров — не прямоугольник вокруг всего подряд, а контур по
+			// самим областям (Нейтры, Город, Посёлок), чтобы чужие области
+			// (например, Речное племя), стоящие рядом, не оказывались «внутри» неё
+			const PAD_X = 24, PAD_TOP = 46, PAD_BOTTOM = 16;
+			function padded(a) { return { minX: a.minX - PAD_X, maxX: a.maxX + PAD_X, minY: a.minY - PAD_TOP, maxY: a.maxY + PAD_BOTTOM }; }
+			function hits(a, b) { return a.minX < b.maxX && a.maxX > b.minX && a.minY < b.maxY && a.maxY > b.minY; }
+			const members = [nested].concat(kids).map(padded);
+			const foreign = areas.filter(function(a) { return a !== nested && kids.indexOf(a) < 0; }).map(padded);
+			const parts = members.slice();
+			// мостик между соседними областями, если между ними есть просвет
+			// (и если по пути нет чужой области)
+			members.slice(1).forEach(function(kid) {
+				let best = null;
+				members.forEach(function(other) {
+					if (other === kid) return;
+					const yLo = Math.max(kid.minY, other.minY), yHi = Math.min(kid.maxY, other.maxY);
+					const xLo = Math.max(kid.minX, other.minX), xHi = Math.min(kid.maxX, other.maxX);
+					let bridge = null, gap = 0;
+					if (yHi > yLo && (kid.maxX <= other.minX || other.maxX <= kid.minX)) {
+						gap = kid.maxX <= other.minX ? other.minX - kid.maxX : kid.minX - other.maxX;
+						bridge = { minX: Math.min(kid.maxX, other.maxX) - 1, maxX: Math.max(kid.minX, other.minX) + 1, minY: yLo, maxY: yHi };
+					} else if (xHi > xLo && (kid.maxY <= other.minY || other.maxY <= kid.minY)) {
+						gap = kid.maxY <= other.minY ? other.minY - kid.maxY : kid.minY - other.maxY;
+						bridge = { minX: xLo, maxX: xHi, minY: Math.min(kid.maxY, other.maxY) - 1, maxY: Math.max(kid.minY, other.minY) + 1 };
+					}
+					if (!bridge || foreign.some(function(f) { return hits(bridge, f); })) return;
+					if (!best || gap < best.gap) best = { gap: gap, rect: bridge };
+				});
+				if (best && best.gap > 0) parts.push(best.rect);
+			});
+			frameLayer.appendChild(svgEl("path", {
+				"class": "g-area-frame", d: rectsUnionPath(parts), stroke: nc, fill: nc,
+				"stroke-dasharray": "7 5", "stroke-linejoin": "round"
 			}));
-			const outerLabel = svgEl("text", { "class": "g-area-label", x: outer.minX + 10, y: outer.minY + 16, fill: nc });
+			const outerLabel = svgEl("text", { "class": "g-area-label", x: members[0].minX + 10, y: members[0].minY + 16, fill: nc });
 			const legacyKids = kids.length === 2 && kids.every(function(k) { return k.id === "city" || k.id === "village"; });
 			outerLabel.textContent = nested.name + (legacyKids ? " (вместе с Посёлком и Городом)" : " (включая: " + kids.map(function(k) { return k.name; }).join(", ") + ")");
 			frameLayer.appendChild(outerLabel);
@@ -4016,7 +4145,7 @@ function renderGraph(wrap, entries, routeIds) {
 		// Внутренние рамки нужны, только если область нейтров показана не вся
 		// целиком: иначе рамка и название совпадали бы с рамкой самой области
 		const subs = NEUTRAL_SUBAREAS.map(function(sa) {
-			return { sa: sa, idx: nested.indices.filter(function(gi) { return idHasPrefix(nodes[gi].location.id, sa.prefixes); }) };
+			return { sa: sa, idx: nested.indices.filter(function(gi) { return matchesNeutralSub(sa, nodes[gi].location.id); }) };
 		}).filter(function(x) { return x.idx.length > 1; });
 		const whole = subs.length === 1 && subs[0].idx.length === nested.indices.length;
 		if (whole) nested.name = nested.name + ": " + subs[0].sa.label;
@@ -4665,7 +4794,7 @@ function renderGraph(wrap, entries, routeIds) {
 			NEUTRAL_SUBAREAS.forEach(function(sa) {
 				const hit = sa.label.toLowerCase().includes(trimmed) || (sa.label === "Туннели" && ("воющие коридоры".includes(trimmed) || "ледяной плен".includes(trimmed)));
 				if (!hit || found.some(function(a) { return a.name === sa.label; })) return;
-				const idx = neutralArea.indices.filter(function(gi) { return idHasPrefix(nodes[gi].location.id, sa.prefixes); });
+				const idx = neutralArea.indices.filter(function(gi) { return matchesNeutralSub(sa, nodes[gi].location.id); });
 				if (idx.length > 0) found.push({ name: sa.label, indices: idx });
 			});
 		}
