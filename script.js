@@ -44,16 +44,16 @@ const groups = [
 // умолчанию; area — id подгруппы в файле раздела (если она там уже есть),
 // для будущих карт можно просто дописать. Заголовок без группы-одиночки —
 // только подпись, выбираются пункты внутри
+const TUNNEL_PREFIXES = ["Туннели", "Воющие коридоры", "Ледяной Плен"];
 const RESIDENCES = [
 	{ title: "Озёрная вселенная", group: "ov", items: [
-		{ key: "ov:all", label: "Озёрная вселенная: вся вселенная" },
-		{ label: "Одиночки ОВ", children: [
-			{ key: "ov:village", label: "Посёлок", area: "village" },
-			{ key: "ov:city", label: "Город", area: "city" }
-		] },
+		{ key: "ov:all", label: "Вся вселенная" },
 		{ label: "Нейтры", children: [
-			{ key: "ov:mountains", label: "Горы", area: "neutral", idPrefix: "Горы" },
-			{ key: "ov:tunnels", label: "Туннели", area: "neutral", idPrefix: "Туннели" }
+			{ key: "ov:neutral", label: "Все нейтры", area: "neutral" },
+			{ key: "ov:village", label: "Посёлок (одиночки)", area: "village" },
+			{ key: "ov:city", label: "Город (одиночки)", area: "city" },
+			{ key: "ov:mountains", label: "Горы", area: "neutral", prefixes: ["Горы"] },
+			{ key: "ov:tunnels", label: "Туннели", area: "neutral", prefixes: TUNNEL_PREFIXES }
 		] },
 		{ key: "ov:thunder", label: "Грозовое племя", area: "thunder" },
 		{ key: "ov:river", label: "Речное племя", area: "river" },
@@ -64,15 +64,15 @@ const RESIDENCES = [
 		{ key: "ov:home", label: "Домашние" }
 	] },
 	{ title: "Морская вселенная", group: "ov", items: [
-		{ key: "mv:all", label: "Морская вселенная: вся вселенная" },
-		{ key: "mv:loners", label: "Одиночки МВ" },
+		{ key: "mv:all", label: "Вся вселенная" },
+		{ key: "mv:loners", label: "Нейтры (одиночки МВ)" },
 		{ key: "mv:sun", label: "Племя Солнца" },
 		{ key: "mv:moon", label: "Племя Луны" },
 		{ key: "mv:sea", label: "Морское племя" }
 	] },
 	{ title: "Вселенная творцов", group: "vt", items: [
-		{ key: "vt:all", label: "Вселенная творцов: вся вселенная" },
-		{ key: "vt:loners", label: "Одиночки ВТ" },
+		{ key: "vt:all", label: "Вся вселенная" },
+		{ key: "vt:loners", label: "Нейтры (одиночки ВТ)" },
 		{ key: "vt:mysteries", label: "Племя Неразгаданных Тайн" },
 		{ key: "vt:winged", label: "Крылатое племя" },
 		{ key: "vt:icerain", label: "Клан Ледяного Дождя" },
@@ -85,6 +85,23 @@ const RESIDENCES = [
 	{ title: "Сумрачный лес", group: "sl", items: [{ key: "sl", label: "Сумрачный лес" }], single: true },
 	{ title: "Душевая", group: "dush", items: [{ key: "dush", label: "Душевая" }], single: true }
 ];
+// Подобласти внутри нейтров ОВ (по началу id локации)
+const NEUTRAL_SUBAREAS = [
+	{ label: "Горы", prefixes: ["Горы"] },
+	{ label: "Туннели", prefixes: TUNNEL_PREFIXES }
+];
+function idHasPrefix(id, prefixes) {
+	id = String(id);
+	return prefixes.some(function(p) { return id.indexOf(p) === 0; });
+}
+const AREA_CHILDREN = { neutral: ["city", "village"] };
+// Подгруппы, вложенные в область: по полю parentGroup из файла раздела; если в файле
+// вложенность нигде не задана — прежняя зашитая раскладка (Нейтры → Город, Посёлок)
+function areaChildIds(subgroups, id) {
+	const list = subgroups || [];
+	if (!list.some(function(sg) { return sg && sg.parentGroup; })) return AREA_CHILDREN[id] || [];
+	return list.filter(function(sg) { return sg && sg.parentGroup === id; }).map(function(sg) { return String(sg.id); });
+}
 function flatResidenceItems(items, out) {
 	out = out || [];
 	items.forEach(function(item) {
@@ -119,7 +136,14 @@ function applyResidenceFilter(list, group) {
 		const sub = (list.subgroups || []).find(function(x) { return x.id === item.area; });
 		if (!sub || !sub.ids || sub.ids.length === 0) return;
 		let ids = sub.ids.map(String);
-		if (item.idPrefix) ids = ids.filter(function(id) { return id.indexOf(item.idPrefix) === 0; });
+		if (item.prefixes) ids = ids.filter(function(id) { return idHasPrefix(id, item.prefixes); });
+		else areaChildIds(list.subgroups, item.area).forEach(function(childId) {
+			// «Нейтры» охватывают Посёлок и Город — они остаются отдельными областями внутри
+			const child = (list.subgroups || []).find(function(x) { return x.id === childId; });
+			if (!child || !child.ids || child.ids.length === 0) return;
+			if (!byArea.has(child.id)) byArea.set(child.id, { sub: child, ids: new Set() });
+			child.ids.forEach(function(id) { byArea.get(child.id).ids.add(String(id)); });
+		});
 		if (ids.length === 0) return;
 		if (!byArea.has(sub.id)) byArea.set(sub.id, { sub: sub, ids: new Set() });
 		ids.forEach(function(id) { byArea.get(sub.id).ids.add(id); });
@@ -146,6 +170,7 @@ const LOCATION_TAGS = {
 	drink: { label: "Питьё", icon: "actions/5.png" },
 	fillMoss: { label: "Наполнить водой мох", icon: "actions/18.png" },
 	hunt: { label: "Охота", icon: "actions/100.png" },
+	poisonHunt: { label: "Охота на ядовитую дичь", icon: "actions/100.png" },
 	dirty: { label: "Грязное место", isType: true, icon: "actions/4.png" },
 	spawn: { label: "Спавн", isType: true },
 	bot: { label: "Наличие бота" },
@@ -182,12 +207,20 @@ const HUNT_TAGS = {
 	birds:  { label: "птицы",   icon: "actions/100.png" }
 };
 
+const POISON_HUNT_TAGS = {
+	snakes:  { label: "змеи",   icon: "actions/100.png" },
+	spiders: { label: "пауки",  icon: "actions/100.png" },
+	toads:   { label: "жабы",   icon: "actions/100.png" },
+	insects: { label: "ядовитые насекомые", icon: "actions/100.png" }
+};
+
 const BOT_TAGS = {
 	guardian: { label: "Бот-хранитель предметов" },
 	blogger: { label: "Блоггер" },
 	dialog: { label: "Диалоговый бот" },
 	inflator: { label: "Бот-надуватель" },
 	quest: { label: "Квестовый бот" },
+	connector: { label: "Бот-переходник" },
 	plain: { label: "Бот" }
 };
 
@@ -195,6 +228,7 @@ function tagIcon(tag) {
 	if (tag.icon) return tag.icon;
 	if (tag.key === "spawn" && SPAWN_TAGS[tag.spawn]) return SPAWN_TAGS[tag.spawn].icon;
 	if (tag.key === "hunt" && HUNT_TAGS[tag.hunt]) return HUNT_TAGS[tag.hunt].icon;
+	if (tag.key === "poisonHunt" && POISON_HUNT_TAGS[tag.hunt]) return POISON_HUNT_TAGS[tag.hunt].icon;
 	if (tag.key === "bot" && BOT_TAGS[tag.bot]) return BOT_TAGS[tag.bot].icon;
 	if (tag.key === "custom") return tag.icon;
 	const def = LOCATION_TAGS[tag.key];
@@ -204,7 +238,7 @@ function tagIcon(tag) {
 // у ботов обычно более проработанная (и часто просто более крупная в
 // оригинале) картинка, поэтому их иконку рядом с локацией показываем крупнее
 function tagIconClass(tag) {
-	return "loc-tag-icon" + (tag.key === "bot" ? " loc-tag-icon-bot" : "");
+	return "loc-tag-icon" + (tag.key === "bot" ? " loc-tag-icon-bot" : "") + (tag.key === "poisonHunt" ? " loc-tag-icon-poison" : "");
 }
 
 function tagLabel(tag) {
@@ -225,6 +259,12 @@ function tagLabel(tag) {
 		const kindLabel = kind ? kind.label : tag.hunt;
 		return baseLabel + (kindLabel ? " (" + kindLabel + ")" : "");
 	}
+	if (tag.key === "poisonHunt") {
+		const baseLabel = tag.huntLabel || def.label;
+		const kind = POISON_HUNT_TAGS[tag.hunt];
+		const kindLabel = kind ? kind.label : tag.hunt;
+		return baseLabel + (kindLabel ? " (" + kindLabel + ")" : "");
+	}
 	if (tag.key === "bot") {
 		const bot = BOT_TAGS[tag.bot];
 		const kindLabel = bot ? bot.label : (tag.botLabel || def.label);
@@ -236,85 +276,265 @@ function tagLabel(tag) {
 	return def.label;
 }
 
+// Названия локаций, куда ведёт бот-переходник (в «Рыбе» links — id карточек
+// или «db:id» локаций из разделов). Берутся в момент показа, а не при создании.
+function connectorLinkNames(tag) {
+	if (!tag || tag.key !== "bot" || tag.bot !== "connector" || !Array.isArray(tag.links)) return [];
+	const nodes = (typeof draftState !== "undefined" && draftState && Array.isArray(draftState.nodes)) ? draftState.nodes : [];
+	const names = [];
+	tag.links.forEach(function(link) {
+		link = String(link);
+		let name = "";
+		if (link.indexOf("db:") === 0) {
+			const dbId = link.slice(3);
+			const loc = (typeof draftDbLocations !== "undefined" ? draftDbLocations : []).find(function(l) { return String(l.id) === dbId; });
+			name = loc ? loc.name : dbId;
+		} else {
+			const node = nodes.find(function(n) { return String(n.id) === link; });
+			if (node) name = (node.name && node.name.trim()) ? node.name.trim() : "Без названия";
+			else {
+				const loc = (typeof draftDbLocations !== "undefined" ? draftDbLocations : []).find(function(l) { return String(l.id) === link; });
+				if (loc) name = loc.name;
+			}
+		}
+		if (name && names.indexOf(name) < 0) names.push(name);
+	});
+	return names;
+}
+// Подпись для подсказки: у бота-переходника в скобках — куда он ведёт
+function tagTipLabel(tag) {
+	const base = tagLabel(tag);
+	const names = connectorLinkNames(tag);
+	return names.length ? base + " (" + names.join(", ") + ")" : base;
+}
+
 function tagIdentity(tag) {
 	const parts = [tag.key];
 	if (tag.key === "spawn") parts.push(tag.spawn || "");
-	if (tag.key === "hunt") parts.push(tag.hunt || "", tag.huntLabel || "");
-	if (tag.key === "bot") parts.push(tag.bot || "", tag.name || "", tag.botLabel || "");
+	if (tag.key === "hunt" || tag.key === "poisonHunt") parts.push(tag.hunt || "", tag.huntLabel || "");
+	if (tag.key === "bot") parts.push(tag.bot || "", tag.name || "", tag.botLabel || "", tag.bot === "connector" ? (Array.isArray(tag.links) ? tag.links.map(String).sort().join(",") : "") : "");
 	if (tag.key === "custom") parts.push(tag.customLabel || "", tag.customKind || "");
 	if (tag.key === "climb" || tag.key === "swim") parts.push(String(tag.level));
 	return parts.join("|");
 }
 
-// Рисует столбик иконок в правой части указанного контейнера
-// (например, справа от карточки локации в черновике).
-// locationTags — массив свойств локации (может быть пустым).
-// deadendTags — массив свойств тупиков, найденных у клеток этой локации
-// (каждая запись — { name, tags } ). Сначала идут свойства локации,
-// потом свойства тупиков; у каждой иконки тупика в title — название тупика
-function renderDraftTagsColumn(holder, locationTags, deadendTags) {
+// Свойства карточки черновика — так же, как на остальных вкладках:
+// свойства тупиков — полоской над картой (виден один ряд, остальное по ▾),
+// свойства самой локации — колонкой справа; название показывается по нажатию.
+// Развёрнутость блоков сохраняется при перерисовке карточки.
+function renderDraftProps(holder, locationLike) {
 	if (!holder) return;
-	const old = holder.querySelector(".draft-tags-column");
-	if (old) old.remove();
+	hidePropTip();
+	const oldRow = holder.querySelector(".props-deadend");
+	const oldCol = holder.querySelector(".loc-tags");
+	const rowOpen = !!oldRow && !oldRow.classList.contains("collapsed");
+	const colOpen = !!oldCol && !oldCol.classList.contains("collapsed");
+	holder.querySelectorAll(".loc-tags, .props-deadend, .draft-tags-column").forEach(function(el) { el.remove(); });
+	holder.style.setProperty("--tags-w", "0px");
+	function open(built) {
+		built.el.classList.remove("collapsed");
+		built.more.textContent = "▴";
+	}
+	const dead = propItemsOf(locationLike, false, true);
+	if (dead.length > 0) {
+		const built = buildPropsBlock("row", dead);
+		if (rowOpen) open(built);
+		attachPropsBlock(holder, built, holder.firstChild);
+	}
+	const own = propItemsOf(locationLike, true, false);
+	if (own.length > 0) {
+		const built = buildPropsBlock("col", own);
+		if (colOpen) open(built);
+		attachPropsBlock(holder, built, null);
+	}
+	positionPropsCol(holder);
+}
 
-	const hasLocationTags = locationTags && locationTags.length > 0;
-	const hasDeadendTags = deadendTags && deadendTags.length > 0;
+// Компактные блоки значков свойств. Подпись не занимает места: она всплывает
+// подсказкой при наведении (компьютер) или при нажатии на значок (телефон)
+let propTipEl = null;
+let propTipBtn = null;
+function hidePropTip() {
+	if (propTipEl) { propTipEl.remove(); propTipEl = null; }
+	if (propTipBtn) propTipBtn.classList.remove("on");
+	propTipBtn = null;
+}
+function showPropTip(btn, text) {
+	hidePropTip();
+	propTipBtn = btn;
+	btn.classList.add("on");
+	const tip = document.createElement("div");
+	tip.className = "props-tip";
+	tip.textContent = text;
+	document.body.appendChild(tip);
+	propTipEl = tip;
+	const r = btn.getBoundingClientRect();
+	const left = Math.min(Math.max(4, r.left + r.width / 2 - tip.offsetWidth / 2), window.innerWidth - tip.offsetWidth - 4);
+	let top = r.top - tip.offsetHeight - 6;
+	if (top < 4) top = r.bottom + 6;
+	tip.style.left = left + "px";
+	tip.style.top = top + "px";
+}
+document.addEventListener("click", hidePropTip);
+window.addEventListener("scroll", hidePropTip, true);
+const CAN_HOVER = !!(window.matchMedia && window.matchMedia("(hover: hover)").matches);
 
-	if (!hasLocationTags && !hasDeadendTags) return;
+// Ключ вида свойства для фильтра иконок на графе: имя бота не учитывается,
+// чтобы все «Блоггеры» (например) выбирались одним пунктом
+function tagFilterKey(tag) {
+	return tagIdentity(tag.key === "bot" ? Object.assign({}, tag, { name: "", links: [] }) : tag);
+}
+function tagFilterLabel(tag) {
+	return tagLabel(tag.key === "bot" ? Object.assign({}, tag, { name: "", links: [] }) : tag);
+}
+function allTagsOfLocation(location) {
+	const out = (location.tags || []).slice();
+	Object.keys(location.deadends || {}).forEach(function(k) {
+		const info = location.deadends[k];
+		if (info && Array.isArray(info.props)) info.props.forEach(function(t) { out.push(t); });
+	});
+	return out;
+}
 
-	const col = document.createElement("div");
-	col.className = "draft-tags-column";
-
-	if (hasLocationTags) {
-		locationTags.forEach(function(tag) {
-			const src = tagIcon(tag);
-			if (!src) return;
-			const icon = document.createElement("img");
-			icon.className = tagIconClass(tag);
-			icon.src = src;
-			icon.alt = "";
-			icon.title = tagLabel(tag);
-			col.appendChild(icon);
+function propItemsOf(location, withTags, withDeadends) {
+	const items = [];
+	const seen = new Set();
+	function push(tag, label, key) {
+		const src = tagIcon(tag);
+		const id = key || label;
+		if (!src || seen.has(id)) return;
+		seen.add(id);
+		const tipFn = (tag.key === "bot" && tag.bot === "connector") ? function() { return label.slice(0, label.length - tagLabel(tag).length) + tagTipLabel(tag); } : null;
+		items.push({ src: src, cls: tagIconClass(tag), label: tipFn ? tipFn() : label, labelFn: tipFn, key: tagFilterKey(tag) });
+	}
+	if (withDeadends) {
+		// у каждого тупика свои свойства: одинаковые свойства разных тупиков
+		// не сливаются в одну иконку; безымянные различаются по положению клетки
+		const deadends = location.deadends || {};
+		const keys = Object.keys(deadends).sort(function(x, y) { return Number(x) - Number(y); });
+		const withProps = keys.filter(function(k) { const i = deadends[k]; return i && i.props && i.props.length > 0; });
+		const unnamedCount = withProps.filter(function(k) { return !deadends[k].name; }).length;
+		withProps.forEach(function(cellIndex) {
+			const info = deadends[cellIndex];
+			let who;
+			if (info.name) who = "«" + info.name + "»";
+			else if (unnamedCount > 1) who = "тупик " + (Math.floor(Number(cellIndex) / 10) + 1) + "x" + (Number(cellIndex) % 10 + 1);
+			else who = "тупик";
+			info.props.forEach(function(tag) { push(tag, who + ": " + tagLabel(tag), "d" + cellIndex + "|" + tagIdentity(tag)); });
 		});
 	}
+	if (withTags) (location.tags || []).forEach(function(tag) { push(tag, tagLabel(tag)); });
+	return items;
+}
 
-	if (hasDeadendTags) {
-		deadendTags.forEach(function(entry) {
-			(entry.tags || []).forEach(function(tag) {
-				const src = tagIcon(tag);
-				if (!src) return;
-				const icon = document.createElement("img");
-				icon.className = tagIconClass(tag);
-				icon.src = src;
-				icon.alt = "";
-				const tagName = entry.name ? "«" + entry.name + "»" : "тупик";
-				icon.title = tagName + ": " + tagLabel(tag);
-				col.appendChild(icon);
-			});
+// kind: "row" — полоска над локацией (видна первая строка, остальное по кнопке ▾),
+// "col" — узкая колонка справа от локации
+function buildPropsBlock(kind, items) {
+	const block = document.createElement("div");
+	block.className = "props-block " + (kind === "col" ? "props-col loc-tags collapsed" : "props-row props-deadend collapsed");
+	const icons = document.createElement("div");
+	icons.className = "props-icons";
+	const more = document.createElement("button");
+	more.type = "button";
+	more.className = "props-more";
+	more.hidden = true;
+	more.textContent = "▾";
+	items.forEach(function(item, index) {
+		const btn = document.createElement("button");
+		btn.type = "button";
+		btn.className = "props-icon" + (kind === "col" && index >= 3 ? " extra" : "");
+		btn.setAttribute("aria-label", item.labelFn ? item.labelFn() : item.label);
+		const img = document.createElement("img");
+		img.className = item.cls;
+		img.src = item.src;
+		img.alt = "";
+		btn.appendChild(img);
+		if (CAN_HOVER) {
+			btn.addEventListener("pointerenter", function(e) { if (e.pointerType === "mouse") showPropTip(btn, item.labelFn ? item.labelFn() : item.label); });
+			btn.addEventListener("pointerleave", function(e) { if (e.pointerType === "mouse") hidePropTip(); });
+		}
+		btn.addEventListener("click", function(e) {
+			e.stopPropagation();
+			if (propTipBtn === btn && !CAN_HOVER) hidePropTip(); else showPropTip(btn, item.labelFn ? item.labelFn() : item.label);
+		});
+		icons.appendChild(btn);
+	});
+	more.addEventListener("click", function(e) {
+		e.stopPropagation();
+		hidePropTip();
+		block.classList.toggle("collapsed");
+		more.textContent = block.classList.contains("collapsed") ? "▾" : "▴";
+		if (block.parentNode) positionPropsCol(block.parentNode);
+	});
+	block.appendChild(icons);
+	block.appendChild(more);
+	if (kind === "col" && items.length > 3) more.hidden = false;
+	return { el: block, icons: icons, more: more, kind: kind };
+}
+function attachPropsBlock(holder, built, before) {
+	if (before) holder.insertBefore(built.el, before); else holder.appendChild(built.el);
+	if (built.kind === "row") {
+		// кнопка ▾ нужна, только если значки не умещаются в первую строку
+		requestAnimationFrame(function() {
+			const kids = built.icons.children;
+			if (kids.length === 0) return;
+			// высота первой строки и есть ли вторая: один крупный значок «ещё» не требует
+			const top0 = kids[0].offsetTop;
+			let rowH = 0, extra = false;
+			for (let i = 0; i < kids.length; i++) {
+				if (Math.abs(kids[i].offsetTop - top0) < 3) rowH = Math.max(rowH, kids[i].offsetHeight);
+				else extra = true;
+			}
+			if (rowH > 0) built.icons.style.setProperty("--first-row-h", rowH + "px");
+			built.more.hidden = !extra;
+			if (built.el.parentNode) positionPropsCol(built.el.parentNode);
 		});
 	}
+}
+// Полоска для маленьких карточек (маршрут): и свойства тупиков, и самой локации
+function createCompactProps(location) {
+	const items = propItemsOf(location, true, true);
+	if (items.length === 0) return null;
+	const built = buildPropsBlock("row", items);
+	built.el.classList.remove("props-deadend");
+	built.el.classList.add("props-compact");
+	const holder = document.createElement("div");
+	holder.className = "props-holder";
+	attachPropsBlock(holder, built, null);
+	return holder.firstChild;
+}
 
-	holder.appendChild(col);
+// Колонка справа выравнивается по самой карте, а не по верху блока тупиков
+function positionPropsCol(holder) {
+	const col = holder.querySelector(".loc-tags");
+	const map = holder.querySelector("#map, .point-map, .draft-mini-grid");
+	if (col && map) col.style.top = map.offsetTop + "px";
+	const flagEl = holder.querySelector(".map-flag");
+	if (flagEl && map) flagEl.style.top = map.offsetTop + "px";
+	// резервируем место справа под колонку, чтобы она не наезжала на соседнюю карту
+	holder.style.setProperty("--tags-w", col ? (col.offsetWidth + 2) + "px" : "0px");
 }
 
 function renderLocationTags(holder, location) {
 	if (!holder) return;
-	const old = holder.querySelector(".loc-tags");
-	if (old) old.remove();
-	if (!location || !location.tags || location.tags.length === 0) return;
-	const col = document.createElement("div");
-	col.className = "loc-tags";
-	location.tags.forEach(function(tag) {
-		const src = tagIcon(tag);
-		if (!src) return;
-		const icon = document.createElement("img");
-		icon.className = tagIconClass(tag);
-		icon.src = src;
-		icon.alt = "";
-		icon.title = tagLabel(tag);
-		col.appendChild(icon);
-	});
-	holder.appendChild(col);
+	hidePropTip();
+	holder.querySelectorAll(".loc-tags, .props-deadend, .map-flag").forEach(function(el) { el.remove(); });
+	holder.style.setProperty("--tags-w", "0px");
+	if (!location) return;
+	// Красный флажок «сообщить об ошибке» — в верхнем углу карты, далеко от крестика
+	const flag = document.createElement("button");
+	flag.type = "button";
+	flag.className = "map-flag";
+	flag.title = "Сообщить об ошибке в этой локации";
+	flag.setAttribute("aria-label", "Сообщить об ошибке");
+	flag.textContent = "⚑";
+	flag.addEventListener("click", function(e) { e.stopPropagation(); openErrorReport(location, sectionNameOf()); });
+	holder.appendChild(flag);
+	const dead = propItemsOf(location, false, true);
+	if (dead.length > 0) attachPropsBlock(holder, buildPropsBlock("row", dead), holder.firstChild);
+	const own = propItemsOf(location, true, false);
+	if (own.length > 0) attachPropsBlock(holder, buildPropsBlock("col", own), null);
+	positionPropsCol(holder);
 }
 
 // ============================================================
@@ -376,6 +596,45 @@ function locationTagsMatch(location, trimmedQuery) {
 	});
 }
 
+// Совпадение запроса с названием тупика, его свойствами или именем бота и т. п.
+// Возвращает пояснение для списка результатов (или пустую строку)
+function searchExtraMatch(location, q) {
+	if (!q) return "";
+	const deadends = location.deadends || {};
+	const keys = Object.keys(deadends);
+	for (let i = 0; i < keys.length; i++) {
+		const info = deadends[keys[i]];
+		if (!info) continue;
+		const who = info.name ? "тупик «" + info.name + "»" : "тупик";
+		if (info.name && String(info.name).toLowerCase().includes(q)) return who;
+		const props = info.props || [];
+		for (let j = 0; j < props.length; j++) {
+			const tag = props[j];
+			if (tagLabel(tag).toLowerCase().includes(q) || String(tag.name || tag.customLabel || "").toLowerCase().includes(q)) {
+				return who + ": " + tagLabel(tag);
+			}
+		}
+	}
+	const tags = location.tags || [];
+	for (let k = 0; k < tags.length; k++) {
+		if (String(tags[k].name || tags[k].customLabel || "").toLowerCase().includes(q)) return tagLabel(tags[k]);
+	}
+	return "";
+}
+// Подпись варианта в списке поиска: если нашли не по названию, показываем, по чему
+function searchOptionLabel(location, query, base) {
+	const q = String(query || "").trim().toLowerCase();
+	base = base || location.name;
+	if (!q || String(location.id).toLowerCase() === q || String(location.name).toLowerCase().includes(q)) return base;
+	const note = searchExtraMatch(location, q);
+	if (note) return base + " — " + note;
+	if (locationTagsMatch(location, q)) {
+		const tag = (location.tags || []).find(function(t) { return tagLabel(t).toLowerCase().includes(q); });
+		if (tag) return base + " — " + tagLabel(tag);
+	}
+	return base;
+}
+
 function findLocations(data, query) {
 	const trimmed = query.trim().toLowerCase();
 	if (!trimmed) return [];
@@ -392,7 +651,8 @@ function findLocations(data, query) {
 		return groupIds[String(location.id)] ||
 			String(location.id).toLowerCase() === trimmed ||
 			location.name.toLowerCase().includes(trimmed) ||
-			locationTagsMatch(location, trimmed);
+			locationTagsMatch(location, trimmed) ||
+			!!searchExtraMatch(location, trimmed);
 	});
 	if (/^\d+$/.test(trimmed)) return direct;
 	const phantomHints = getPhantomAbbrevHints(data);
@@ -438,15 +698,57 @@ function paintRevealedLocation(map, data, location) {
 // ============================================================
 //  Граф переходов и маршрут
 // ============================================================
-function buildTransitionGraph(data) {
+// Где можно искать маршрут: нейтры, одиночки (Посёлок, Город) и племена,
+// выбранные в настройках; общие территории — только для племён Ветра, Реки,
+// Теней и Грозы. null — без ограничений
+function computeRouteScope(data, group) {
+	const none = { allowed: null, text: null };
+	if (!group || group.id !== "ov" || !data.subgroups) return none;
+	const picked = (settings.residences || []).filter(function(k) { return k.indexOf("ov:") === 0; })
+		.map(residenceByKey).filter(Boolean);
+	if (picked.length === 0) return none;
+	if (picked.some(function(f) { return f.item.key === "ov:all"; })) {
+		return { allowed: null, text: "Сейчас маршрут ищется по всей вселенной." };
+	}
+	const areas = ["neutral", "city", "village"];
+	const tribes = [];
+	// Общие территории принадлежат четырём племенам (Ветра, Реки, Теней, Грозы):
+	// для одиночки, КПВ и т. п. это чужая территория, так что открываются
+	// только если выбрано одно из этих племён
+	const COMMON_TRIBES = ["thunder", "river", "wind", "shadow"];
+	picked.forEach(function(f) {
+		const a = f.item.area;
+		if (a && ["neutral", "city", "village"].indexOf(a) < 0 && areas.indexOf(a) < 0) { areas.push(a); tribes.push(f.item.label); }
+		if (a && COMMON_TRIBES.indexOf(a) >= 0 && areas.indexOf("common") < 0) areas.push("common");
+	});
+	const allowed = new Set();
+	data.subgroups.forEach(function(sub) {
+		if (areas.indexOf(sub.id) >= 0) (sub.ids || []).forEach(function(id) { allowed.add(String(id)); });
+	});
+	const text = "Сейчас ваш маршрут настроен на свободное перемещение по нейтрам" +
+		(tribes.length > 0 ? " и территориям: " + tribes.join(", ") : "") + ".";
+	return { allowed: allowed, text: text };
+}
+
+function buildTransitionGraph(data, allowed) {
 	const graph = {};
 	data.forEach(function(location) {
 		const key = String(location.id);
 		graph[key] = [];
+		if (allowed && !allowed.has(key)) return;
 		location.transitions.forEach(function(transition) {
 			if (getTransitionType(transition) !== "normal") return;
 			const destination = findLocationById(data, transition);
-			if (destination) graph[key].push(String(destination.id));
+			if (destination && (!allowed || allowed.has(String(destination.id)))) graph[key].push(String(destination.id));
+		});
+		// бот-переходник работает как переход
+		connectorLinkIds(location).forEach(function(link) {
+			const destination = findLocationById(data, link);
+			if (!destination) return;
+			const id = String(destination.id);
+			if (id === key || graph[key].indexOf(id) >= 0) return;
+			if (allowed && !allowed.has(id)) return;
+			graph[key].push(id);
 		});
 	});
 	return graph;
@@ -513,8 +815,32 @@ function bestViaOrder(start, via, end, dist) {
 	return best;
 }
 
-function findRoute(data, startId, endId, viaIds, keepOrder) {
-	const graph = buildTransitionGraph(data);
+// Взвешенный поиск: «чужие» локации (вне own) стоят дороже своих
+const FOREIGN_COST = 8;
+function weightedTree(graph, start, own) {
+	const dist = new Map(), prev = new Map(), done = new Set();
+	dist.set(start, 0); prev.set(start, null);
+	for (;;) {
+		let best = null, bd = Infinity;
+		dist.forEach(function(d, k) { if (!done.has(k) && d < bd) { bd = d; best = k; } });
+		if (best === null) break;
+		done.add(best);
+		(graph[best] || []).forEach(function(n) {
+			const nd = bd + (own.has(n) ? 1 : FOREIGN_COST);
+			if (!dist.has(n) || nd < dist.get(n)) { dist.set(n, nd); prev.set(n, best); }
+		});
+	}
+	return { dist: dist, prev: prev };
+}
+
+function findRoute(data, startId, endId, viaIds, keepOrder, allowedIds, ownIds) {
+	let allowed = null;
+	if (allowedIds) {
+		// начало, конец и обязательные точки разрешены всегда, иначе ничего не найти
+		allowed = new Set(allowedIds);
+		[startId, endId].concat(viaIds).forEach(function(id) { allowed.add(String(id)); });
+	}
+	const graph = buildTransitionGraph(data, allowed);
 	const start = String(startId);
 	const end = String(endId);
 	const via = [];
@@ -524,7 +850,7 @@ function findRoute(data, startId, endId, viaIds, keepOrder) {
 	});
 	const trees = new Map();
 	[start, end].concat(via).forEach(function(node) {
-		if (!trees.has(node)) trees.set(node, bfsTree(graph, node));
+		if (!trees.has(node)) trees.set(node, ownIds ? weightedTree(graph, node, ownIds) : bfsTree(graph, node));
 	});
 	function dist(a, b) {
 		const d = trees.get(a).dist.get(b);
@@ -535,6 +861,7 @@ function findRoute(data, startId, endId, viaIds, keepOrder) {
 	const path = [start];
 	const tags = { 0: ["начало"] };
 	const fastSegments = {};
+	const botSegments = {};
 	for (let i = 1; i < stops.length; i++) {
 		const segment = pathFromTree(trees.get(stops[i - 1]), stops[i]);
 		if (!segment) return null;
@@ -549,16 +876,27 @@ function findRoute(data, startId, endId, viaIds, keepOrder) {
 		const to = findLocationById(data, path[i + 1]);
 		if (!from || !to) continue;
 		const cellIndices = [];
+		let direct = false;
 		from.code.split("").forEach(function(bit, idx) { if (bit === "1") cellIndices.push(idx); });
 		from.transitions.forEach(function(tr, ti) {
 			const cellIdx = cellIndices[ti];
 			if (cellIdx === undefined) return;
 			const dest = findLocationById(data, tr);
 			if (!dest || String(dest.id) !== String(to.id)) return;
+			direct = true;
 			if (from.cellTypes && from.cellTypes[cellIdx] === "fast") fastSegments[i + 1] = true;
 		});
+		if (!direct) {
+			const botTag = (from.tags || []).find(function(t) {
+				return isConnectorTag(t) && Array.isArray(t.links) && t.links.some(function(link) {
+					const d = findLocationById(data, link);
+					return d && String(d.id) === String(to.id);
+				});
+			});
+			if (botTag) botSegments[i + 1] = botTag.name ? "Бот-переходник «" + botTag.name + "»" : "Бот-переходник";
+		}
 	}
-	return { path: path, tags: tags, fastSegments: fastSegments };
+	return { path: path, tags: tags, fastSegments: fastSegments, botSegments: botSegments };
 }
 
 function getLocationNumber(location) {
@@ -600,7 +938,15 @@ function resolveWaypointToken(data, token) {
 // ============================================================
 //  Карточка локации в маршруте
 // ============================================================
-function createRouteCard(data, location, nextId, tags) {
+const ROUTE_ICONS_KEY = "atlas.route.icons";
+function routeIconsOn() {
+	try { return localStorage.getItem(ROUTE_ICONS_KEY) === "1"; } catch (e) { return false; }
+}
+function saveRouteIcons(v) {
+	try { localStorage.setItem(ROUTE_ICONS_KEY, v ? "1" : "0"); } catch (e) {}
+}
+
+function createRouteCard(data, location, nextId, tags, showIcons, botNote) {
 	const card = document.createElement("div");
 	card.className = "path-map-card";
 	const map = document.createElement("div");
@@ -647,17 +993,36 @@ function createRouteCard(data, location, nextId, tags) {
 		tag.textContent = tags.join(", ");
 		title.appendChild(tag);
 	}
+	if (showIcons) {
+		const props = createCompactProps(location);
+		if (props) card.appendChild(props);
+		else {
+			const spacer = document.createElement("div");
+			spacer.className = "props-spacer";
+			card.appendChild(spacer);
+		}
+	}
 	card.appendChild(map);
 	card.appendChild(title);
+	if (botNote) {
+		const note = document.createElement("div");
+		note.className = "path-map-bot";
+		note.textContent = "Дальше — через: " + botNote;
+		card.appendChild(note);
+	}
 	return card;
 }
 
 function createRouteSteps(data, route) {
+	const showIcons = routeIconsOn() && route.path.some(function(id) {
+		const l = findLocationById(data, id);
+		return l && propItemsOf(l, true, true).length > 0;
+	});
 	return route.path.map(function(id, index) {
 		const location = findLocationById(data, id);
 		const step = document.createElement("div");
 		step.className = "path-step";
-		step.appendChild(createRouteCard(data, location, route.path[index + 1], route.tags[index] || []));
+		step.appendChild(createRouteCard(data, location, route.path[index + 1], route.tags[index] || [], showIcons, route.botSegments && route.botSegments[index + 1]));
 		return step;
 	});
 }
@@ -898,8 +1263,8 @@ function populateExternalWindow(extWin, data, route, titleText) {
 		<div class="rw-header">
 			<span class="rw-title"></span>
 			<div class="rw-buttons">
-				<button type="button" class="rw-zoom-out" title="Уменьшить карты">−</button>
-				<button type="button" class="rw-zoom-in" title="Увеличить карты">+</button>
+				<button type="button" class="rw-zoom-out">−</button>
+				<button type="button" class="rw-zoom-in">+</button>
 			</div>
 		</div>
 		<div class="rw-body"></div>
@@ -908,7 +1273,7 @@ function populateExternalWindow(extWin, data, route, titleText) {
 	doc.body.appendChild(root);
 	renderRouteInto(root.querySelector(".rw-body"), data, route, false);
 	getRoutePlayerController(route).refresh();
-	setupZoom(root, root.querySelector(".rw-zoom-out"), root.querySelector(".rw-zoom-in"), null, 18, 26);
+	setupZoom(root, root.querySelector(".rw-zoom-out"), root.querySelector(".rw-zoom-in"), null, 18, 26, EXT_WINDOW_ZOOM_FACTOR);
 	enableCustomTooltips(root);
 	extWin.focus();
 }
@@ -948,8 +1313,11 @@ function renderRouteInto(container, data, route, withLegend) {
 	container.appendChild(cards);
 }
 
-const WINDOW_ZOOMS = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.4];
-const ZOOM_KEY = "atlas.zoom.route";
+const WINDOW_ZOOMS = [0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.4];
+const ZOOM_KEY = "atlas.zoom.route.v2";
+// Отдельное окно при том же индексе масштаба выглядело примерно в 1.5 раза крупнее основного.
+// Если всё ещё не совпадает — подправьте это число (меньше = мельче).
+const EXT_WINDOW_ZOOM_FACTOR = 1 / 1.5;
 
 function loadSavedZoomIndex() {
 	try {
@@ -963,30 +1331,53 @@ function saveZoomIndex(index) {
 	try { localStorage.setItem(ZOOM_KEY, String(index)); } catch (error) {}
 }
 
-function setupZoom(targets, zoomOut, zoomIn, onChange, baseW, baseH) {
-	const list = [].concat(targets);
-	let index = loadSavedZoomIndex();
-	function apply() {
-		const k = WINDOW_ZOOMS[index];
-		const cellW = (baseW || 18) * k;
-		const cellH = (baseH || 26) * k;
+// Масштаб общий для главного окна и отдельного окна: индекс хранится в одном месте,
+// а каждый setupZoom регистрирует своё «представление» и обновляется при любом изменении
+let sharedZoomIndex = null;
+const zoomViews = [];
+function viewAlive(view) {
+	const first = view.list[0];
+	if (!first) return false;
+	// Панель маршрута строится до вставки на страницу (например, при возврате
+	// на вкладку): пока она ни разу не была на странице, представление не
+	// выбрасываем — иначе масштаб не применяется и кнопки +/− мертвы
+	if (!first.isConnected) return !view.seen && (Date.now() - view.created) < 10000;
+	view.seen = true;
+	const win = first.ownerDocument && first.ownerDocument.defaultView;
+	return !!win && !win.closed;
+}
+function applyZoomToViews() {
+	for (let i = zoomViews.length - 1; i >= 0; i--) {
+		if (!viewAlive(zoomViews[i])) zoomViews.splice(i, 1);
+	}
+	const baseK = WINDOW_ZOOMS[sharedZoomIndex];
+	zoomViews.forEach(function(view) {
+		// у отдельного окна свой поправочный коэффициент (оно выглядит крупнее при том же масштабе)
+		const k = baseK * (view.factor || 1);
 		const gap = k >= 0.75 ? 2 : 1;
-		const textScale = 0.5 + k / 2;
-		list.forEach(function(target) {
+		const textScale = k >= 0.3 ? 0.5 + k / 2 : Math.max(0.3, 0.65 * k / 0.3);
+		const cellW = (view.baseW || 18) * k;
+		const cellH = (view.baseH || 26) * k;
+		view.list.forEach(function(target) {
 			target.style.setProperty("--cell-w", cellW + "px");
 			target.style.setProperty("--cell-h", cellH + "px");
 			target.style.setProperty("--cell-gap", gap + "px");
 			target.style.setProperty("--panel-w", (cellW * 10 + gap * 9 + 2) + "px");
 			target.style.setProperty("--ui-scale", textScale);
 		});
-		zoomOut.disabled = index === 0;
-		zoomIn.disabled = index === WINDOW_ZOOMS.length - 1;
-		saveZoomIndex(index);
-		if (onChange) onChange();
-	}
-	zoomOut.addEventListener("click", function() { index--; apply(); });
-	zoomIn.addEventListener("click", function() { index++; apply(); });
-	apply();
+		view.zoomOut.disabled = sharedZoomIndex === 0;
+		view.zoomIn.disabled = sharedZoomIndex === WINDOW_ZOOMS.length - 1;
+		if (view.onChange) view.onChange();
+	});
+	saveZoomIndex(sharedZoomIndex);
+}
+
+function setupZoom(targets, zoomOut, zoomIn, onChange, baseW, baseH, factor) {
+	if (sharedZoomIndex === null) sharedZoomIndex = loadSavedZoomIndex();
+	zoomViews.push({ created: Date.now(), seen: false, list: [].concat(targets), zoomOut: zoomOut, zoomIn: zoomIn, onChange: onChange, baseW: baseW, baseH: baseH, factor: factor });
+	zoomOut.addEventListener("click", function() { if (sharedZoomIndex > 0) { sharedZoomIndex--; applyZoomToViews(); } });
+	zoomIn.addEventListener("click", function() { if (sharedZoomIndex < WINDOW_ZOOMS.length - 1) { sharedZoomIndex++; applyZoomToViews(); } });
+	applyZoomToViews();
 }
 
 function findInOtherSections(others, matcher) {
@@ -1064,6 +1455,7 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 		selected = location;
 		locked = true;
 		nameLabel.textContent = location.name;
+
 		searchInput.value = location.name;
 		searchResults.innerHTML = "";
 		if (!fromDraw) paintCode(location);
@@ -1092,6 +1484,8 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 			if (cell.classList.contains("active")) codeArr[index] = "1";
 		});
 		const codeStr = codeArr.join("");
+		// пустая карта не должна сама превращаться в локацию без клеток (Ледяной Плен)
+		if (codeStr.indexOf("1") < 0) return;
 		const matches = data.filter(function(location) { return location.code === codeStr; });
 		if (matches.length === 1) selectLocation(matches[0], true);
 	}
@@ -1125,7 +1519,7 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 			const optionButton = document.createElement("button");
 			optionButton.type = "button";
 			optionButton.className = "search-option";
-			optionButton.textContent = location.name;
+			optionButton.textContent = searchOptionLabel(location, query);
 			optionButton.addEventListener("click", function() { selectLocation(location, false); });
 			searchResults.appendChild(optionButton);
 		});
@@ -1162,6 +1556,106 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 // ============================================================
 //  Настройки
 // ============================================================
+// ---------- Интерфейсные предпочтения: скрытые подсказки и избранные маршруты
+const UI_KEY = "atlas.ui.v1";
+const uiPrefs = (function() {
+	try {
+		const p = JSON.parse(localStorage.getItem(UI_KEY) || "{}");
+		return { hidden: (p.hidden && typeof p.hidden === "object") ? p.hidden : {}, favs: Array.isArray(p.favs) ? p.favs : [] };
+	} catch (e) { return { hidden: {}, favs: [] }; }
+})();
+function saveUiPrefs() { try { localStorage.setItem(UI_KEY, JSON.stringify(uiPrefs)); } catch (e) {} }
+let sharedRoute = null;
+
+// Блоки с кнопкой «скрыть»; незаметная стрелочка у заголовка возвращает их обратно
+function createHideController(titleEl, symbol, tooltip) {
+	const arrow = document.createElement("button");
+	arrow.type = "button";
+	arrow.className = "restore-arrow";
+	arrow.textContent = symbol || "▾";
+	arrow.title = tooltip || "Показать скрытые подсказки";
+	arrow.hidden = true;
+	if (titleEl) titleEl.appendChild(arrow);
+	const blocks = [];
+	function sync() { arrow.hidden = !blocks.some(function(b) { return uiPrefs.hidden[b.key]; }); }
+	arrow.addEventListener("click", function(e) {
+		e.stopPropagation();
+		blocks.forEach(function(b) { delete uiPrefs.hidden[b.key]; b.el.hidden = false; if (b.onChange) b.onChange(); });
+		saveUiPrefs(); sync();
+	});
+	return {
+		sync: sync,
+		// блок со своей кнопкой «скрыть» (избранное): нужен только возврат стрелочкой
+		addExtra: function(key, onChange) {
+			blocks.push({ el: { set hidden(v) {}, get hidden() { return false; } }, key: key, onChange: onChange });
+			sync();
+		},
+		add: function(el, key, host, onChange) {
+			el.classList.add("hidable");
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "hide-btn";
+			btn.textContent = "скрыть";
+			btn.addEventListener("click", function(e) {
+				e.preventDefault();
+				uiPrefs.hidden[key] = true; el.hidden = true;
+				saveUiPrefs(); sync();
+				if (onChange) onChange();
+			});
+			(host || el).appendChild(btn);
+			blocks.push({ el: el, key: key, onChange: onChange });
+			if (uiPrefs.hidden[key]) el.hidden = true;
+			sync();
+		}
+	};
+}
+
+// Окно «Сообщить об ошибке»: сведения о локации и ссылка на Вэй
+function sectionNameOf() {
+	const g = (typeof currentGroup !== "undefined" && currentGroup) ? currentGroup : null;
+	return g ? (g.title || g.label) : "";
+}
+function openErrorReport(location, sectionName) {
+	const old = document.getElementById("errorReportModal");
+	if (old) old.remove();
+	const overlay = document.createElement("div");
+	overlay.className = "modal-overlay";
+	overlay.id = "errorReportModal";
+	const box = document.createElement("div");
+	box.className = "modal-box";
+	const title = document.createElement("h3");
+	title.textContent = "Сообщить об ошибке";
+	const info = document.createElement("p");
+	info.className = "modal-info";
+	info.textContent = "Локация: " + location.name + " (id: " + location.id + ")" + (sectionName ? "\nРаздел: " + sectionName : "");
+	const text = document.createElement("p");
+	text.textContent = "Напишите Вэй [1441760] в личные сообщения на сайте Catwar или в Telegram. Укажите точное название (или id) локации и верный вариант, а также приложите доказательство: отрисованную карту либо иной источник (игровые материалы, Википедию и т. п.).";
+	const link = document.createElement("a");
+	link.href = "https://telegram.me/aki_kulebyaka";
+	link.target = "_blank";
+	link.rel = "noopener noreferrer";
+	link.textContent = "telegram.me/aki_kulebyaka";
+	const copy = document.createElement("button");
+	copy.type = "button";
+	copy.className = "modal-copy";
+	copy.textContent = "Скопировать данные локации";
+	copy.addEventListener("click", function() {
+		const t = "Ошибка в локации: " + location.name + " (id: " + location.id + ")" + (sectionName ? ", раздел: " + sectionName : "") + "\nВерный вариант: ";
+		if (navigator.clipboard) navigator.clipboard.writeText(t).then(function() { copy.textContent = "Скопировано"; }, function() {});
+	});
+	const close = document.createElement("button");
+	close.type = "button";
+	close.className = "modal-close";
+	close.textContent = "Закрыть";
+	function shut() { overlay.remove(); }
+	close.addEventListener("click", shut);
+	overlay.addEventListener("click", function(e) { if (e.target === overlay) shut(); });
+	box.appendChild(title); box.appendChild(info); box.appendChild(text);
+	box.appendChild(link); box.appendChild(copy); box.appendChild(close);
+	overlay.appendChild(box);
+	document.body.appendChild(overlay);
+}
+
 const SETTINGS_KEY = "atlas.settings.v1";
 const DEFAULT_COLORS = {
 	normal: "rgba(120, 135, 65, 1)",
@@ -1195,8 +1689,8 @@ function loadSettings() {
 		colors: Object.assign({}, DEFAULT_COLORS),
 		transitionSeconds: DEFAULT_TRANSITION_SECONDS,
 		homeland: "ov",
-		residence: "ov:all",
-		residences: ["ov:all"]
+		residence: "ov:neutral",
+		residences: ["ov:neutral"]
 	};
 	try {
 		const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
@@ -1218,7 +1712,7 @@ function loadSettings() {
 		keys = keys.filter(function(k, i) { return typeof k === "string" && residenceByKey(k) && keys.indexOf(k) === i; });
 		if (keys.length === 0) {
 			const block = RESIDENCES.find(function(b) { return b.group === result.homeland; });
-			if (block) keys = [flatResidenceItems(block.items)[0].key];
+			if (block) keys = [block.group === "ov" ? "ov:neutral" : flatResidenceItems(block.items)[0].key];
 		}
 		if (keys.length > 0) {
 			result.residences = keys;
@@ -1436,16 +1930,46 @@ function draftCellTypeLabel(type) {
 }
 
 function emptyDraftCode() { return "0".repeat(DRAFT_CODE_LENGTH); }
-function emptyDraft() { return { nodes: [] }; }
+function emptyDraft() { return { nodes: [], subgroups: [], fileMeta: null }; }
 
 function normalizeDraft(draft) {
 	if (!Array.isArray(draft.nodes)) draft.nodes = [];
+	// Подгруппы (области карты) и прочие поля файла раздела (кланы, раскладка и т. п.)
+	draft.subgroups = (Array.isArray(draft.subgroups) ? draft.subgroups : []).filter(function(sg) { return sg && sg.id !== undefined && sg.id !== ""; })
+		.map(function(sg) {
+			sg.id = String(sg.id);
+			if (typeof sg.name !== "string" || !sg.name) sg.name = sg.id;
+			if (!Array.isArray(sg.extraIds)) sg.extraIds = [];
+			delete sg.ids;
+			return sg;
+		});
+	if (!draft.fileMeta || typeof draft.fileMeta !== "object" || Array.isArray(draft.fileMeta)) draft.fileMeta = null;
+	const groupIds = new Set(draft.subgroups.map(function(sg) { return sg.id; }));
+	draft.subgroups.forEach(function(sg) {
+		if (sg.neutral) sg.neutral = true; else delete sg.neutral;
+		if (typeof sg.parentGroup !== "string" || sg.parentGroup === sg.id || !groupIds.has(sg.parentGroup)) delete sg.parentGroup;
+	});
+	// разрываем возможные циклы вложенности
+	draft.subgroups.forEach(function(sg) {
+		const seen = new Set([sg.id]);
+		let cur = sg;
+		while (cur && cur.parentGroup) {
+			if (seen.has(cur.parentGroup)) { delete cur.parentGroup; break; }
+			seen.add(cur.parentGroup);
+			cur = draftGroupFind(draft.subgroups, cur.parentGroup);
+		}
+	});
 	draft.nodes.forEach(function(node) {
+		if (node.borders !== undefined) {
+			if (Array.isArray(node.borders)) node.borders = node.borders.map(String).filter(function(id, i, arr) { return arr.indexOf(id) === i; });
+			else delete node.borders;
+		}
 		if (!Array.isArray(node.props)) node.props = [];
 		if (!node.cells || typeof node.cells !== "object") node.cells = {};
 		node.locked = !!node.locked;
 		if (typeof node.idSuffix !== "string") node.idSuffix = "";
 		if (typeof node.idOverride !== "string") node.idOverride = "";
+		if (typeof node.area !== "string" || !groupIds.has(node.area)) node.area = "";
 		Object.keys(node.cells).forEach(function(key) {
 			const cell = node.cells[key];
 			if (!cell) return;
@@ -1468,6 +1992,15 @@ function loadDraft() {
 	return emptyDraft();
 }
 
+// Все id и названия из загруженных разделов (заполняется при открытии «Рыбы»)
+let draftDbIds = new Set();
+function draftNameKey(name) { return String(name || "").trim().toLowerCase(); }
+
+// Локация, импортированная из файла, сохраняет свой id, пока её название не меняли
+function draftKeepsImportedId(node) {
+	return !!(node.importedId && !(node.idSuffix || "").trim() && draftBaseId(node) === node.importedBase);
+}
+
 function draftBaseId(node) {
 	return (node.name && node.name.trim()) ? node.name.trim() : String(node.id);
 }
@@ -1482,9 +2015,9 @@ function draftBaseId(node) {
 function draftExportIds(nodes) {
 	const result = new Map();
 	const taken = new Set();
-	function claim(node, candidate) {
+	function claim(node, candidate, ignoreDb) {
 		let id = candidate, n = 2;
-		while (taken.has(id)) { id = candidate + " [" + n + "]"; n++; }
+		while (taken.has(id) || (!ignoreDb && draftDbIds.has(draftNameKey(id)))) { id = candidate + " [" + n + "]"; n++; }
 		taken.add(id);
 		result.set(node.id, id);
 	}
@@ -1496,7 +2029,8 @@ function draftExportIds(nodes) {
 	// Сначала те, у кого id задан явно, — их id не должен «уехать» из-за соседей
 	nodes.forEach(function(node) {
 		const suffix = (node.idSuffix || "").trim();
-		if (node.idOverride && node.idOverride.trim() && !suffix) claim(node, node.idOverride.trim());
+		if (node.idOverride && node.idOverride.trim() && !suffix) claim(node, node.idOverride.trim(), true);
+		else if (draftKeepsImportedId(node)) claim(node, String(node.importedId), true);
 		else if (suffix) claim(node, draftBaseId(node) + " [" + suffix + "]");
 	});
 	nodes.forEach(function(node) {
@@ -1543,11 +2077,184 @@ function draftToRealLocations(nodes) {
 			code: codeArr.join(""),
 			transitions: transitions
 		};
-		if (node.props && node.props.length > 0) location.tags = node.props;
+		if (node.props && node.props.length > 0) {
+			location.tags = node.props.map(function(tag) {
+				if (!isConnectorTag(tag) || !Array.isArray(tag.links)) return tag;
+				const links = [];
+				tag.links.forEach(function(link) {
+					const dbId = dbLinkOf(link);
+					const id = dbId !== null ? dbId : (exportIds.get(link) || String(link));
+					if (id !== location.id && links.indexOf(id) < 0) links.push(id);
+				});
+				return Object.assign({}, tag, { links: links });
+			});
+		}
 		if (Object.keys(cellTypes).length > 0) location.cellTypes = cellTypes;
 		if (Object.keys(deadends).length > 0) location.deadends = deadends;
+		if (Array.isArray(node.borders) && node.borders.length > 0) location.borders = node.borders;
 		return location;
 	});
+}
+
+// Файл для экспорта: если у карты есть подгруппы или данные раздела (кланы, раскладка) —
+// объект { …, subgroups, locations }, иначе простой массив локаций
+function draftToExportData(draft) {
+	const locations = draftToRealLocations(draft.nodes);
+	if ((!draft.subgroups || draft.subgroups.length === 0) && !draft.fileMeta) return locations;
+	const exportIds = draftExportIds(draft.nodes);
+	const subgroups = draft.subgroups.map(function(sg) {
+		const out = Object.assign({}, sg);
+		delete out.extraIds;
+		if (!out.neutral) delete out.neutral;
+		if (!out.parentGroup) delete out.parentGroup;
+		out.ids = draft.nodes.filter(function(n) { return n.area === sg.id; })
+			.map(function(n) { return exportIds.get(n.id); })
+			.concat(sg.extraIds || []);
+		return out;
+	});
+	// Подгруппы, на которые ссылаются границы, должны быть в списке «clans» файла:
+	// по нему граф берёт цвет рамки и подпись в легенде
+	const meta = Object.assign({}, draft.fileMeta || {});
+	const usedBorders = new Set();
+	draft.nodes.forEach(function(n) { (Array.isArray(n.borders) ? n.borders : []).forEach(function(id) { usedBorders.add(id); }); });
+	if (usedBorders.size > 0) {
+		const clans = Object.assign({}, meta.clans || {});
+		usedBorders.forEach(function(id) {
+			const sg = draftGroupFind(draft.subgroups, id);
+			if (!clans[id] && sg) clans[id] = { name: sg.name, color: sg.color || "#888888" };
+		});
+		meta.clans = clans;
+	}
+	return Object.assign({}, meta, { subgroups: subgroups, locations: locations });
+}
+
+// Файл раздела вида { parents, clans, areaRows, areaLayout, subgroups, locations } → черновик
+function sectionFileToDraft(parsed) {
+	const nodes = realLocationsToDraftNodes(parsed.locations);
+	const byId = new Map();
+	parsed.locations.forEach(function(loc, i) { if (loc && loc.id !== undefined && loc.id !== null) byId.set(String(loc.id), nodes[i]); });
+	const subgroups = [];
+	(Array.isArray(parsed.subgroups) ? parsed.subgroups : []).forEach(function(sg) {
+		if (!sg || sg.id === undefined) return;
+		const def = Object.assign({}, sg);
+		def.id = String(sg.id);
+		def.extraIds = [];
+		delete def.ids;
+		(Array.isArray(sg.ids) ? sg.ids : []).forEach(function(id) {
+			const node = byId.get(String(id));
+			if (node && !node.area) node.area = def.id;
+			else if (!node) def.extraIds.push(id);
+		});
+		subgroups.push(def);
+	});
+	// Старый файл без вложенности: «Нейтры» охватывают Город и Посёлок (как раньше
+	// было зашито в программе) — считаем «Нейтры» нейтральной территорией
+	const hasNesting = subgroups.some(function(sg) { return sg.neutral || sg.parentGroup; });
+	const legacyNeutral = draftGroupFind(subgroups, "neutral");
+	if (!hasNesting && legacyNeutral) {
+		legacyNeutral.neutral = true;
+		AREA_CHILDREN.neutral.forEach(function(kidId) {
+			const kid = draftGroupFind(subgroups, kidId);
+			if (kid) kid.parentGroup = "neutral";
+		});
+	}
+	const meta = {};
+	Object.keys(parsed).forEach(function(key) { if (key !== "locations" && key !== "subgroups") meta[key] = parsed[key]; });
+	return { nodes: nodes, subgroups: subgroups, fileMeta: Object.keys(meta).length > 0 ? meta : null };
+}
+
+// ---------- Вложенные и нейтральные подгруппы ----------
+// В описании подгруппы: parentGroup — id подгруппы, в которую она входит;
+// neutral: true — нейтральная территория (все вложенные в неё подгруппы тоже
+// считаются нейтральными и не предлагаются в списке границ)
+function draftGroupFind(subgroups, id) {
+	for (let i = 0; i < subgroups.length; i++) if (subgroups[i].id === id) return subgroups[i];
+	return null;
+}
+// первая нейтральная подгруппа среди самой подгруппы и её предков (или null)
+function draftGroupNeutralSource(subgroups, id) {
+	const seen = new Set();
+	let cur = draftGroupFind(subgroups, id);
+	while (cur && !seen.has(cur.id)) {
+		if (cur.neutral) return cur;
+		seen.add(cur.id);
+		cur = cur.parentGroup ? draftGroupFind(subgroups, cur.parentGroup) : null;
+	}
+	return null;
+}
+function draftGroupIsNeutral(subgroups, id) { return !!draftGroupNeutralSource(subgroups, id); }
+// id всех вложенных (на любую глубину) подгрупп
+function draftGroupDescendants(subgroups, id) {
+	const out = new Set();
+	let added = true;
+	while (added) {
+		added = false;
+		subgroups.forEach(function(sg) {
+			if (sg.parentGroup && (sg.parentGroup === id || out.has(sg.parentGroup)) && !out.has(sg.id)) { out.add(sg.id); added = true; }
+		});
+	}
+	return out;
+}
+// порядок для показа: родитель, сразу за ним его вложенные подгруппы
+function draftGroupTree(subgroups) {
+	const out = [];
+	const done = new Set();
+	function walk(sg, depth) {
+		if (done.has(sg.id)) return;
+		done.add(sg.id);
+		out.push({ sg: sg, depth: depth });
+		subgroups.forEach(function(child) { if (child.parentGroup === sg.id) walk(child, depth + 1); });
+	}
+	subgroups.forEach(function(sg) { if (!sg.parentGroup || !draftGroupFind(subgroups, sg.parentGroup)) walk(sg, 0); });
+	subgroups.forEach(function(sg) { walk(sg, 0); });
+	return out;
+}
+// Цвет границы: как у «кланов» файла раздела (если там задан), иначе цвет подгруппы
+function draftBorderColor(draft, id) {
+	const clans = draft.fileMeta && draft.fileMeta.clans;
+	if (clans && clans[id] && clans[id].color) return clans[id].color;
+	const sg = draftGroupFind(draft.subgroups || [], id);
+	return sg ? (sg.color || "#888888") : null;
+}
+// Пунктирная рамка границ поверх карты в карточке черновика (как на графе)
+function renderDraftBorders(grid, node, draft) {
+	if (!grid) return;
+	const old = grid.querySelector(".draft-border-svg");
+	if (old) old.remove();
+	const colors = [];
+	(Array.isArray(node.borders) ? node.borders : []).forEach(function(id) {
+		const c = draftBorderColor(draft, id);
+		if (c) colors.push(c);
+	});
+	if (colors.length === 0) return;
+	// clientWidth/clientHeight — внутренняя область без рамки сетки: svg позиционируется
+	// именно в ней, и с offsetWidth правая и нижняя линии уезжали под overflow:hidden
+	const W = grid.clientWidth || 139, H = grid.clientHeight || 113;
+	const svg = svgEl("svg", { "class": "draft-border-svg", width: W, height: H, viewBox: "0 0 " + W + " " + H });
+	const SW = 3, R = 3;
+	const rw = W - SW, rh = H - SW;
+	const perim = 2 * (rw + rh) - 8 * R + 2 * Math.PI * R;
+	// длину штриха подгоняем так, чтобы узор ровно замыкался по периметру
+	const n = colors.length;
+	const periods = Math.max(1, Math.round(perim / (5 * n)));
+	const period = perim / periods;
+	const dash = period / n;
+	colors.forEach(function(color, i) {
+		svg.appendChild(svgEl("rect", {
+			x: SW / 2, y: SW / 2, width: rw, height: rh, rx: R, fill: "none", stroke: color, "stroke-width": SW,
+			"stroke-dasharray": n === 1 ? "none" : dash + " " + (period - dash), "stroke-dashoffset": -i * dash
+		}));
+	});
+	grid.appendChild(svg);
+}
+
+function draftGroupSlug(name, taken) {
+	const map = { а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"e",ж:"zh",з:"z",и:"i",й:"y",к:"k",л:"l",м:"m",н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",х:"h",ц:"c",ч:"ch",ш:"sh",щ:"sch",ъ:"",ы:"y",ь:"",э:"e",ю:"yu",я:"ya" };
+	let base = String(name).toLowerCase().split("").map(function(ch) { return map[ch] !== undefined ? map[ch] : ch; }).join("")
+		.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "group";
+	let id = base, n = 2;
+	while (taken.has(id)) { id = base + "_" + n; n++; }
+	return id;
 }
 
 function realLocationsToDraftNodes(locations) {
@@ -1560,6 +2267,11 @@ function realLocationsToDraftNodes(locations) {
 			cells: {},
 			locked: false
 		};
+		if (Array.isArray(loc.borders)) node.borders = loc.borders.slice();
+		if (loc.id !== undefined && loc.id !== null) {
+			node.importedId = String(loc.id);
+			node.importedBase = (loc.name && loc.name.trim()) ? loc.name.trim() : String(loc.id);
+		}
 		// Если id отличается от названия — сохраняем это, чтобы при экспорте
 		// id не потерялся: «Название [Река]» → уточнение «Река», иное → полный id
 		if (loc.id !== undefined && loc.id !== null && loc.name && String(loc.id) !== loc.name) {
@@ -1578,6 +2290,13 @@ function realLocationsToDraftNodes(locations) {
 	items.forEach(function(item) {
 		const loc = item.source;
 		if (loc.name && idMap[loc.name] === undefined) idMap[loc.name] = item.node.id;
+	});
+	// ссылки бота-переходника из файла (id локаций) → id карточек черновика
+	items.forEach(function(item) {
+		item.node.props = item.node.props.map(function(tag) {
+			if (!isConnectorTag(tag) || !Array.isArray(tag.links)) return tag;
+			return Object.assign({}, tag, { links: tag.links.map(function(link) { return idMap[String(link)] || (DB_LINK_PREFIX + String(link)); }) });
+		});
 	});
 	items.forEach(function(item) {
 		const code = typeof item.source.code === "string" ? item.source.code : "";
@@ -1599,10 +2318,10 @@ function realLocationsToDraftNodes(locations) {
 					deadendName: deadendInfo ? deadendInfo.name : "",
 					deadendProps: deadendInfo ? deadendInfo.props : []
 				};
-			} else if (forcedType === "fast") {
-				item.node.cells[i] = { type: "fast", target: null, unknownName: "", deadendName: "", deadendProps: [] };
-			} else if (forcedType === "hidden") {
-				item.node.cells[i] = { type: "hidden", target: null, unknownName: "", deadendName: "", deadendProps: [] };
+			} else if (forcedType === "fast" || forcedType === "hidden") {
+				// быстрый/скрытый переход ведёт в обычную локацию — цель не теряем
+				const fastTarget = idMap[String(value)];
+				item.node.cells[i] = { type: forcedType, target: fastTarget || null, unknownName: fastTarget ? "" : String(value), deadendName: "", deadendProps: [] };
 			} else if (normalized === "С") item.node.cells[i] = { type: "self", target: null, unknownName: "", deadendName: "", deadendProps: [] };
 			else if (normalized === "Расщелина") item.node.cells[i] = { type: "crevice", target: null, unknownName: "", deadendName: "", deadendProps: [] };
 			else if (normalized === "Дупло") item.node.cells[i] = { type: "hollow", target: null, unknownName: "", deadendName: "", deadendProps: [] };
@@ -1656,12 +2375,250 @@ function readPropertyIcon(file, callback) {
 	reader.readAsDataURL(file);
 }
 
+// ---------- Свои виды свойств: сохраняются на устройстве ----------
+// Всё, что пользователь создал вручную (вид охоты, ядовитой дичи, спавна, бота,
+// отдельное свойство), запоминается вместе с иконкой и потом появляется
+// в списке как обычный готовый вариант
+const CUSTOM_KINDS_KEY = "atlas.customKinds.v1";
+function loadCustomKinds() {
+	try {
+		const raw = JSON.parse(localStorage.getItem(CUSTOM_KINDS_KEY) || "{}");
+		return (raw && typeof raw === "object") ? raw : {};
+	} catch (e) { return {}; }
+}
+function writeCustomKinds(all) {
+	try { localStorage.setItem(CUSTOM_KINDS_KEY, JSON.stringify(all)); return true; }
+	catch (e) { alert("Не удалось сохранить свой вид на устройстве (возможно, закончилось место в хранилище браузера). Свойство добавлено, но в список не попадёт."); return false; }
+}
+function savedKindsOf(group) {
+	const list = loadCustomKinds()[group];
+	return Array.isArray(list) ? list.filter(function(t) { return t && t.key === group && t.icon; }) : [];
+}
+function saveCustomKind(tag) {
+	if (!tag || !tag.icon) return;
+	const template = Object.assign({}, tag);
+	delete template.name; // имя бота — у конкретной локации, а не у вида
+	delete template.links; // куда ведёт бот-переходник — тоже у конкретной локации
+	const all = loadCustomKinds();
+	const list = Array.isArray(all[tag.key]) ? all[tag.key] : [];
+	const identity = tagIdentity(template);
+	const at = list.findIndex(function(t) { return tagIdentity(t) === identity; });
+	if (at >= 0) list[at] = template; else list.push(template);
+	all[tag.key] = list;
+	writeCustomKinds(all);
+}
+function removeCustomKind(tag) {
+	const all = loadCustomKinds();
+	const identity = tagIdentity(tag);
+	if (!Array.isArray(all[tag.key])) return;
+	all[tag.key] = all[tag.key].filter(function(t) { return tagIdentity(t) !== identity; });
+	writeCustomKinds(all);
+}
+// Кнопка сохранённого вида: клик добавляет свойство, × удаляет вид из списка
+function makeSavedKindButton(template, poison, onPick) {
+	const btn = makePropListButton(template.icon, tagLabel(template), function() { onPick(Object.assign({}, template)); });
+	btn.classList.add("prop-saved-kind");
+	if (poison) btn.classList.add("prop-poison");
+	const remove = document.createElement("span");
+	remove.className = "prop-kind-remove";
+	remove.textContent = "×";
+	remove.title = "Удалить этот вид из списка";
+	remove.addEventListener("click", function(e) {
+		e.stopPropagation();
+		if (!confirm("Удалить «" + tagLabel(template) + "» из сохранённых видов?")) return;
+		removeCustomKind(template);
+		btn.remove();
+	});
+	btn.appendChild(remove);
+	return btn;
+}
+function appendSavedKinds(container, group, poison, onPick, before, filter) {
+	savedKindsOf(group).forEach(function(template) {
+		if (filter && !filter(template)) return;
+		const btn = makeSavedKindButton(template, poison, onPick);
+		if (before) container.insertBefore(btn, before); else container.appendChild(btn);
+	});
+}
+
 const SIMPLE_PROP_KEYS = [
 	"drink", "fillMoss", "dirty", "attention", "nap", "claws",
 	"carpet", "mark", "grandHunt", "surroundings", "hollow", "crevice",
 	"dive", "healing", "safe", "sleep"
 ];
 const LEVEL_PROP_KEYS = ["climb", "swim"];
+
+// ---------- Бот-переходник: список локаций, куда он ведёт ----------
+// В черновике links хранит id карточек («Рыбы»), при экспорте они заменяются
+// на id локаций из файла, а в готовых данных links — это id локаций
+const CONNECTOR_HINT = "Бот-переходник соединяет между собой локации и даёт возможность перейти в другую локацию без использования перехода.";
+function isConnectorTag(tag) { return !!tag && tag.key === "bot" && tag.bot === "connector"; }
+function connectorLinkIds(location) {
+	const out = [];
+	((location && location.tags) || []).forEach(function(tag) {
+		if (isConnectorTag(tag) && Array.isArray(tag.links)) tag.links.forEach(function(link) { out.push(String(link)); });
+	});
+	return out;
+}
+function draftNodeLabel(node, all) {
+	const name = (node.name && node.name.trim()) ? node.name.trim() : "Без названия";
+	const same = all.filter(function(other) { return (other.name || "").trim() === (node.name || "").trim(); }).length > 1;
+	return same ? name + " [" + (all.indexOf(node) + 1) + "]" : name;
+}
+function createConnectorHint() {
+	const hint = document.createElement("p");
+	hint.className = "prop-hint";
+	hint.textContent = CONNECTOR_HINT;
+	return hint;
+}
+// Локации из загруженных разделов — чтобы бот-переходник мог вести и в уже существующие
+let draftDbLocations = [];
+const DB_LINK_PREFIX = "db:";
+// Иконка бота-переходника по умолчанию (две стрелки), чтобы не требовать загрузку картинки
+const CONNECTOR_DEFAULT_ICON = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#2b4a66" stroke="#5fdcf0" stroke-width="2"/><path d="M10 18h22m0 0-6-6m6 6-6 6" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M38 30H16m0 0 6-6m-6 6 6 6" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+function dbLinkOf(link) {
+	link = String(link);
+	return link.indexOf(DB_LINK_PREFIX) === 0 ? link.slice(DB_LINK_PREFIX.length) : null;
+}
+function createConnectorLinksField(initial) {
+	const links = Array.isArray(initial) ? initial.map(String) : [];
+	const box = document.createElement("div");
+	box.className = "prop-links";
+	const title = document.createElement("div");
+	title.className = "prop-links-title";
+	title.textContent = "Куда ведёт бот (можно несколько локаций):";
+	const chips = document.createElement("div");
+	chips.className = "prop-links-chips";
+	const input = document.createElement("input");
+	input.type = "text";
+	input.className = "prop-links-search";
+	input.placeholder = "Поиск локации: название, id, свойство…";
+	const results = document.createElement("div");
+	results.className = "prop-links-results";
+	box.appendChild(title); box.appendChild(chips); box.appendChild(input); box.appendChild(results);
+	// клики внутри поля не должны доходить до документа: иначе меню свойств
+	// считает, что кликнули «снаружи» (кнопка уже перерисована) и закрывается
+	box.addEventListener("click", function(e) { e.stopPropagation(); });
+	function allNodes() { return (draftState && Array.isArray(draftState.nodes)) ? draftState.nodes : []; }
+	function labelOf(link) {
+		const dbId = dbLinkOf(link);
+		if (dbId !== null) {
+			const loc = draftDbLocations.find(function(l) { return String(l.id) === dbId; });
+			return loc ? loc.name : dbId;
+		}
+		const all = allNodes();
+		const node = all.find(function(n) { return n.id === link; });
+		return node ? draftNodeLabel(node, all) : String(link);
+	}
+	function renderChips() {
+		chips.innerHTML = "";
+		links.forEach(function(link) {
+			const chip = document.createElement("span");
+			chip.className = "draft-prop-chip";
+			chip.appendChild(document.createTextNode(labelOf(link)));
+			const remove = document.createElement("span");
+			remove.className = "draft-prop-chip-remove";
+			remove.textContent = "×";
+			remove.title = "Убрать";
+			remove.addEventListener("click", function() {
+				links.splice(links.indexOf(link), 1);
+				renderChips();
+				renderResults();
+			});
+			chip.appendChild(remove);
+			chips.appendChild(chip);
+		});
+	}
+	function matches(entry, q) {
+		if (!q) return true;
+		const loc = entry.loc;
+		return String(entry.label).toLowerCase().includes(q) ||
+			String(loc.id).toLowerCase() === q ||
+			String(loc.name || "").toLowerCase().includes(q) ||
+			(!!loc.tags && locationTagsMatch(loc, q)) ||
+			!!searchExtraMatch(loc, q);
+	}
+	function candidates() {
+		const all = allNodes();
+		const out = [];
+		const draftNames = new Set();
+		all.forEach(function(n) {
+			draftNames.add(draftNameKey(n.name));
+			if (n.importedId) draftNames.add(draftNameKey(n.importedId));
+			const loc = { id: n.id, name: n.name || "", tags: n.props || [] };
+			out.push({ link: n.id, label: draftNodeLabel(n, all), note: "в «Рыбе»", loc: loc });
+		});
+		draftDbLocations.forEach(function(l) {
+			if (draftNames.has(draftNameKey(l.id)) || draftNames.has(draftNameKey(l.name))) return;
+			out.push({ link: DB_LINK_PREFIX + l.id, label: l.name, note: l.section, loc: l });
+		});
+		return out;
+	}
+	function found() {
+		const q = input.value.trim().toLowerCase();
+		// без запроса показываем только карточки «Рыбы» и уже выбранное:
+		// из всей базы список был бы огромным
+		return candidates().filter(function(e) {
+			if (!q) return dbLinkOf(e.link) === null || links.indexOf(e.link) >= 0;
+			return links.indexOf(e.link) >= 0 || matches(e, q);
+		});
+	}
+	function renderResults() {
+		results.innerHTML = "";
+		const list = found();
+		if (list.length === 0) {
+			const empty = document.createElement("p");
+			empty.className = "search-empty";
+			empty.textContent = "Локация не найдена";
+			results.appendChild(empty);
+			return;
+		}
+		// выбранные — наверху списка, остаются отмеченными
+		list.sort(function(x, y) { return (links.indexOf(y.link) >= 0) - (links.indexOf(x.link) >= 0); });
+		list.slice(0, 60).forEach(function(entry) {
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "prop-links-option";
+			const mark = document.createElement("span");
+			mark.className = "prop-links-mark";
+			btn.appendChild(mark);
+			btn.appendChild(document.createTextNode(entry.label + (entry.note ? " — " + entry.note : "")));
+			const on = links.indexOf(entry.link) >= 0;
+			btn.classList.toggle("selected", on);
+			btn.setAttribute("aria-pressed", on ? "true" : "false");
+			mark.textContent = on ? "✓ " : "";
+			btn.addEventListener("click", function() {
+				const was = links.indexOf(entry.link) >= 0;
+				if (was) links.splice(links.indexOf(entry.link), 1); else links.push(entry.link);
+				btn.classList.toggle("selected", !was);
+				btn.setAttribute("aria-pressed", was ? "false" : "true");
+				mark.textContent = was ? "" : "✓ ";
+				renderChips();
+			});
+			results.appendChild(btn);
+		});
+		if (list.length > 60) {
+			const more = document.createElement("p");
+			more.className = "search-empty";
+			more.textContent = "Показаны первые 60 из " + list.length + " — уточните запрос";
+			results.appendChild(more);
+		}
+	}
+	input.addEventListener("input", renderResults);
+	input.addEventListener("focus", renderResults);
+	input.addEventListener("keydown", function(e) {
+		if (e.key !== "Enter") return;
+		e.preventDefault();
+		const list = found();
+		if (list.length === 1) {
+			const at = links.indexOf(list[0].link);
+			if (at >= 0) links.splice(at, 1); else links.push(list[0].link);
+			renderChips();
+		}
+		renderResults();
+	});
+	renderChips();
+	return { element: box, getLinks: function() { return links.slice(); } };
+}
 
 function makePropListButton(src, label, onClick) {
 	const btn = document.createElement("button");
@@ -1704,6 +2661,7 @@ function createPropertyPicker(onAdd, options) {
 		sub.hidden = true;
 	}
 	function openList() {
+		if (typeof renderSavedCustomProps === "function") renderSavedCustomProps();
 		list.style.display = "";
 		sub.innerHTML = "";
 		sub.hidden = true;
@@ -1721,8 +2679,16 @@ function createPropertyPicker(onAdd, options) {
 		if (wrap.classList.contains("open")) closeAll();
 		else openList();
 	});
+	// Меню закрываем только если и нажатие, и отпускание мыши были снаружи:
+	// выделение текста в поле с выходом курсора за край меню — это не клик «мимо»
+	let pressedInside = false;
+	document.addEventListener("pointerdown", function(e) {
+		pressedInside = wrap.contains(e.target) || (typeof e.composedPath === "function" && e.composedPath().indexOf(wrap) >= 0);
+	}, true);
 	document.addEventListener("click", function(e) {
-		if (!wrap.contains(e.target)) closeAll();
+		if (pressedInside) { pressedInside = false; return; }
+		const inside = wrap.contains(e.target) || (typeof e.composedPath === "function" && e.composedPath().indexOf(wrap) >= 0);
+		if (!inside) closeAll();
 	});
 
 	SIMPLE_PROP_KEYS.forEach(function(key) {
@@ -1732,49 +2698,59 @@ function createPropertyPicker(onAdd, options) {
 		}));
 	});
 
-	list.appendChild(makePropListButton(LOCATION_TAGS.hunt.icon, LOCATION_TAGS.hunt.label, function() {
-		openSub();
-		const kindsRow = document.createElement("div");
-		kindsRow.className = "prop-sub-row";
-		Object.keys(HUNT_TAGS).forEach(function(huntKey) {
-			const def = HUNT_TAGS[huntKey];
-			kindsRow.appendChild(makePropListButton(def.icon, def.label, function() {
-				handleAdd({ key: "hunt", hunt: huntKey });
-			}));
-		});
-		sub.appendChild(kindsRow);
-		const customRow = document.createElement("div");
-		customRow.className = "prop-sub-custom";
-		customRow.innerHTML = `
-			<span class="prop-icon-preview" aria-hidden="true"></span>
-			<input type="text" class="prop-hunt-label" placeholder="Как назвать это занятие? (напр. «Ловля мышей»)">
-			<input type="text" class="prop-hunt-kind" placeholder="Свой вид добычи">
-			<label class="draft-btn prop-icon-upload-label">Иконка<input type="file" class="prop-custom-icon-input" accept="image/*" hidden></label>
-			<button type="button" class="draft-btn">Добавить</button>
-		`;
-		sub.appendChild(customRow);
-		const labelField = customRow.querySelector(".prop-hunt-label");
-		const kindField = customRow.querySelector(".prop-hunt-kind");
-		const iconField = customRow.querySelector(".prop-custom-icon-input");
-		const preview = customRow.querySelector(".prop-icon-preview");
-		const addBtn = customRow.querySelector(".draft-btn:last-child");
-		let pendingIcon = null;
-		iconField.addEventListener("change", function(e) {
-			readPropertyIcon(e.target.files[0], function(dataUrl) {
-				pendingIcon = dataUrl; preview.style.backgroundImage = "url(\"" + dataUrl + "\")";
+	function addHuntPicker(tagKey, kinds, def0, labelPh, kindPh, poison) {
+		const mainBtn = makePropListButton(def0.icon, def0.label, function() {
+			openSub();
+			const kindsRow = document.createElement("div");
+			kindsRow.className = "prop-sub-row";
+			Object.keys(kinds).forEach(function(huntKey) {
+				const def = kinds[huntKey];
+				const kindBtn = makePropListButton(def.icon, def.label, function() {
+					handleAdd({ key: tagKey, hunt: huntKey });
+				});
+				if (poison) kindBtn.classList.add("prop-poison");
+				kindsRow.appendChild(kindBtn);
+			});
+			appendSavedKinds(kindsRow, tagKey, poison, handleAdd);
+			sub.appendChild(kindsRow);
+			const customRow = document.createElement("div");
+			customRow.className = "prop-sub-custom";
+			customRow.innerHTML = `
+				<span class="prop-icon-preview" aria-hidden="true"></span>
+				<input type="text" class="prop-hunt-label" placeholder="${labelPh}">
+				<input type="text" class="prop-hunt-kind" placeholder="${kindPh}">
+				<label class="draft-btn prop-icon-upload-label">Иконка<input type="file" class="prop-custom-icon-input" accept="image/*" hidden></label>
+				<button type="button" class="draft-btn">Добавить</button>
+			`;
+			sub.appendChild(customRow);
+			const labelField = customRow.querySelector(".prop-hunt-label");
+			const kindField = customRow.querySelector(".prop-hunt-kind");
+			const iconField = customRow.querySelector(".prop-custom-icon-input");
+			const preview = customRow.querySelector(".prop-icon-preview");
+			const addBtn = customRow.querySelector(".draft-btn:last-child");
+			let pendingIcon = null;
+			iconField.addEventListener("change", function(e) {
+				readPropertyIcon(e.target.files[0], function(dataUrl) {
+					pendingIcon = dataUrl; preview.style.backgroundImage = "url(\"" + dataUrl + "\")";
+				});
+			});
+			addBtn.addEventListener("click", function() {
+				const label = labelField.value.trim();
+				const kind = kindField.value.trim();
+				if (!label && !kind) { alert("Впишите либо новое название занятия, либо свой вид добычи"); return; }
+				if (!pendingIcon) { alert("У охоты обязательно должна быть своя иконка"); return; }
+				const tag = { key: tagKey, icon: pendingIcon };
+				if (label) tag.huntLabel = label;
+				if (kind) tag.hunt = kind;
+				saveCustomKind(tag);
+				handleAdd(tag);
 			});
 		});
-		addBtn.addEventListener("click", function() {
-			const label = labelField.value.trim();
-			const kind = kindField.value.trim();
-			if (!label && !kind) { alert("Впишите либо новое название занятия, либо свой вид добычи"); return; }
-			if (!pendingIcon) { alert("У охоты обязательно должна быть своя иконка"); return; }
-			const tag = { key: "hunt", icon: pendingIcon };
-			if (label) tag.huntLabel = label;
-			if (kind) tag.hunt = kind;
-			handleAdd(tag);
-		});
-	}));
+		if (poison) mainBtn.classList.add("prop-poison");
+		list.appendChild(mainBtn);
+	}
+	addHuntPicker("hunt", HUNT_TAGS, LOCATION_TAGS.hunt, "Как назвать это занятие? (напр. «Ловля мышей»)", "Свой вид добычи", false);
+	addHuntPicker("poisonHunt", POISON_HUNT_TAGS, LOCATION_TAGS.poisonHunt, "Как назвать это занятие? (напр. «Ловля змей»)", "Свой вид ядовитой дичи (напр. змеи, пауки)", true);
 
 	LEVEL_PROP_KEYS.forEach(function(key) {
 		const def = LOCATION_TAGS[key];
@@ -1800,6 +2776,7 @@ function createPropertyPicker(onAdd, options) {
 				handleAdd({ key: "spawn", spawn: spawnKey });
 			}));
 		});
+		appendSavedKinds(kindsRow, "spawn", false, handleAdd);
 		sub.appendChild(kindsRow);
 		const customRow = document.createElement("div");
 		customRow.className = "prop-sub-custom";
@@ -1824,7 +2801,9 @@ function createPropertyPicker(onAdd, options) {
 			const name = nameField.value.trim();
 			if (!name) { alert("Впишите название своего вида спавна"); return; }
 			if (!pendingIcon) { alert("У своего вида спавна обязательно должна быть иконка"); return; }
-			handleAdd({ key: "spawn", spawn: name, icon: pendingIcon });
+			const spawnTag = { key: "spawn", spawn: name, icon: pendingIcon };
+			saveCustomKind(spawnTag);
+			handleAdd(spawnTag);
 		});
 	}));
 
@@ -1833,29 +2812,50 @@ function createPropertyPicker(onAdd, options) {
 		const kindsRow = document.createElement("div");
 		kindsRow.className = "prop-sub-row";
 		let chosenBotKind = null;
+		const connLinks = createConnectorLinksField([]);
+		connLinks.element.hidden = true;
 		function selectKind(key, btn) {
 			chosenBotKind = key;
+			connLinks.element.hidden = key !== "connector";
+			if (typeof kindField !== "undefined") kindField.style.display = key === "custom" ? "" : "none";
+			if (typeof preview !== "undefined" && !pendingIcon) preview.style.backgroundImage = key === "connector" ? "url(\"" + CONNECTOR_DEFAULT_ICON + "\")" : "";
 			kindsRow.querySelectorAll(".prop-list-btn").forEach(function(b) { b.classList.toggle("selected", b === btn); });
 		}
 		Object.keys(BOT_TAGS).forEach(function(botKey) {
+			if (botKey === "connector" && opts.noConnector) return;
 			const def = BOT_TAGS[botKey];
 			const btn = makePropListButton(undefined, def.label, function() { selectKind(botKey, btn); });
 			kindsRow.appendChild(btn);
 		});
 		const otherBtn = makePropListButton(undefined, "Другой вид", function() { selectKind("custom", otherBtn); });
 		kindsRow.appendChild(otherBtn);
+		// сохранённый вид бота-переходника не добавляется сразу — нужно ещё выбрать локации
+		appendSavedKinds(kindsRow, "bot", false, function(template) {
+			if (template.bot !== "connector") { handleAdd(template); return; }
+			chosenBotKind = "connector";
+			connLinks.element.hidden = false;
+			kindField.style.display = "none";
+			kindsRow.querySelectorAll(".prop-list-btn").forEach(function(b) { b.classList.remove("selected"); });
+			pendingIcon = template.icon;
+			preview.style.backgroundImage = "url(\"" + template.icon + "\")";
+		}, undefined, function(template) { return !(opts.noConnector && template.bot === "connector"); });
 		sub.appendChild(kindsRow);
+		if (!opts.noConnector) {
+			sub.appendChild(createConnectorHint());
+			sub.appendChild(connLinks.element);
+		}
 		const detailsRow = document.createElement("div");
 		detailsRow.className = "prop-sub-custom";
 		detailsRow.innerHTML = `
 			<span class="prop-icon-preview" aria-hidden="true"></span>
-			<input type="text" class="prop-bot-kind" placeholder="Или свой вид бота">
+			<input type="text" class="prop-bot-kind" placeholder="Вид бота">
 			<input type="text" class="prop-bot-name" placeholder="Имя бота (необязательно)">
 			<label class="draft-btn prop-icon-upload-label">Иконка<input type="file" class="prop-custom-icon-input" accept="image/*" hidden></label>
 			<button type="button" class="draft-btn">Добавить</button>
 		`;
 		sub.appendChild(detailsRow);
 		const kindField = detailsRow.querySelector(".prop-bot-kind");
+		kindField.style.display = "none";
 		const nameField = detailsRow.querySelector(".prop-bot-name");
 		const iconField = detailsRow.querySelector(".prop-custom-icon-input");
 		const preview = detailsRow.querySelector(".prop-icon-preview");
@@ -1868,20 +2868,27 @@ function createPropertyPicker(onAdd, options) {
 		});
 		addBtn.addEventListener("click", function() {
 			if (!chosenBotKind) { alert("Выберите вид бота (или «Другой вид»)"); return; }
-			if (!pendingIcon) { alert("У бота обязательно должна быть своя иконка"); return; }
-			const tag = { key: "bot", bot: chosenBotKind, icon: pendingIcon };
+			const botIcon = pendingIcon || (chosenBotKind === "connector" ? CONNECTOR_DEFAULT_ICON : null);
+			if (!botIcon) { alert("У бота обязательно должна быть своя иконка"); return; }
+			const tag = { key: "bot", bot: chosenBotKind, icon: botIcon };
 			if (chosenBotKind === "custom") {
 				const kind = kindField.value.trim();
 				if (!kind) { alert("Впишите вид бота"); return; }
 				tag.botLabel = kind;
 			}
+			if (chosenBotKind === "connector") {
+				const picked = connLinks.getLinks();
+				if (picked.length === 0) { alert("Выберите хотя бы одну локацию, в которую ведёт бот-переходник"); return; }
+				tag.links = picked;
+			}
 			const name = nameField.value.trim();
+			saveCustomKind(tag);
 			if (name) tag.name = name;
 			handleAdd(tag);
 		});
 	}));
 
-	list.appendChild(makePropListButton(undefined, "Другое (создать новое)", function() {
+	const otherPropBtn = makePropListButton(undefined, "Другое (создать новое)", function() {
 		openSub();
 		const row = document.createElement("div");
 		row.className = "prop-sub-custom";
@@ -1911,11 +2918,246 @@ function createPropertyPicker(onAdd, options) {
 			if (!pendingIcon) { alert("У своего свойства обязательно должна быть иконка"); return; }
 			const tag = { key: "custom", customLabel: label, icon: pendingIcon };
 			if (kind) tag.customKind = kind;
+			saveCustomKind(tag);
 			handleAdd(tag);
 		});
-	}));
+	});
+	list.appendChild(otherPropBtn);
+	// Сохранённые отдельные свойства — обновляем список при каждом открытии
+	function renderSavedCustomProps() {
+		list.querySelectorAll(".prop-saved-custom").forEach(function(b) { b.remove(); });
+		appendSavedKinds(list, "custom", false, handleAdd, otherPropBtn);
+		list.querySelectorAll(".prop-saved-kind:not(.prop-saved-custom)").forEach(function(b) {
+			if (b.parentNode === list) b.classList.add("prop-saved-custom");
+		});
+	}
+	renderSavedCustomProps();
 
 	return wrap;
+}
+
+// ---------- Редактирование уже добавленного свойства ----------
+// Кликабельны только свойства, у которых есть что менять (бот, охота, спавн,
+// своё свойство, лазание/плавание). Простые «флажки» (питьё, сон и т. п.)
+// редактировать нечего — их можно только убрать крестиком.
+const EDITABLE_PROP_KEYS = ["bot", "hunt", "poisonHunt", "spawn", "custom", "climb", "swim"];
+function propIsEditable(tag) { return !!tag && EDITABLE_PROP_KEYS.indexOf(tag.key) >= 0; }
+let propEditorSeq = 0;
+function closePropEditor(holder) {
+	const next = holder && holder.nextElementSibling;
+	if (next && next.classList.contains("prop-editor")) next.remove();
+}
+function matchKnownKind(kinds, text) {
+	const t = String(text || "").trim().toLowerCase();
+	if (!t) return null;
+	return Object.keys(kinds).find(function(k) {
+		return k.toLowerCase() === t || String(kinds[k].label).toLowerCase() === t;
+	}) || null;
+}
+// holder — блок плашек, list — массив свойств, index — какое правим,
+// onDone — перерисовать всё после сохранения
+function openPropEditor(holder, list, index, onDone) {
+	const tag = list[index];
+	if (!propIsEditable(tag)) return;
+	const prev = holder.nextElementSibling;
+	const sameOpen = prev && prev.classList.contains("prop-editor") && prev.dataset.idx === String(index);
+	closePropEditor(holder);
+	holder.querySelectorAll(".draft-prop-chip.editing").forEach(function(c) { c.classList.remove("editing"); });
+	if (sameOpen) return;
+	const chips = holder.querySelectorAll(".draft-prop-chip");
+	if (chips[index]) chips[index].classList.add("editing");
+
+	const editor = document.createElement("div");
+	editor.className = "prop-editor prop-picker-sub";
+	editor.dataset.idx = String(index);
+	const title = document.createElement("div");
+	title.className = "prop-editor-title";
+	title.textContent = "Изменить: " + tagLabel(tag);
+	editor.appendChild(title);
+
+	function addRow() {
+		const row = document.createElement("div");
+		row.className = "prop-sub-custom";
+		editor.appendChild(row);
+		return row;
+	}
+	function addField(row, cls, placeholder, value, listId) {
+		const input = document.createElement("input");
+		input.type = "text"; input.className = cls; input.placeholder = placeholder; input.value = value || "";
+		if (listId) input.setAttribute("list", listId);
+		row.appendChild(input);
+		return input;
+	}
+	function addDatalist(kinds) {
+		const id = "prop-editor-kinds-" + (++propEditorSeq);
+		const dl = document.createElement("datalist");
+		dl.id = id;
+		Object.keys(kinds).forEach(function(k) { const o = document.createElement("option"); o.value = kinds[k].label; dl.appendChild(o); });
+		editor.appendChild(dl);
+		return id;
+	}
+	// иконка: превью с текущей картинкой + загрузка новой
+	let pendingIcon = null;
+	function addIconControls(row, currentSrc) {
+		const preview = document.createElement("span");
+		preview.className = "prop-icon-preview";
+		if (currentSrc) preview.style.backgroundImage = "url(\"" + currentSrc + "\")";
+		row.insertBefore(preview, row.firstChild);
+		const label = document.createElement("label");
+		label.className = "draft-btn prop-icon-upload-label";
+		label.textContent = "Сменить иконку";
+		const file = document.createElement("input");
+		file.type = "file"; file.accept = "image/*"; file.hidden = true;
+		file.addEventListener("change", function(e) {
+			readPropertyIcon(e.target.files[0], function(dataUrl) {
+				pendingIcon = dataUrl; preview.style.backgroundImage = "url(\"" + dataUrl + "\")";
+			});
+		});
+		label.appendChild(file);
+		row.appendChild(label);
+	}
+
+	let build; // () => новый тег или null (если не прошёл проверку)
+	if (tag.key === "bot") {
+		const kindsRow = document.createElement("div");
+		kindsRow.className = "prop-sub-row";
+		editor.appendChild(kindsRow);
+		let chosen = BOT_TAGS[tag.bot] ? tag.bot : "custom";
+		const connLinks = createConnectorLinksField(tag.links);
+		connLinks.element.hidden = chosen !== "connector";
+		function selectKind(key, btn) {
+			chosen = key;
+			connLinks.element.hidden = key !== "connector";
+			if (typeof kindField !== "undefined") kindField.style.display = key === "custom" ? "" : "none";
+			kindsRow.querySelectorAll(".prop-list-btn").forEach(function(b) { b.classList.toggle("selected", b === btn); });
+		}
+		let customBtn;
+		Object.keys(BOT_TAGS).forEach(function(botKey) {
+			const btn = makePropListButton(undefined, BOT_TAGS[botKey].label, function() { selectKind(botKey, btn); });
+			if (botKey === chosen) btn.classList.add("selected");
+			kindsRow.appendChild(btn);
+		});
+		customBtn = makePropListButton(undefined, "Другой вид", function() { selectKind("custom", customBtn); });
+		if (chosen === "custom") customBtn.classList.add("selected");
+		kindsRow.appendChild(customBtn);
+		editor.appendChild(createConnectorHint());
+		editor.appendChild(connLinks.element);
+		const row = addRow();
+		const kindField = addField(row, "prop-bot-kind", "Вид бота", tag.botLabel || "");
+		kindField.style.display = chosen === "custom" ? "" : "none";
+		const nameField = addField(row, "prop-bot-name", "Имя бота (необязательно)", tag.name || "");
+		addIconControls(row, tagIcon(tag));
+		build = function() {
+			const icon = pendingIcon || tag.icon || (chosen === "connector" ? CONNECTOR_DEFAULT_ICON : null);
+			if (!icon) { alert("У бота обязательно должна быть своя иконка"); return null; }
+			const next = { key: "bot", bot: chosen, icon: icon };
+			if (chosen === "custom") {
+				const kind = kindField.value.trim();
+				if (!kind) { alert("Впишите вид бота"); return null; }
+				next.botLabel = kind;
+			}
+			if (chosen === "connector") {
+				const picked = connLinks.getLinks();
+				if (picked.length === 0) { alert("Выберите хотя бы одну локацию, в которую ведёт бот-переходник"); return null; }
+				next.links = picked;
+			}
+			const name = nameField.value.trim();
+			if (name) next.name = name;
+			return next;
+		};
+	} else if (tag.key === "hunt" || tag.key === "poisonHunt") {
+		const kinds = tag.key === "hunt" ? HUNT_TAGS : POISON_HUNT_TAGS;
+		const listId = addDatalist(kinds);
+		const row = addRow();
+		const labelField = addField(row, "prop-hunt-label", "Как назвать это занятие?", tag.huntLabel || "");
+		const kindField = addField(row, "prop-hunt-kind", "Вид добычи", kinds[tag.hunt] ? kinds[tag.hunt].label : (tag.hunt || ""), listId);
+		addIconControls(row, tagIcon(tag));
+		build = function() {
+			const label = labelField.value.trim();
+			const kindText = kindField.value.trim();
+			if (!label && !kindText) { alert("Впишите либо название занятия, либо вид добычи"); return null; }
+			const known = matchKnownKind(kinds, kindText);
+			const next = { key: tag.key };
+			if (label) next.huntLabel = label;
+			if (known) next.hunt = known; else if (kindText) next.hunt = kindText;
+			const icon = pendingIcon || (known ? null : tag.icon);
+			if (!known && !icon) { alert("У своей охоты обязательно должна быть иконка"); return null; }
+			if (icon) next.icon = icon;
+			return next;
+		};
+	} else if (tag.key === "spawn") {
+		const listId = addDatalist(SPAWN_TAGS);
+		const row = addRow();
+		const nameField = addField(row, "prop-custom-name", "Вид спавна", SPAWN_TAGS[tag.spawn] ? SPAWN_TAGS[tag.spawn].label : (tag.spawn || ""), listId);
+		addIconControls(row, tagIcon(tag));
+		build = function() {
+			const text = nameField.value.trim();
+			if (!text) { alert("Впишите вид спавна"); return null; }
+			const known = matchKnownKind(SPAWN_TAGS, text);
+			if (known) {
+				const next = { key: "spawn", spawn: known };
+				if (pendingIcon) next.icon = pendingIcon;
+				return next;
+			}
+			const icon = pendingIcon || tag.icon;
+			if (!icon) { alert("У своего вида спавна обязательно должна быть иконка"); return null; }
+			return { key: "spawn", spawn: text, icon: icon };
+		};
+	} else if (tag.key === "custom") {
+		const row = addRow();
+		const labelField = addField(row, "prop-custom-label", "Название свойства", tag.customLabel || "");
+		const kindField = addField(row, "prop-custom-kind", "Уточнение (необязательно)", tag.customKind || "");
+		addIconControls(row, tagIcon(tag));
+		build = function() {
+			const label = labelField.value.trim();
+			if (!label) { alert("Впишите название свойства"); return null; }
+			const icon = pendingIcon || tag.icon;
+			if (!icon) { alert("У своего свойства обязательно должна быть иконка"); return null; }
+			const next = { key: "custom", customLabel: label, icon: icon };
+			const kind = kindField.value.trim();
+			if (kind) next.customKind = kind;
+			return next;
+		};
+	} else { // climb / swim
+		const def = LOCATION_TAGS[tag.key];
+		const row = addRow();
+		const text = document.createElement("span");
+		text.textContent = def.levelUnit + " (от " + def.levelMin + " до " + def.levelMax + "):";
+		row.appendChild(text);
+		const num = document.createElement("input");
+		num.type = "number"; num.className = "prop-level-input";
+		num.min = def.levelMin; num.max = def.levelMax; num.step = 1; num.value = tag.level;
+		row.appendChild(num);
+		build = function() {
+			const level = Math.round(Number(num.value));
+			if (num.value === "" || !Number.isFinite(level) || level < def.levelMin || level > def.levelMax) {
+				alert("Нужно целое число от " + def.levelMin + " до " + def.levelMax);
+				return null;
+			}
+			return { key: tag.key, level: level };
+		};
+	}
+
+	const btnRow = addRow();
+	const save = document.createElement("button");
+	save.type = "button"; save.className = "draft-btn"; save.textContent = "Сохранить";
+	const cancel = document.createElement("button");
+	cancel.type = "button"; cancel.className = "draft-btn"; cancel.textContent = "Отмена";
+	btnRow.appendChild(save); btnRow.appendChild(cancel);
+	cancel.addEventListener("click", function() {
+		closePropEditor(holder);
+		holder.querySelectorAll(".draft-prop-chip.editing").forEach(function(c) { c.classList.remove("editing"); });
+	});
+	save.addEventListener("click", function() {
+		const next = build();
+		if (!next) return;
+		const identity = tagIdentity(next);
+		const dup = list.some(function(other, i) { return i !== index && tagIdentity(other) === identity; });
+		if (dup) { alert("Такое свойство уже есть"); return; }
+		list[index] = next;
+		onDone();
+	});
+	holder.after(editor);
 }
 
 // ============================================================
@@ -1928,7 +3170,7 @@ const GRID_W = 10 * CELL_W + 9 * CELL_GAP;
 const GRID_H = 6 * CELL_H + 5 * CELL_GAP;
 const NODE_W = GRID_W + FRAME_PAD * 2;
 const NODE_H = GRID_H + FRAME_PAD * 2;
-const LABEL_CLEARANCE = 16;
+const LABEL_CLEARANCE = 30; // место под подпись названием (до 3 строк)
 const OVERLAP_MARGIN = 16;
 // Длиннее этого (в единицах графа) переход считается «длинным»: рисуется
 // бледно и без обхода областей, см. renderGraph
@@ -2290,7 +3532,7 @@ function placeAreasByCompass(clusters, spec, edgesGlobal, nodes, areas, groupOff
 		const c = clusters[r.ci];
 		if (!c.name) return;
 		areas.push({
-			name: c.name, color: c.color, parentName: c.parentName, indices: c.indices.slice(),
+			id: c.id, name: c.name, color: c.color, parentName: c.parentName, indices: c.indices.slice(),
 			minX: r.box.minX + shiftX, maxX: r.box.maxX + shiftX,
 			minY: r.box.minY + shiftY, maxY: r.box.maxY + shiftY
 		});
@@ -2315,6 +3557,7 @@ function buildMapModel(entries) {
 			});
 		});
 		const directed = new Map();
+		const regularKeys = new Set();
 		list.forEach(function(location) {
 			const from = indexById.get(String(location.id));
 			const cellIndices = nodes[from].cellIndices;
@@ -2325,7 +3568,17 @@ function buildMapModel(entries) {
 				const to = indexById.get(String(destination.id));
 				if (to === from) return;
 				const key = from + ">" + to;
+				regularKeys.add(key);
 				if (!directed.has(key)) directed.set(key, cellIndices[transitionIndex]);
+			});
+			// бот-переходник тоже даёт связь (рисуется пунктиром)
+			connectorLinkIds(location).forEach(function(link) {
+				const destination = findLocationById(list, link);
+				if (!destination) return;
+				const to = indexById.get(String(destination.id));
+				if (to === undefined || to === from) return;
+				const key = from + ">" + to;
+				if (!directed.has(key)) directed.set(key, undefined);
 			});
 		});
 		// Рёбра — глобальными индексами узлов (в пределах всего nodes[]), а не
@@ -2340,7 +3593,7 @@ function buildMapModel(entries) {
 			const both = directed.has(reverseKey);
 			if (both && a > b) return;
 			const edgeIndex = edges.length;
-			edges.push({ a: a, b: b, both: both, fromCell: fromCell, toCell: both ? directed.get(reverseKey) : undefined });
+			edges.push({ a: a, b: b, both: both, fromCell: fromCell, toCell: both ? directed.get(reverseKey) : undefined, bot: !regularKeys.has(pair) && !(both && regularKeys.has(reverseKey)) });
 			entryEdgesGlobal.push({ a: a, b: b });
 			nodes[a].neighbors.push(b);
 			nodes[b].neighbors.push(a);
@@ -2536,6 +3789,7 @@ function buildMapModel(entries) {
 				// Рамка области (с запасом по краям) — используется, чтобы линии
 				// переходов между ДРУГИМИ областями не проходили прямо по ней
 				areas.push({
+					id: cluster.id,
 					name: cluster.name,
 					color: cluster.color,
 					parentName: cluster.parentName,
@@ -2557,7 +3811,7 @@ function buildMapModel(entries) {
 }
 
 function cellPaths(location) {
-	const paths = { normal: "", deadend: "", self: "", fast: "" };
+	const paths = { normal: "", deadend: "", self: "", fast: "", hidden: "" };
 	let transitionIndex = 0;
 	location.code.split("").forEach(function(bit, index) {
 		if (bit !== "1") return;
@@ -2568,6 +3822,7 @@ function cellPaths(location) {
 			const transitionType = getTransitionType(transition);
 			if (transitionType === "deadend" || transitionType === "self") type = transitionType;
 			else if (location.cellTypes && location.cellTypes[index] === "fast") type = "fast";
+			else if (location.cellTypes && location.cellTypes[index] === "hidden") type = "hidden";
 		}
 		const x = FRAME_PAD + (index % 10) * (CELL_W + CELL_GAP);
 		const y = FRAME_PAD + Math.floor(index / 10) * (CELL_H + CELL_GAP);
@@ -2649,6 +3904,35 @@ function routeAroundAreas(p1, p2, areas, skipAreas) {
 	return [p1, { x: x, y: blocker.minY - margin }, { x: x, y: blocker.maxY + margin }, p2];
 }
 
+// Галочки графа запоминаются на устройстве. Пока человек их не трогал, на телефоне
+// граф открывается без полей локаций и без иконок, на компьютере — со всем
+const GRAPH_ICONS_KEY = "atlas.graph.icons";
+const GRAPH_FIELDS_KEY = "atlas.graph.fields";
+const GRAPH_ICON_SEL_KEY = "atlas.graph.iconSel";
+function loadGraphFlag(key) {
+	try {
+		const v = localStorage.getItem(key);
+		if (v === "1") return true;
+		if (v === "0") return false;
+	} catch (e) {}
+	return !IS_NARROW;
+}
+function saveGraphFlag(key, value) {
+	try { localStorage.setItem(key, value ? "1" : "0"); } catch (e) {}
+}
+function loadGraphIconSel() {
+	try {
+		const raw = JSON.parse(localStorage.getItem(GRAPH_ICON_SEL_KEY) || "null");
+		return Array.isArray(raw) ? raw : null;
+	} catch (e) { return null; }
+}
+function saveGraphIconSel(list) {
+	try {
+		if (list) localStorage.setItem(GRAPH_ICON_SEL_KEY, JSON.stringify(list));
+		else localStorage.removeItem(GRAPH_ICON_SEL_KEY);
+	} catch (e) {}
+}
+
 const GRAPH_CONNECT_KEY = "atlas.graph.connect";
 function loadGraphConnect() {
 	try { return localStorage.getItem(GRAPH_CONNECT_KEY) !== "0"; } catch (e) { return true; }
@@ -2670,10 +3954,6 @@ function renderGraph(wrap, entries, routeIds) {
 		</div>
 		<div class="graph-tip"></div>
 		<div class="graph-card"></div>
-		<label class="graph-connect-toggle" title="Показывать линии переходов на графе">
-			<input type="checkbox" class="graph-connect-input">
-			<span>Соединять переходы между собой</span>
-		</label>
 	`;
 	const model = buildMapModel(entries);
 	const nodes = model.nodes;
@@ -2697,6 +3977,62 @@ function renderGraph(wrap, entries, routeIds) {
 	svg.appendChild(defs);
 	const frameLayer = svgEl("g");
 	svg.appendChild(frameLayer);
+	// Вложенные области: «Нейтры» охватывают Посёлок и Город, а внутри
+	// них отдельными рамками обозначены Горы и Туннели
+	const areaById = {};
+	areas.forEach(function(a) { if (a.id) areaById[a.id] = a; });
+	function boxOfIndices(indices) {
+		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+		indices.forEach(function(gi) {
+			const n = nodes[gi];
+			minX = Math.min(minX, n.x - NODE_W / 2); maxX = Math.max(maxX, n.x + NODE_W / 2);
+			minY = Math.min(minY, n.y - NODE_H / 2); maxY = Math.max(maxY, n.y + NODE_H / 2 + LABEL_CLEARANCE);
+		});
+		return indices.length > 0 ? { minX: minX, minY: minY, maxX: maxX, maxY: maxY } : null;
+	}
+	const nested = areaById.neutral;
+	if (nested) {
+		const graphSubgroups = [];
+		entries.forEach(function(entry) { (entry.list.subgroups || []).forEach(function(sg) { graphSubgroups.push(sg); }); });
+		const kids = areaChildIds(graphSubgroups, "neutral").map(function(id) { return areaById[id]; }).filter(Boolean);
+		const nc = nested.color || "#888";
+		if (kids.length > 0) {
+			const all = [nested].concat(kids);
+			const outer = {
+				minX: Math.min.apply(null, all.map(function(a) { return a.minX; })) - 24,
+				maxX: Math.max.apply(null, all.map(function(a) { return a.maxX; })) + 24,
+				minY: Math.min.apply(null, all.map(function(a) { return a.minY; })) - 46,
+				maxY: Math.max.apply(null, all.map(function(a) { return a.maxY; })) + 16
+			};
+			frameLayer.appendChild(svgEl("rect", {
+				"class": "g-area-frame", x: outer.minX, y: outer.minY, width: outer.maxX - outer.minX,
+				height: outer.maxY - outer.minY, rx: 14, stroke: nc, fill: nc, "stroke-dasharray": "7 5"
+			}));
+			const outerLabel = svgEl("text", { "class": "g-area-label", x: outer.minX + 10, y: outer.minY + 16, fill: nc });
+			const legacyKids = kids.length === 2 && kids.every(function(k) { return k.id === "city" || k.id === "village"; });
+			outerLabel.textContent = nested.name + (legacyKids ? " (вместе с Посёлком и Городом)" : " (включая: " + kids.map(function(k) { return k.name; }).join(", ") + ")");
+			frameLayer.appendChild(outerLabel);
+		}
+		// Внутренние рамки нужны, только если область нейтров показана не вся
+		// целиком: иначе рамка и название совпадали бы с рамкой самой области
+		const subs = NEUTRAL_SUBAREAS.map(function(sa) {
+			return { sa: sa, idx: nested.indices.filter(function(gi) { return idHasPrefix(nodes[gi].location.id, sa.prefixes); }) };
+		}).filter(function(x) { return x.idx.length > 1; });
+		const whole = subs.length === 1 && subs[0].idx.length === nested.indices.length;
+		if (whole) nested.name = nested.name + ": " + subs[0].sa.label;
+		else subs.forEach(function(x) {
+			const b = boxOfIndices(x.idx);
+			if (!b) return;
+			frameLayer.appendChild(svgEl("rect", {
+				"class": "g-area-frame", x: b.minX - 5, y: b.minY - 6, width: b.maxX - b.minX + 10,
+				height: b.maxY - b.minY + 12, rx: 8, stroke: nc, fill: "none", "stroke-dasharray": "3 4"
+			}));
+			// название — под рамкой, чтобы не налезать на название области сверху
+			const sl = svgEl("text", { "class": "g-area-label", x: b.minX, y: b.maxY + 14, fill: nc });
+			sl.textContent = x.sa.label;
+			frameLayer.appendChild(sl);
+		});
+	}
 	areas.forEach(function(area) {
 		const c = area.color || "#888";
 		frameLayer.appendChild(svgEl("rect", {
@@ -2704,6 +4040,7 @@ function renderGraph(wrap, entries, routeIds) {
 			width: area.maxX - area.minX + 16, height: area.maxY - area.minY + 30, rx: 10,
 			stroke: c, fill: c
 		}));
+		if (nested && area === nested && areaChildIds(entries.reduce(function(acc, entry) { return acc.concat(entry.list.subgroups || []); }, []), "neutral").some(function(id) { return areaById[id]; })) return;
 		const label = svgEl("text", { "class": "g-area-label", x: area.minX, y: area.minY - 8, fill: c });
 		label.textContent = area.name;
 		frameLayer.appendChild(label);
@@ -2729,6 +4066,7 @@ function renderGraph(wrap, entries, routeIds) {
 		const area = nodeAreas.get(edge.a);
 		if (area && area === nodeAreas.get(edge.b)) areaEdgeCount.set(area, (areaEdgeCount.get(area) || 0) + 1);
 	});
+	const edgeMetas = [];
 	const edgeEls = edges.map(function(edge) {
 		const from = nodes[edge.a];
 		const to = nodes[edge.b];
@@ -2746,23 +4084,48 @@ function renderGraph(wrap, entries, routeIds) {
 		const points = isLong ? [fromPt, toPt] : routeAroundAreas(fromPt, toPt, areas, skipAreas);
 		const d = points.map(function(p, i) { return (i === 0 ? "M" : "L") + p.x + "," + p.y; }).join(" ");
 		const line = svgEl("path", {
-			"class": "g-edge" + (edge.both ? "" : " one") + (isLong ? " long" : "") + (isFaint ? " faint" : ""),
+			"class": "g-edge" + (edge.both ? "" : " one") + (edge.bot ? " bot" : "") + (isLong ? " long" : "") + (isFaint ? " faint" : ""),
 			fill: "none", d: d
 		});
 		edgeTopLayer.appendChild(line);
+		edgeMetas.push({ edge: edge, skipAreas: skipAreas, isLong: isLong, line: line });
 		return { outer: line, inner: line };
 	});
-
-	const connectInput = wrap.querySelector(".graph-connect-input");
-	connectInput.checked = loadGraphConnect();
-	function applyConnectMode() {
-		svg.classList.toggle("no-connect", !connectInput.checked);
+	// Без полей локаций линии идут не к клеткам, а к названиям
+	let edgeFieldsMode = true;
+	function labelEdgePoint(nodeIndex, toward) {
+		const n = nodes[nodeIndex];
+		const info = labelInfo[nodeIndex];
+		const hw = (info ? info.w : NODE_W) / 2 + 2;
+		const hh = (info ? info.h : NODE_H) / 2 + 1.5;
+		const dx = toward.x - n.x;
+		const dy = toward.y - n.y;
+		if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return { x: n.x, y: n.y };
+		const t = Math.min(hw / (Math.abs(dx) || 1e-9), hh / (Math.abs(dy) || 1e-9), 1);
+		return { x: n.x + dx * t, y: n.y + dy * t };
 	}
-	connectInput.addEventListener("change", function() {
-		saveGraphConnect(connectInput.checked);
-		applyConnectMode();
-	});
-	applyConnectMode();
+	function updateEdgePaths(fields) {
+		if (edgeFieldsMode === fields) return;
+		edgeFieldsMode = fields;
+		edgeMetas.forEach(function(meta) {
+			const edge = meta.edge, from = nodes[edge.a], to = nodes[edge.b];
+			let fromPt, toPt;
+			if (fields) {
+				fromPt = cellGlobalPoint(from, edge.fromCell);
+				toPt = edge.both ? cellGlobalPoint(to, edge.toCell) : boundaryPoint(from, to);
+			} else {
+				fromPt = { x: from.x, y: from.y };
+				toPt = { x: to.x, y: to.y };
+			}
+			let pts = meta.isLong ? [fromPt, toPt] : routeAroundAreas(fromPt, toPt, areas, meta.skipAreas);
+			if (!fields && pts.length >= 2) {
+				pts = pts.slice();
+				pts[0] = labelEdgePoint(edge.a, pts[1]);
+				pts[pts.length - 1] = labelEdgePoint(edge.b, pts[pts.length - 2]);
+			}
+			meta.line.setAttribute("d", pts.map(function(p, i) { return (i === 0 ? "M" : "L") + p.x + "," + p.y; }).join(" "));
+		});
+	}
 
 	function clientToGraphPoint(e) {
 		const rect = svg.getBoundingClientRect();
@@ -2791,21 +4154,139 @@ function renderGraph(wrap, entries, routeIds) {
 		moveTip(e);
 	}
 
-	const TAG_ICON_SIZE = 9.5;
+	const TAG_ICON_SIZE = 12;
+	const BOT_ICON_SIZE = 22;
 	const TAG_ICON_GAP = 1.4;
 	const maxTagIcons = IS_NARROW ? 4 : 8;
+
+	const iconGroups = [];
+	const labelInfo = [];
+	// какие виды иконок показывать (null — все); хранится на устройстве
+	let iconFilter = null;
+	const presentKinds = new Map();
+	nodes.forEach(function(node) {
+		allTagsOfLocation(node.location).forEach(function(tag) {
+			const key = tagFilterKey(tag);
+			if (!presentKinds.has(key) && tagIcon(tag)) presentKinds.set(key, { key: key, label: tagFilterLabel(tag), src: tagIcon(tag), cls: tagIconClass(tag) });
+		});
+	});
+	(function() {
+		const saved = loadGraphIconSel();
+		if (!saved) return;
+		const valid = saved.filter(function(k) { return presentKinds.has(k); });
+		if (valid.length > 0 && valid.length < presentKinds.size) iconFilter = new Set(valid);
+	})();
+	let fieldsOn = loadGraphFlag(GRAPH_FIELDS_KEY);
+	const expandedNodes = new Set();
+	const BADGE_W = 15, BADGE_H = 10;
+	function packRows(list, limit, sizeOf) {
+		const rows = [[]];
+		let x = 0;
+		list.forEach(function(item) {
+			const size = sizeOf(item);
+			if (rows[rows.length - 1].length > 0 && x + size > limit) { rows.push([]); x = 0; }
+			rows[rows.length - 1].push(item);
+			x += size + TAG_ICON_GAP;
+		});
+		return rows;
+	}
+	// Иконки показываются и без полей: тогда они «привязываются» не к рамке
+	// локации, а к её названию (тупики — над ним, свойства локации — справа).
+	// Если иконок много, лишние скрыты за значком «+N», по нажатию — все
+	function drawNodeIcons(node, g, index) {
+		while (g.firstChild) g.removeChild(g.firstChild);
+		const info = labelInfo[index];
+		const box = (fieldsOn || !info)
+			? { x: 0, y: 0, w: NODE_W, h: NODE_H }
+			: { x: NODE_W / 2 - info.w / 2, y: NODE_H / 2 - info.h / 2, w: info.w, h: info.h };
+		const expanded = expandedNodes.has(index);
+		function allowed(item) { return !iconFilter || iconFilter.has(item.key); }
+		function sizeOf(item) { return / loc-tag-icon-bot/.test(item.cls) ? BOT_ICON_SIZE : TAG_ICON_SIZE; }
+		function toggleExpand(e) {
+			e.stopPropagation();
+			if (expandedNodes.has(index)) expandedNodes.delete(index); else expandedNodes.add(index);
+			drawNodeIcons(node, g, index);
+		}
+		function addBadge(x, y) {
+			const b = svgEl("g", { "class": "g-icon-more", transform: "translate(" + x + "," + y + ")" });
+			b.appendChild(svgEl("rect", { width: BADGE_W, height: BADGE_H, rx: 2.5 }));
+			const t = svgEl("text", { x: BADGE_W / 2, y: BADGE_H / 2 });
+			t.textContent = "−";
+			b.appendChild(t);
+			const title = svgEl("title");
+			title.textContent = expanded ? "Свернуть иконки" : "Показать все иконки";
+			b.appendChild(title);
+			b.addEventListener("click", toggleExpand);
+			b.addEventListener("mousedown", function(e) { e.stopPropagation(); });
+			g.appendChild(b);
+			return t;
+		}
+		function addImage(item, x, y, size, clickable) {
+			const image = svgEl("image", { href: item.src, x: x, y: y, width: size, height: size });
+			if (/ loc-tag-icon-poison/.test(item.cls)) image.setAttribute("class", "loc-tag-icon-poison");
+			const title = svgEl("title");
+			title.textContent = item.label;
+			image.appendChild(title);
+			if (clickable) image.addEventListener("click", function(e) {
+				e.stopPropagation();
+				tip.textContent = item.label;
+				tip.style.display = "block";
+				moveTip(e);
+			});
+			g.appendChild(image);
+		}
+		// свойства самой локации — колонка справа
+		const own = propItemsOf(node.location, true, false).filter(allowed);
+		const colX = box.x + box.w + 2.2;
+		let tagY = box.y;
+		(expanded ? own : own.slice(0, maxTagIcons)).forEach(function(item) {
+			const size = sizeOf(item);
+			addImage(item, colX, tagY, size, false);
+			tagY += size + TAG_ICON_GAP;
+		});
+		if (own.length > maxTagIcons) {
+			const t = addBadge(colX, tagY);
+			if (!expanded) t.textContent = "+" + (own.length - maxTagIcons);
+		}
+		// свойства тупиков — строка значков над локацией (в развёрнутом виде — несколько строк)
+		const dead = propItemsOf(node.location, false, true).filter(allowed);
+		if (dead.length > 0) {
+			const wrapW = Math.max(box.w, NODE_W) + 2;
+			let rows = packRows(dead, wrapW, sizeOf);
+			const overflow = rows.length > 1;
+			if (overflow) rows = packRows(dead, wrapW - BADGE_W - TAG_ICON_GAP, sizeOf);
+			const shownRows = expanded ? rows : [rows[0]];
+			let bottom = box.y - 1.6;
+			shownRows.forEach(function(row, r) {
+				let x = box.x;
+				let rowH = 0;
+				row.forEach(function(item) {
+					const size = sizeOf(item);
+					addImage(item, x, bottom - size, size, true);
+					x += size + TAG_ICON_GAP;
+					rowH = Math.max(rowH, size);
+				});
+				if (r === 0 && overflow) {
+					const t = addBadge(x, bottom - BADGE_H);
+					if (!expanded) t.textContent = "+" + (dead.length - rows[0].length);
+				}
+				bottom -= rowH + TAG_ICON_GAP;
+			});
+		}
+	}
 
 	const nodeEls = nodes.map(function(node, index) {
 		const group = svgEl("g", { "class": "g-node", transform: "translate(" + (node.x - NODE_W / 2) + "," + (node.y - NODE_H / 2) + ")" });
 		group.appendChild(svgEl("rect", { "class": "g-frame", width: NODE_W, height: NODE_H, rx: 2.5, stroke: node.color, "stroke-width": 1.6 }));
-		group.appendChild(svgEl("rect", { x: FRAME_PAD, y: FRAME_PAD, width: GRID_W, height: GRID_H, fill: "url(#graph-cells)" }));
+		group.appendChild(svgEl("rect", { "class": "g-cells-bg", x: FRAME_PAD, y: FRAME_PAD, width: GRID_W, height: GRID_H, fill: "url(#graph-cells)" }));
 		const borderIds = node.location.borders;
-		const clanDefs = node.list.clans;
-		if (borderIds && borderIds.length > 0 && clanDefs) {
+		const clanDefs = node.list.clans || {};
+		const subDefs = node.list.subgroups || [];
+		if (borderIds && borderIds.length > 0) {
 			const DASH = 7;
 			borderIds.forEach(function(clanId, bi) {
-				const clan = clanDefs[clanId];
-				if (!clan) return;
+				const clan = clanDefs[clanId] || subDefs.find(function(sg) { return String(sg.id) === String(clanId); });
+				if (!clan || !clan.color) return;
 				group.appendChild(svgEl("rect", {
 					"class": "g-border", x: -3.5, y: -3.5, width: NODE_W + 7, height: NODE_H + 7, rx: 4,
 					stroke: clan.color,
@@ -2818,23 +4299,11 @@ function renderGraph(wrap, entries, routeIds) {
 		Object.keys(paths).forEach(function(type) {
 			if (paths[type]) group.appendChild(svgEl("path", { d: paths[type], "class": "c-" + type }));
 		});
-		if (node.location.tags && node.location.tags.length > 0) {
-			node.location.tags.slice(0, maxTagIcons).forEach(function(tag, tagIndex) {
-				const src = tagIcon(tag);
-				if (!src) return;
-				const image = svgEl("image", {
-					href: src, x: NODE_W + 2.2,
-					y: tagIndex * (TAG_ICON_SIZE + TAG_ICON_GAP),
-					width: TAG_ICON_SIZE, height: TAG_ICON_SIZE
-				});
-				const title = svgEl("title");
-				title.textContent = tagLabel(tag);
-				image.appendChild(title);
-				group.appendChild(image);
-			});
-		}
+		const iconG = svgEl("g", { "class": "g-icons" });
+		group.appendChild(iconG);
+		iconGroups[index] = iconG;
 		const labelGroup = svgEl("g", { "class": "g-label-group" });
-		const labelText = String(node.location.id);
+		const labelText = String(node.location.name || node.location.id);
 		const maxChars = Math.max(6, Math.floor(NODE_W / 3.2));
 		const words = labelText.split(/\s+/);
 		const lines = [];
@@ -2849,6 +4318,10 @@ function renderGraph(wrap, entries, routeIds) {
 			}
 		});
 		if (currentLine.length > 0) lines.push(currentLine);
+		if (lines.length > 3) {
+			lines.length = 3;
+			lines[2] = lines[2].slice(0, Math.max(1, maxChars - 1)) + "…";
+		}
 		const lineHeight = 9.5;
 		lines.forEach(function(line, i) {
 			const t = svgEl("text", {
@@ -2860,6 +4333,13 @@ function renderGraph(wrap, entries, routeIds) {
 			labelGroup.appendChild(t);
 		});
 		group.appendChild(labelGroup);
+		const fontPx = IS_NARROW ? 7 : 8;
+		labelInfo[index] = {
+			g: labelGroup, lines: lines.length, lineHeight: lineHeight,
+			w: Math.max(14, Math.max.apply(null, lines.map(function(l) { return l.length; })) * fontPx * 0.58),
+			h: lines.length * lineHeight
+		};
+		drawNodeIcons(node, iconG, index);
 		if (!IS_TOUCH) {
 			group.addEventListener("mouseenter", function(e) {
 				highlight(index);
@@ -2879,6 +4359,106 @@ function renderGraph(wrap, entries, routeIds) {
 		return group;
 	});
 	wrap.insertBefore(svg, wrap.firstChild);
+
+	// ---- Галочки под графом: иконки свойств и поля локаций ----
+	const oldOpts = wrap.nextElementSibling;
+	if (oldOpts && oldOpts.classList.contains("graph-opts")) oldOpts.remove();
+	const opts = document.createElement("div");
+	opts.className = "graph-opts";
+	opts.innerHTML = `
+		<div class="graph-opts-row">
+			<label class="draft-check"><input type="checkbox" class="go-icons"><span>Показывать иконки свойств</span></label>
+			<label class="draft-check"><input type="checkbox" class="go-fields"><span>Показывать поля локаций</span></label>
+			<label class="draft-check" title="Показывать линии переходов на графе"><input type="checkbox" class="graph-connect-input"><span>Соединять переходы между собой</span></label>
+		</div>
+		<div class="graph-icon-filter" hidden>
+			<button type="button" class="graph-icon-filter-toggle" aria-expanded="false"><span class="gift-arrow">▸</span><span>Какие иконки показывать</span></button>
+			<div class="graph-icon-filter-list" hidden></div>
+		</div>
+	`;
+	wrap.parentNode.insertBefore(opts, wrap.nextSibling);
+	const connectInput = opts.querySelector(".graph-connect-input");
+	connectInput.checked = loadGraphConnect();
+	function applyConnectMode() {
+		svg.classList.toggle("no-connect", !connectInput.checked);
+	}
+	connectInput.addEventListener("change", function() {
+		saveGraphConnect(connectInput.checked);
+		applyConnectMode();
+	});
+	applyConnectMode();
+	const iconsBox = opts.querySelector(".go-icons");
+	const fieldsBox = opts.querySelector(".go-fields");
+	const filterBox = opts.querySelector(".graph-icon-filter");
+	const filterList = opts.querySelector(".graph-icon-filter-list");
+	iconsBox.checked = loadGraphFlag(GRAPH_ICONS_KEY);
+	fieldsBox.checked = loadGraphFlag(GRAPH_FIELDS_KEY);
+
+	function applyFields() {
+		const on = fieldsBox.checked;
+		svg.classList.toggle("no-fields", !on);
+		// без полей локация — просто название по центру её места
+		labelInfo.forEach(function(info) {
+			if (!info) return;
+			if (on) info.g.removeAttribute("transform");
+			else info.g.setAttribute("transform", "translate(0," + (-NODE_H / 2 - 8.5 - info.lines * info.lineHeight / 2 + 1) + ")");
+		});
+		fieldsOn = on;
+		updateEdgePaths(on);
+		redrawIcons();
+		applyIcons();
+	}
+	function applyIcons() {
+		svg.classList.toggle("no-icons", !iconsBox.checked);
+		filterBox.hidden = !(iconsBox.checked && presentKinds.size > 0);
+	}
+	function redrawIcons() {
+		nodes.forEach(function(node, i) { drawNodeIcons(node, iconGroups[i], i); });
+	}
+	function saveFilter() {
+		saveGraphIconSel(iconFilter ? Array.from(iconFilter) : null);
+	}
+	function renderFilterList() {
+		filterList.innerHTML = "";
+		const allBtn = document.createElement("button");
+		allBtn.type = "button";
+		allBtn.className = "gif-pill gif-all" + (iconFilter ? "" : " on");
+		allBtn.textContent = "Все";
+		allBtn.addEventListener("click", function() {
+			iconFilter = null; saveFilter(); redrawIcons(); renderFilterList();
+		});
+		filterList.appendChild(allBtn);
+		presentKinds.forEach(function(kind) {
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "gif-pill" + (!iconFilter || iconFilter.has(kind.key) ? " on" : "");
+			const img = document.createElement("img");
+			img.src = kind.src; img.alt = "";
+			if (/ loc-tag-icon-poison/.test(kind.cls)) img.className = "loc-tag-icon-poison";
+			btn.appendChild(img);
+			btn.appendChild(document.createTextNode(kind.label));
+			btn.addEventListener("click", function() {
+				// из режима «все» первый клик оставляет только выбранный вид
+				if (!iconFilter) iconFilter = new Set([kind.key]);
+				else if (iconFilter.has(kind.key)) iconFilter.delete(kind.key);
+				else iconFilter.add(kind.key);
+				if (iconFilter.size === 0 || iconFilter.size === presentKinds.size) iconFilter = null;
+				saveFilter(); redrawIcons(); renderFilterList();
+			});
+			filterList.appendChild(btn);
+		});
+	}
+	renderFilterList();
+	const filterToggle = opts.querySelector(".graph-icon-filter-toggle");
+	filterToggle.addEventListener("click", function() {
+		const open = filterList.hidden;
+		filterList.hidden = !open;
+		filterToggle.setAttribute("aria-expanded", open ? "true" : "false");
+		filterToggle.querySelector(".gift-arrow").textContent = open ? "▾" : "▸";
+	});
+	iconsBox.addEventListener("change", function() { saveGraphFlag(GRAPH_ICONS_KEY, iconsBox.checked); applyIcons(); });
+	fieldsBox.addEventListener("change", function() { saveGraphFlag(GRAPH_FIELDS_KEY, fieldsBox.checked); applyFields(); });
+	applyFields();
 
 	let lit = [];
 	let selectedIndex = -1;
@@ -3079,6 +4659,16 @@ function renderGraph(wrap, entries, routeIds) {
 	}
 	function findMatchingAreas(trimmed) {
 		const found = areas.filter(function(area) { return area.name.toLowerCase().includes(trimmed); });
+		// Горы и Туннели — области внутри нейтров
+		const neutralArea = areas.find(function(a) { return a.id === "neutral"; });
+		if (neutralArea) {
+			NEUTRAL_SUBAREAS.forEach(function(sa) {
+				const hit = sa.label.toLowerCase().includes(trimmed) || (sa.label === "Туннели" && ("воющие коридоры".includes(trimmed) || "ледяной плен".includes(trimmed)));
+				if (!hit || found.some(function(a) { return a.name === sa.label; })) return;
+				const idx = neutralArea.indices.filter(function(gi) { return idHasPrefix(nodes[gi].location.id, sa.prefixes); });
+				if (idx.length > 0) found.push({ name: sa.label, indices: idx });
+			});
+		}
 		const parentNames = [];
 		areas.forEach(function(area) {
 			if (area.parentName && area.parentName.toLowerCase().includes(trimmed) && parentNames.indexOf(area.parentName) < 0) parentNames.push(area.parentName);
@@ -3098,7 +4688,7 @@ function renderGraph(wrap, entries, routeIds) {
 		const byId = [], byName = [];
 		nodes.forEach(function(node, index) {
 			if (String(node.location.id).toLowerCase() === trimmed) byId.push(index);
-			else if (node.location.name.toLowerCase().includes(trimmed)) byName.push(index);
+			else if (node.location.name.toLowerCase().includes(trimmed) || searchExtraMatch(node.location, trimmed) || locationTagsMatch(node.location, trimmed)) byName.push(index);
 		});
 		return byId.concat(byName);
 	}
@@ -3131,7 +4721,7 @@ function renderGraph(wrap, entries, routeIds) {
 			const optionButton = document.createElement("button");
 			optionButton.type = "button";
 			optionButton.className = "search-option";
-			optionButton.textContent = entries.length > 1 ? node.location.name + " — " + node.section.name : node.location.name;
+			optionButton.textContent = searchOptionLabel(node.location, query, entries.length > 1 ? node.location.name + " — " + node.section.name : node.location.name);
 			optionButton.addEventListener("click", function() {
 				searchResults.innerHTML = "";
 				searchInput.value = node.location.name;
@@ -3335,7 +4925,9 @@ function ensureFooter() {
 		footer = document.createElement("p");
 		footer.className = "site-footer";
 		footer.id = "siteFooter";
-		footer.textContent = "© Вэй [1441760], Обугливание [1607231]";
+		const startYear = 2026;
+		const nowYear = Math.max(startYear, new Date().getFullYear());
+		footer.textContent = "© Вэй [1441760], Обугливание [1607231], " + (nowYear > startYear ? startYear + "-" + nowYear : String(startYear));
 		content.appendChild(footer);
 	}
 }
@@ -3382,31 +4974,63 @@ function renderSidebar() {
 // ============================================================
 //  Панель «Поиск пути»
 // ============================================================
-function buildPathPanel(data, group, state) {
+// Галочки поиска пути («Искать по всей вселенной», «Минимум чужих локаций»)
+// запоминаются на устройстве и не зависят от выбора территории
+const ROUTE_OPTS_KEY = "atlas.routeOpts.v1";
+function loadRouteOpts() {
+	try { const o = JSON.parse(localStorage.getItem(ROUTE_OPTS_KEY) || "{}"); return (o && typeof o === "object") ? o : {}; }
+	catch (e) { return {}; }
+}
+function saveRouteOpts(state) {
+	try { localStorage.setItem(ROUTE_OPTS_KEY, JSON.stringify({ allUniverse: !!state.allUniverse, smartRoute: !!state.smartRoute })); } catch (e) {}
+}
+
+function buildPathPanel(data, group, state, titleEl) {
 	const panel = document.createElement("div");
 	panel.className = "tool-panel";
+	const scopeInfo = computeRouteScope(data, group);
+	// Галочки и подсказки к ним показываются во вкладках ОВ+МВ и ВТ всегда,
+	// даже если территория не выбрана
+	const showOpts = !!scopeInfo.allowed || group.id === "ov" || group.id === "vt";
+	if (showOpts && state.allUniverse === undefined && state.smartRoute === undefined) {
+		const saved = loadRouteOpts();
+		state.allUniverse = !!saved.allUniverse && !saved.smartRoute;
+		state.smartRoute = !!saved.smartRoute;
+	}
 	panel.innerHTML = `
-		<div class="swap-row">
-			<button type="button" class="swap-btn" id="swapPointsBtn" title="Поменять начальную и конечную локации местами" disabled>
-				<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-					<path d="M7 4l-4 4h3v10h2V8h3zM17 20l4-4h-3V6h-2v10h-3z" fill="currentColor"/>
-				</svg>
-				<span>Поменять местами</span>
-			</button>
-		</div>
+		<div class="route-scope" id="routeScope" hidden></div>
+		<div class="fav-box" id="favBox" hidden></div>
 		<div class="points-row">
 			<div id="pointAHolder"></div>
+			<button type="button" class="swap-btn swap-mid" id="swapPointsBtn" title="Поменять начальную и конечную локации местами" aria-label="Поменять местами" disabled>
+				<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+					<path d="M7 4l-4 4h3v10h2V8h3zM17 20l4-4h-3V6h-2v10h-3z" fill="currentColor"/>
+				</svg>
+			</button>
 			<div id="pointBHolder"></div>
 		</div>
 		<div class="waypoints-block">
 			<label class="waypoints-title" for="waypointsInput">Хочу пройти через локации...</label>
 			<input type="text" id="waypointsInput" placeholder="через запятую" autocomplete="off">
 			<p class="waypoints-preview" id="waypointsPreview"></p>
-			<label class="waypoints-order">
-				<input type="checkbox" id="waypointsOrdered"> В указанном порядке
-			</label>
+			<div class="waypoints-options">
+				<label class="waypoints-order">
+					<input type="checkbox" id="waypointsOrdered"> В указанном порядке
+				</label>
+				<label class="waypoints-order" id="allUniverseLabel" hidden title="Не ограничиваться вашей территорией: путь может пройти и через чужие локации">
+					<input type="checkbox" id="allUniverseBox"> Искать по всей вселенной
+				</label>
+			</div>
+			<div class="smart-route" id="smartRoute" hidden>
+				<label class="waypoints-order"><input type="checkbox" id="smartBox"> Минимум чужих локаций</label>
+				<p class="smart-note">Путь может пройти и по чужим территориям, но будет стараться задеть как можно меньше чужих локаций, даже если он станет длиннее. Это не то же самое, что «Искать по всей вселенной»: там выбирается просто самый короткий путь, и он спокойно пройдёт через чужие земли, если так быстрее. Полезно, когда вам нужно добраться до одной чужой локации, а всё остальное время оставаться дома.</p>
+			</div>
 		</div>
 		<button id="findPathBtn" disabled>Найти путь</button>
+		<div class="route-actions" id="routeActions" hidden>
+			<button type="button" id="favBtn">☆ В избранное</button>
+			<button type="button" id="shareBtn">Поделиться маршрутом</button>
+		</div>
 		<div class="path-message" id="pathMessage"></div>
 		<div class="path-route" id="pathRoute"></div>
 	`;
@@ -3421,9 +5045,57 @@ function buildPathPanel(data, group, state) {
 	const waypointsInput = panel.querySelector("#waypointsInput");
 	const waypointsPreview = panel.querySelector("#waypointsPreview");
 	const waypointsOrdered = panel.querySelector("#waypointsOrdered");
+	const allLabel = panel.querySelector("#allUniverseLabel");
+	const allBox = panel.querySelector("#allUniverseBox");
+	if (showOpts) {
+		allLabel.hidden = false;
+		allBox.checked = !!state.allUniverse;
+		allBox.addEventListener("change", function() {
+			state.allUniverse = allBox.checked;
+			saveRouteOpts(state);
+			if (state.route) { state.routeStale = true; updateFindPathButton(); }
+		});
+	}
+	const hideCtl = createHideController(titleEl, "▾", "Показать подсказку про место жительства");
+	const favCtl = createHideController(titleEl, "★", "Показать избранные маршруты");
+	const smartLabel = panel.querySelector("#smartRoute label");
+	const smartCtl = createHideController(smartLabel, "▾", "Показать пояснение к этой галочке");
+	const smartBlock = panel.querySelector("#smartRoute");
+	const smartBox = panel.querySelector("#smartBox");
+	if (showOpts) {
+		smartBlock.hidden = false;
+		smartBox.checked = !!state.smartRoute;
+		const smartNote = smartBlock.querySelector(".smart-note");
+		smartCtl.add(smartNote, "smartInfo", smartNote);
+		smartBox.addEventListener("change", function() {
+			state.smartRoute = smartBox.checked;
+			if (smartBox.checked) { state.allUniverse = false; allBox.checked = false; }
+			saveRouteOpts(state);
+			state.routeStale = true; updateFindPathButton();
+		});
+		allBox.addEventListener("change", function() {
+			if (allBox.checked) { state.smartRoute = false; smartBox.checked = false; }
+			saveRouteOpts(state);
+		});
+	}
+	const scopeBox = panel.querySelector("#routeScope");
+	const scopeText = scopeInfo.text || (showOpts ? "Место жительства не выбрано, поэтому маршрут ищется по всей вселенной." : null);
+	if (scopeText) {
+		scopeBox.hidden = false;
+		const p = document.createElement("p");
+		p.appendChild(document.createTextNode(scopeText + " Вы можете изменить место жительства в "));
+		const link = document.createElement("a");
+		link.href = "#";
+		link.textContent = "настройках";
+		link.addEventListener("click", function(e) { e.preventDefault(); openSettingsHomeland(); });
+		p.appendChild(link);
+		p.appendChild(document.createTextNode(", чтобы настроить свой маршрут." + (showOpts ? " В качестве альтернативы можно отметить галочку «Искать по всей вселенной» внизу — тогда путь не будет ограничен вашей территорией." : "")));
+		scopeBox.appendChild(p);
+		hideCtl.add(scopeBox, "scopeInfo", p);
+	}
 	const swapPointsBtn = panel.querySelector("#swapPointsBtn");
 
-	function refreshFindPathBtn() { findPathBtn.disabled = !(pointA && pointB); }
+	let refreshFindPathBtn = function() { findPathBtn.disabled = !(pointA && pointB); };
 	function refreshSwapBtn() { swapPointsBtn.disabled = !(pointA || pointB); }
 	function updateFindPathButton() {
 		if (state.route && !state.routeHidden && !state.routeStale) {
@@ -3436,13 +5108,17 @@ function buildPathPanel(data, group, state) {
 	}
 
 	const pickerA = createLocationPicker(data, "Начальная локация", function(location) {
-		pointA = location; state.pointA = location; state.routeStale = true;
+		const changed = (state.pointA || null) !== (location || null);
+		pointA = location; state.pointA = location;
+		if (changed) state.routeStale = true;
 		refreshFindPathBtn(); refreshSwapBtn(); updateFindPathButton();
 	}, null, false, state.pointA);
 	const pickerB = createLocationPicker(data, "Конечная локация", function(location) {
-		pointB = location; state.pointB = location; state.routeStale = true;
+		const changed = (state.pointB || null) !== (location || null);
+		pointB = location; state.pointB = location;
+		if (changed) state.routeStale = true;
 		refreshFindPathBtn(); refreshSwapBtn(); updateFindPathButton();
-	}, null, true, state.pointB);
+	}, null, false, state.pointB);
 	panel.querySelector("#pointAHolder").appendChild(pickerA.element);
 	panel.querySelector("#pointBHolder").appendChild(pickerB.element);
 
@@ -3539,8 +5215,14 @@ function buildPathPanel(data, group, state) {
 			showRouteMessage("Не найдены локации: " + unknown.map(function(item) { return item.text; }).join(", "));
 			return;
 		}
-		const route = findRoute(data, pointA.id, pointB.id, waypoints.map(function(item) { return item.chosen.id; }), waypointsOrdered.checked);
-		if (!route) { showRouteMessage("Путь не найден"); return; }
+		const scope = computeRouteScope(data, group);
+		const smart = !!(scope.allowed && state.smartRoute);
+		const useScope = scope.allowed && !state.allUniverse && !smart;
+		const route = findRoute(data, pointA.id, pointB.id, waypoints.map(function(item) { return item.chosen.id; }), waypointsOrdered.checked, useScope ? scope.allowed : null, smart ? scope.allowed : null);
+		if (!route) {
+			showRouteMessage(useScope ? "Путь не найден в пределах вашей территории. Отметьте «Искать по всей вселенной» под полем «Хочу пройти через локации» или измените место жительства в настройках." : "Путь не найден");
+			return;
+		}
 		state.route = route;
 		state.routeTitle = pointA.name + " → " + pointB.name;
 		state.routeHidden = false;
@@ -3556,6 +5238,107 @@ function buildPathPanel(data, group, state) {
 	renderWaypointsPreview();
 	if (state.route && !state.routeHidden) renderRouteSpread(pathRoute, data, state.route, state.routeTitle, group);
 	updateFindPathButton();
+
+	// ---------- Избранные маршруты и «Поделиться»
+	const favBox = panel.querySelector("#favBox");
+	const routeActions = panel.querySelector("#routeActions");
+	const favBtn = panel.querySelector("#favBtn");
+	const shareBtn = panel.querySelector("#shareBtn");
+	let favExpanded = false;
+	function specOf() {
+		return { gid: group.id, a: pointA.id, an: pointA.name, b: pointB.id, bn: pointB.name,
+			via: waypointsInput.value.trim(), ordered: !!waypointsOrdered.checked };
+	}
+	function specKey(sp) { return [sp.gid, sp.a, sp.b, sp.via || "", sp.ordered ? 1 : 0].join("|"); }
+	function favTitle(sp) { return sp.an + " → " + sp.bn + (sp.via ? " (через " + sp.via + ")" : ""); }
+	function favIndex() {
+		if (!(pointA && pointB)) return -1;
+		const key = specKey(specOf());
+		return uiPrefs.favs.findIndex(function(f) { return specKey(f) === key; });
+	}
+	function applyFav(sp) {
+		const la = findLocationById(data, sp.a), lb = findLocationById(data, sp.b);
+		if (!la || !lb) return;
+		pickerA.setLocation(la); pickerB.setLocation(lb);
+		pointA = la; pointB = lb; state.pointA = la; state.pointB = lb;
+		waypointsInput.value = sp.via || ""; state.waypointsText = waypointsInput.value;
+		waypointsOrdered.checked = !!sp.ordered; state.waypointsOrdered = !!sp.ordered;
+		state.routeStale = true; state.routeHidden = false;
+		renderWaypointsPreview(); refreshFindPathBtn(); refreshSwapBtn(); updateFindPathButton();
+		findPathBtn.click();
+		syncActions();
+	}
+	function renderFavs() {
+		favBox.innerHTML = "";
+		const mine = uiPrefs.favs.filter(function(f) { return f.gid === group.id; });
+		favBox.hidden = mine.length === 0 || !!uiPrefs.hidden.favs;
+		if (mine.length === 0) return;
+		const list = favExpanded ? mine : mine.slice(0, 1);
+		list.forEach(function(sp) {
+			const row = document.createElement("div");
+			row.className = "fav-row";
+			const go = document.createElement("button");
+			go.type = "button"; go.className = "fav-item";
+			go.textContent = "★ " + favTitle(sp);
+			go.addEventListener("click", function() { applyFav(sp); });
+			row.appendChild(go);
+			if (favExpanded) {
+				const del = document.createElement("button");
+				del.type = "button"; del.className = "fav-del"; del.textContent = "✕"; del.title = "Убрать из избранного";
+				del.addEventListener("click", function() {
+					uiPrefs.favs.splice(uiPrefs.favs.indexOf(sp), 1);
+					saveUiPrefs(); renderFavs(); syncActions();
+				});
+				row.appendChild(del);
+			}
+			favBox.appendChild(row);
+		});
+		if (mine.length > 1) {
+			const more = document.createElement("button");
+			more.type = "button"; more.className = "fav-more";
+			more.textContent = favExpanded ? "свернуть ▴" : "ещё " + (mine.length - 1) + " ▾";
+			more.addEventListener("click", function() { favExpanded = !favExpanded; renderFavs(); });
+			favBox.appendChild(more);
+		}
+		const hideBtn = document.createElement("button");
+		hideBtn.type = "button"; hideBtn.className = "hide-btn"; hideBtn.textContent = "скрыть";
+		hideBtn.addEventListener("click", function() { uiPrefs.hidden.favs = true; saveUiPrefs(); favBox.hidden = true; favCtl.sync(); });
+		favBox.appendChild(hideBtn);
+	}
+	function syncActions() {
+		const ready = !!(pointA && pointB);
+		routeActions.hidden = !ready;
+		favBtn.textContent = favIndex() >= 0 ? "★ В избранном" : "☆ В избранное";
+		favCtl.sync();
+	}
+	favCtl.addExtra("favs", renderFavs);
+	favBtn.addEventListener("click", function() {
+		if (!(pointA && pointB)) return;
+		const at = favIndex();
+		if (at >= 0) uiPrefs.favs.splice(at, 1);
+		else { uiPrefs.favs.unshift(specOf()); delete uiPrefs.hidden.favs; }
+		saveUiPrefs(); renderFavs(); syncActions();
+	});
+	shareBtn.addEventListener("click", function() {
+		if (!(pointA && pointB)) return;
+		const sp = specOf();
+		const url = location.origin + location.pathname + "#r=" + encodeURIComponent(JSON.stringify([sp.gid, sp.a, sp.b, sp.via, sp.ordered ? 1 : 0]));
+		function flash(t) { shareBtn.textContent = t; setTimeout(function() { shareBtn.textContent = "Поделиться маршрутом"; }, 1800); }
+		function copy() {
+			if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(function() { flash("Ссылка скопирована"); }, function() { window.prompt("Скопируйте ссылку:", url); });
+			else window.prompt("Скопируйте ссылку:", url);
+		}
+		if (navigator.share) {
+			navigator.share({ title: "Атлас Catwar: " + favTitle(sp), url: url }).catch(function(err) { if (!err || err.name !== "AbortError") copy(); });
+		} else copy();
+	});
+	const baseRefresh = refreshFindPathBtn;
+	refreshFindPathBtn = function() { baseRefresh(); syncActions(); };
+	renderFavs(); syncActions();
+	if (sharedRoute && sharedRoute.gid === group.id) {
+		const sp = sharedRoute; sharedRoute = null;
+		applyFav(sp);
+	}
 	return panel;
 }
 
@@ -3573,9 +5356,10 @@ function renderRouteSpread(container, data, route, titleText, group) {
 	tools.className = "route-tools";
 	tools.innerHTML = `
 		<div class="rw-buttons">
-			<button type="button" class="rw-zoom-out" title="Уменьшить карты">−</button>
-			<button type="button" class="rw-zoom-in" title="Увеличить карты">+</button>
+			<button type="button" class="rw-zoom-out">−</button>
+			<button type="button" class="rw-zoom-in">+</button>
 		</div>
+		<label class="route-icons-toggle"><input type="checkbox" class="route-icons-input"><span>Показывать иконки свойств в найденном маршруте</span></label>
 		<button type="button" class="detach-btn" title="Отдельное окно можно смотреть на другой вкладке или поверх игры">В отдельное окно</button>
 	`;
 	container.appendChild(tools);
@@ -3584,6 +5368,14 @@ function renderRouteSpread(container, data, route, titleText, group) {
 	cards.className = "path-cards";
 	createRouteSteps(data, route).forEach(function(step) { cards.appendChild(step); });
 	container.appendChild(cards);
+	const iconsInput = tools.querySelector(".route-icons-input");
+	iconsInput.checked = routeIconsOn();
+	iconsInput.addEventListener("change", function() {
+		saveRouteIcons(iconsInput.checked);
+		cards.innerHTML = "";
+		createRouteSteps(data, route).forEach(function(step) { cards.appendChild(step); });
+		getRoutePlayerController(route).refresh();
+	});
 	getRoutePlayerController(route).refresh();
 	setupZoom([container], tools.querySelector(".rw-zoom-out"), tools.querySelector(".rw-zoom-in"), null, 18, 26);
 	tools.querySelector(".detach-btn").addEventListener("click", function() {
@@ -3674,7 +5466,7 @@ function buildCheckPanel(data, state) {
 			const optionButton = document.createElement("button");
 			optionButton.type = "button";
 			optionButton.className = "search-option";
-			optionButton.textContent = location.name;
+			optionButton.textContent = searchOptionLabel(location, query);
 			optionButton.addEventListener("click", function() { pickLocation(location); });
 			searchResults.appendChild(optionButton);
 		});
@@ -3694,7 +5486,7 @@ function buildCheckPanel(data, state) {
 		const userCode = getMapCode();
 		const activeCells = [];
 		userCode.split("").forEach(function(bit, index) { if (bit === "1") activeCells.push(index); });
-		const matches = data.filter(function(location) { return location.code === userCode; });
+		const matches = activeCells.length === 0 ? [] : data.filter(function(location) { return location.code === userCode; });
 		searchResults.innerHTML = ""; result.innerHTML = ""; checked = true;
 		if (matches.length === 1) {
 			result.textContent = matches[0].name;
@@ -3761,6 +5553,8 @@ function buildGraphPanel(data, group, state) {
 	hint.appendChild(link);
 	hint.appendChild(document.createTextNode("."));
 	panel.insertBefore(hint, wrap);
+	const graphHide = createHideController(panel.querySelector(".graph-title h3"));
+	graphHide.add(hint, "graphHint", hint);
 	const routeIds = state.route ? state.route.path : null;
 	const filtered = applyResidenceFilter(data, group);
 	const stats = renderGraph(wrap, [{ section: group, list: filtered.list, color: group.color || GRAPH_COLORS[0] }], routeIds);
@@ -3826,7 +5620,7 @@ function buildGroupPage(group) {
 			pathTitle.className = "panel-section-title";
 			pathTitle.textContent = "Поиск пути";
 			pathCol.appendChild(pathTitle);
-			pathCol.appendChild(buildPathPanel(currentGroupData.list, group, state));
+			pathCol.appendChild(buildPathPanel(currentGroupData.list, group, state, pathTitle));
 			const checkCol = document.createElement("div");
 			checkCol.className = "panel-column check-column";
 			const checkTitle = document.createElement("h3");
@@ -3861,6 +5655,41 @@ function buildSettingsPage() {
 			<button type="button" class="settings-menu-btn" id="openDuration"><span>Длительность перехода</span><span class="chevron" aria-hidden="true">›</span></button>
 			<button type="button" class="settings-menu-btn" id="openColors"><span>Цвета переходов</span><span class="chevron" aria-hidden="true">›</span></button>
 			<button type="button" class="settings-menu-btn" id="openTheme"><span>Сменить тему</span><span class="chevron" aria-hidden="true">›</span></button>
+			<button type="button" class="settings-menu-btn" id="openFeedback"><span>Обратная связь</span><span class="chevron" aria-hidden="true">›</span></button>
+			<button type="button" class="settings-menu-btn" id="openThanks"><span>Благодарности</span><span class="chevron" aria-hidden="true">›</span></button>
+		</div>
+		<div class="settings-section" id="sectionFeedback" hidden>
+			<button type="button" class="settings-back">← <span>Назад</span></button>
+			<div class="info-page">
+				<h3>Обратная связь</h3>
+				<section class="info-card">
+					<h4>Вопросы, пожелания и замечания</h4>
+					<p>По всем вопросам, пожеланиям и критике вы можете обратиться к <b>Вэй [1441760]</b> — в личные сообщения на сайте Catwar или в Telegram:
+					<a href="https://telegram.me/aki_kulebyaka" target="_blank" rel="noopener noreferrer">telegram.me/aki_kulebyaka</a>.</p>
+				</section>
+				<section class="info-card">
+					<h4>Добавление ваших карт на сайт</h4>
+					<p>Все карты, созданные вами в «Рыбе», вы можете отправить Вэй в виде файла и заявить о своём желании добавить их на сайт. Желательно указать, на какой срок.</p>
+				</section>
+				<section class="info-card">
+					<h4>Сообщение об ошибке</h4>
+					<p>В сообщении об ошибке указывайте точные названия (или id) локаций, которые необходимо исправить, и верный вариант. Исправление необходимо подкрепить доказательством: отрисованной картой либо любыми иными источниками информации (игровыми материалами, Википедией и т. п.).</p>
+				</section>
+			</div>
+		</div>
+		<div class="settings-section" id="sectionThanks" hidden>
+			<button type="button" class="settings-back">← <span>Назад</span></button>
+			<div class="info-page">
+				<h3>Благодарности</h3>
+				<p class="settings-hint">Здесь вы можете найти тех, кто напрямую или косвенно помог разработке данного проекта.</p>
+				<ul class="thanks-list">
+					<li><b>Обугливание [1607231]</b> — перенос карт в «Рыбу», уточнения и советы по разработке.</li>
+					<li><b>Созвездие Фортуны [1324154]</b> — предоставление разрешения на оцифровывание карт племени Ветра.</li>
+					<li><b>Разжигающая Звёзды [1597691]</b> — предоставление разрешения на оцифровывание карт Речного племени.</li>
+					<li><b>Эхосказ [1601504]</b> — предоставление разрешения на оцифровывание карты внелагеря Клана Падающей Воды.</li>
+				</ul>
+				<p class="settings-hint">Для обновления разрешений пишите Вэй.</p>
+			</div>
 		</div>
 		<div class="settings-section" id="sectionColors" hidden>
 			<button type="button" class="settings-back">← <span>Назад</span></button>
@@ -3887,7 +5716,7 @@ function buildSettingsPage() {
 		</div>
 		<div class="settings-section" id="sectionHomeland" hidden>
 			<button type="button" class="settings-back">← <span>Назад</span></button>
-			<p class="settings-hint">Выберите, где вы живёте — можно отметить несколько вариантов сразу (нажмите повторно, чтобы снять). Выбор сохраняется на устройстве: эта вкладка открывается по умолчанию, а на графе показывается только ваш район (Посёлок, Город, Горы, Туннели и т. п.).</p>
+			<p class="settings-hint">Выберите, где вы живёте — можно отметить несколько вариантов сразу (нажмите повторно, чтобы снять). Выбор сохраняется на устройстве: эта вкладка открывается по умолчанию, а на графе показывается только ваш район (нейтры, Посёлок, Город, Горы, Туннели и т. п.). Выбранные области учитываются при поиске маршрута, а невыбранные — избегаются (нейтры, Посёлок и Город разрешены всегда; общие территории — только если выбрано племя Ветра, Реки, Теней или Грозы). Если нужно пройти и через чужие локации, отметьте «Искать по всей вселенной» в поиске пути.</p>
 			<div class="homeland-list" id="homelandList"></div>
 		</div>
 	`;
@@ -3896,7 +5725,9 @@ function buildSettingsPage() {
 		colors: content.querySelector("#sectionColors"),
 		duration: content.querySelector("#sectionDuration"),
 		theme: content.querySelector("#sectionTheme"),
-		homeland: content.querySelector("#sectionHomeland")
+		homeland: content.querySelector("#sectionHomeland"),
+		feedback: content.querySelector("#sectionFeedback"),
+		thanks: content.querySelector("#sectionThanks")
 	};
 	function showMenu() { menu.hidden = false; Object.keys(sections).forEach(function(k) { sections[k].hidden = true; }); }
 	function showSection(key) { menu.hidden = true; Object.keys(sections).forEach(function(k) { sections[k].hidden = k !== key; }); }
@@ -3905,6 +5736,8 @@ function buildSettingsPage() {
 	content.querySelector("#openDuration").addEventListener("click", function() { showSection("duration"); });
 	content.querySelector("#openTheme").addEventListener("click", function() { showSection("theme"); updateThemeButton(); });
 	content.querySelector("#openHomeland").addEventListener("click", function() { showSection("homeland"); renderHomelandList(); });
+	content.querySelector("#openFeedback").addEventListener("click", function() { showSection("feedback"); });
+	content.querySelector("#openThanks").addEventListener("click", function() { showSection("thanks"); });
 	content.querySelectorAll(".settings-back").forEach(function(btn) { btn.addEventListener("click", showMenu); });
 
 	const rowsBox = content.querySelector(".color-rows");
@@ -4000,6 +5833,27 @@ function buildSettingsPage() {
 						}
 					}
 				} else {
+					// «Все нейтры» и отдельные виды нейтров (Посёлок, Город, Горы, Туннели)
+					// взаимоисключающие: выбор одного снимает выбор с другой стороны
+					const NEUTRAL_PARENT = "ov:neutral";
+					const NEUTRAL_CHILDREN = ["ov:village", "ov:city", "ov:mountains", "ov:tunnels"];
+					let drop = [];
+					if (item.key === NEUTRAL_PARENT) drop = NEUTRAL_CHILDREN;
+					else if (NEUTRAL_CHILDREN.indexOf(item.key) >= 0) drop = [NEUTRAL_PARENT];
+					// Живёшь только в одной вселенной: выбор в другой вселенной (в том числе
+					// в Звёздном племени, Сумрачном лесу, Душевой) снимает всё остальное
+					RESIDENCES.forEach(function(other) {
+						if (other === block) return;
+						flatResidenceItems(other.items).forEach(function(x) { drop.push(x.key); });
+					});
+					// Внутри своей вселенной «Вся вселенная» и отдельные области исключают друг друга
+					const blockItems = flatResidenceItems(block.items);
+					const allItem = blockItems.find(function(x) { return /:all$/.test(x.key); });
+					if (allItem) {
+						if (item.key === allItem.key) blockItems.forEach(function(x) { if (x.key !== item.key) drop.push(x.key); });
+						else drop.push(allItem.key);
+					}
+					settings.residences = settings.residences.filter(function(k) { return drop.indexOf(k) < 0; });
 					settings.residences.push(item.key);
 					settings.residence = item.key;
 					settings.homeland = block.group;
@@ -4074,6 +5928,21 @@ function buildDraftPage() {
 			<button type="button" class="draft-btn" data-action="add">Добавить локацию</button>
 			<button type="button" class="draft-btn draft-btn-danger" data-action="clear">Очистить карту</button>
 		</div>
+		<div class="draft-groups" id="draftGroups">
+			<button type="button" class="draft-groups-title draft-groups-toggle" aria-expanded="true" title="Свернуть / развернуть подгруппы">
+				<span class="draft-groups-arrow">▾</span>
+				<span>Подгруппы (области карты: Город, племена и т. п.)</span>
+				<span class="draft-groups-badge"></span>
+			</button>
+			<div class="draft-groups-body">
+				<div class="draft-groups-list"></div>
+				<div class="draft-groups-add">
+					<input type="color" class="draft-group-color" value="#888888" title="Цвет подгруппы">
+					<input type="text" class="draft-group-name" placeholder="Название новой подгруппы" autocomplete="off">
+					<button type="button" class="draft-btn" id="draftAddGroupBtn">Добавить подгруппу</button>
+				</div>
+			</div>
+		</div>
 		<div class="draft-canvas-wrap">
 			<div class="draft-nodes-flow"></div>
 		</div>
@@ -4082,8 +5951,21 @@ function buildDraftPage() {
 				<span>Название</span>
 				<input type="text" class="draft-node-name" placeholder="Без названия">
 			</label>
-			<label class="draft-field draft-id-field">
-				<span>Уточнение для id (если название занято)</span>
+			<label class="draft-field">
+				<span>Подгруппа</span>
+				<select class="draft-node-group" disabled></select>
+			</label>
+			<div class="draft-field draft-border-field">
+				<div class="draft-border-row">
+					<label class="draft-check"><input type="checkbox" class="draft-border-check" disabled><span>Это пограничная локация</span></label>
+					<div class="draft-border-dd" hidden>
+						<button type="button" class="draft-border-btn" aria-expanded="false" title="С какими подгруппами граничит локация"><span class="draft-border-summary"></span><span class="draft-border-caret">▾</span></button>
+						<div class="draft-border-menu" hidden></div>
+					</div>
+				</div>
+			</div>
+			<label class="draft-field draft-id-field" hidden>
+				<span class="draft-id-notice">Такая локация уже существует, id будет присвоен порядковый номер (или измените его, вписав свой вариант приписки для id ниже). Это никак не повлияет на введённое вами название, но позволит избежать возможной ошибки переадресации на чужую локацию в будущем.</span>
 				<input type="text" class="draft-node-suffix" placeholder="напр. Река или Тени">
 				<span class="draft-id-hint"></span>
 			</label>
@@ -4126,6 +6008,26 @@ function buildDraftPage() {
 	const nameInput = content.querySelector(".draft-node-name");
 	const suffixInput = content.querySelector(".draft-node-suffix");
 	const idHint = content.querySelector(".draft-id-hint");
+	const idField = content.querySelector(".draft-id-field");
+	// Подгружаем названия и id из всех разделов для проверки совпадений
+	draftDbIds = new Set();
+	draftDbLocations = [];
+	groups.filter(function(g) { return g.files; }).forEach(function(g) {
+		loadGroupData(g).then(function(result) {
+			(result.list || []).forEach(function(loc) {
+				if (loc && loc.id != null && loc.name) draftDbLocations.push({ id: loc.id, name: loc.name, tags: loc.tags || [], deadends: loc.deadends || {}, section: g.title || g.label || "" });
+				if (loc && loc.id != null) draftDbIds.add(draftNameKey(loc.id));
+				if (loc && loc.name) draftDbIds.add(draftNameKey(loc.name));
+			});
+			refreshIdHint();
+		}).catch(function() {});
+	});
+	function draftNameTaken(node) {
+		if (!node || node.idOverride || draftKeepsImportedId(node) || !(node.name && node.name.trim())) return false;
+		const key = draftNameKey(node.name);
+		if (draftDbIds.has(key)) return true;
+		return draftState.nodes.some(function(n) { return n !== node && draftNameKey(draftBaseId(n)) === key; });
+	}
 	const saveNote = content.querySelector(".draft-save-note");
 	const propsChipsHolder = content.querySelector(".draft-props-chips");
 	const typeSelect = content.querySelector(".draft-transition-type-select");
@@ -4240,11 +6142,15 @@ function buildDraftPage() {
 		cell.deadendProps.push(tag);
 		renderDeadendProps();
 		renderNodeCard(node);
-	}, { triggerLabel: "Добавить свойство тупика" }));
+	}, { triggerLabel: "Добавить свойство тупика", noConnector: true }));
 
 	nameInput.addEventListener("input", function() {
 		const node = findNode(selectedNodeId);
-		if (node) { node.name = nameInput.value; renderNodeCard(node); }
+		if (node) {
+			node.name = nameInput.value;
+			if (!draftNameTaken(node)) { node.idSuffix = ""; suffixInput.value = ""; }
+			renderNodeCard(node);
+		}
 		refreshIdHint();
 	});
 	suffixInput.addEventListener("input", function() {
@@ -4258,18 +6164,16 @@ function buildDraftPage() {
 		const node = findNode(selectedNodeId);
 		idHint.textContent = "";
 		idHint.classList.remove("warn");
-		if (!node) return;
+		const taken = draftNameTaken(node);
+		idField.hidden = !taken;
+		if (!taken) return;
 		const exportId = draftExportIds(draftState.nodes).get(node.id);
-		const base = draftBaseId(node);
-		if (exportId && exportId !== base) {
-			const dup = draftState.nodes.some(function(n) { return n !== node && draftBaseId(n) === base; });
-			idHint.textContent = (dup && !(node.idSuffix || "").trim()
-				? "Название уже занято — при экспорте id будет «" : "id при экспорте: «") + exportId + "»";
-			if (dup) idHint.classList.add("warn");
-		}
+		if (exportId) idHint.textContent = "id при экспорте: «" + exportId + "»";
+		idHint.classList.add("warn");
 	}
 
 	function renderProps() {
+		closePropEditor(propsChipsHolder);
 		propsChipsHolder.innerHTML = "";
 		const node = findNode(selectedNodeId);
 		if (!node || !node.props || node.props.length === 0) {
@@ -4283,12 +6187,21 @@ function buildDraftPage() {
 			if (src) {
 				const img = document.createElement("img");
 				img.src = src; img.alt = "";
+				if (tag.key === "poisonHunt") img.className = "loc-tag-icon-poison";
 				chip.appendChild(img);
 			}
 			chip.appendChild(document.createTextNode(tagLabel(tag)));
 			const remove = document.createElement("span");
 			remove.className = "draft-prop-chip-remove";
 			remove.textContent = "×";
+			if (propIsEditable(tag)) {
+				chip.classList.add("editable");
+				chip.title = "Нажмите, чтобы изменить";
+				chip.addEventListener("click", function(e) {
+					if (e.target.classList.contains("draft-prop-chip-remove")) return;
+					openPropEditor(propsChipsHolder, node.props, index, function() { renderProps(); renderNodeCard(node); });
+				});
+			}
 			remove.title = "Убрать это свойство у локации";
 			remove.addEventListener("click", function() {
 				node.props.splice(index, 1);
@@ -4301,6 +6214,7 @@ function buildDraftPage() {
 	}
 
 	function renderDeadendProps() {
+		closePropEditor(deadendChipsHolder);
 		deadendChipsHolder.innerHTML = "";
 		if (!selectedCell) return;
 		const node = findNode(selectedCell.nodeId);
@@ -4316,12 +6230,21 @@ function buildDraftPage() {
 			if (src) {
 				const img = document.createElement("img");
 				img.src = src; img.alt = "";
+				if (tag.key === "poisonHunt") img.className = "loc-tag-icon-poison";
 				chip.appendChild(img);
 			}
 			chip.appendChild(document.createTextNode(tagLabel(tag)));
 			const remove = document.createElement("span");
 			remove.className = "draft-prop-chip-remove";
 			remove.textContent = "×";
+			if (propIsEditable(tag)) {
+				chip.classList.add("editable");
+				chip.title = "Нажмите, чтобы изменить";
+				chip.addEventListener("click", function(e) {
+					if (e.target.classList.contains("draft-prop-chip-remove")) return;
+					openPropEditor(deadendChipsHolder, cell.deadendProps, index, function() { renderDeadendProps(); renderNodeCard(node); });
+				});
+			}
 			remove.title = "Убрать это свойство у тупика";
 			remove.addEventListener("click", function() {
 				cell.deadendProps.splice(index, 1);
@@ -4380,6 +6303,9 @@ function buildDraftPage() {
 	function deleteDraftNode(id) {
 		draftState.nodes = draftState.nodes.filter(function(node) { return node.id !== id; });
 		draftState.nodes.forEach(function(node) {
+			(node.props || []).forEach(function(tag) {
+				if (isConnectorTag(tag) && Array.isArray(tag.links)) tag.links = tag.links.filter(function(link) { return link !== id; });
+			});
 			Object.keys(node.cells).forEach(function(key) {
 				if (node.cells[key] && node.cells[key].target === id) node.cells[key].target = null;
 			});
@@ -4426,17 +6352,18 @@ function buildDraftPage() {
 		const nameEl = card.querySelector(".draft-node-name-label");
 		nameEl.textContent = node.name || "Без названия";
 
-		const deadendEntries = [];
+		const deadends = {};
 		Object.keys(node.cells).forEach(function(key) {
 			const c = node.cells[key];
 			if (!c || c.type !== "deadend") return;
 			const hasName = c.deadendName && c.deadendName.trim();
 			const hasProps = c.deadendProps && c.deadendProps.length > 0;
-			if (hasName || hasProps) deadendEntries.push({ name: c.deadendName || "", tags: c.deadendProps || [] });
+			if (hasName || hasProps) deadends[key] = { name: c.deadendName || "", props: c.deadendProps || [] };
 		});
 
 		const gridWrap = card.querySelector(".draft-mini-grid-wrap");
-		renderDraftTagsColumn(gridWrap, node.props, deadendEntries);
+		renderDraftProps(gridWrap, { tags: node.props || [], deadends: deadends });
+		renderDraftBorders(card.querySelector(".draft-mini-grid"), node, draftState);
 
 		card.querySelectorAll(".draft-mini-cell").forEach(function(cellEl, index) {
 			const cell = node.cells[index];
@@ -4535,14 +6462,246 @@ function buildDraftPage() {
 		});
 	}
 
+	const groupSelect = content.querySelector(".draft-node-group");
+	const groupsList = content.querySelector(".draft-groups-list");
+	const groupsBox = content.querySelector("#draftGroups");
+	const groupsToggle = groupsBox.querySelector(".draft-groups-toggle");
+	const groupsBadge = groupsBox.querySelector(".draft-groups-badge");
+	const GROUPS_COLLAPSED_KEY = "atlas.draft.groupsCollapsed";
+	function setGroupsCollapsed(collapsed, remember) {
+		groupsBox.classList.toggle("collapsed", collapsed);
+		groupsToggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+		groupsToggle.querySelector(".draft-groups-arrow").textContent = collapsed ? "▸" : "▾";
+		if (remember) { try { localStorage.setItem(GROUPS_COLLAPSED_KEY, collapsed ? "1" : "0"); } catch (e) {} }
+	}
+	groupsToggle.addEventListener("click", function() { setGroupsCollapsed(!groupsBox.classList.contains("collapsed"), true); });
+	let groupsWereCollapsed = false;
+	try { groupsWereCollapsed = localStorage.getItem(GROUPS_COLLAPSED_KEY) === "1"; } catch (e) {}
+	setGroupsCollapsed(groupsWereCollapsed, false);
+	const groupNameInput = content.querySelector(".draft-group-name");
+	const groupColorInput = content.querySelector(".draft-group-color");
+
+	// ---- Пограничная локация: галочка и список подгрупп с флажками ----
+	const borderCheck = content.querySelector(".draft-border-check");
+	const borderDd = content.querySelector(".draft-border-dd");
+	const borderBtn = content.querySelector(".draft-border-btn");
+	const borderSummary = content.querySelector(".draft-border-summary");
+	const borderMenu = content.querySelector(".draft-border-menu");
+	function setBorderMenuOpen(open) {
+		borderMenu.hidden = !open;
+		borderBtn.setAttribute("aria-expanded", open ? "true" : "false");
+		borderBtn.querySelector(".draft-border-caret").textContent = open ? "▴" : "▾";
+	}
+	// в списке — все подгруппы, кроме нейтральных (и вложенных в нейтральные)
+	function borderChoices() {
+		return draftState.subgroups.filter(function(sg) { return !draftGroupIsNeutral(draftState.subgroups, sg.id); });
+	}
+	function updateBorderUi() {
+		const node = findNode(selectedNodeId);
+		const on = !!node && Array.isArray(node.borders);
+		borderCheck.disabled = !node;
+		borderCheck.checked = on;
+		borderDd.hidden = !on;
+		if (!on) setBorderMenuOpen(false);
+		const choices = borderChoices();
+		const chosen = on ? choices.filter(function(sg) { return node.borders.indexOf(sg.id) >= 0; }) : [];
+		borderSummary.textContent = chosen.length > 0 ? chosen.map(function(sg) { return sg.name; }).join(", ") : "Выберите подгруппы";
+		borderMenu.innerHTML = "";
+		if (!on) return;
+		if (choices.length === 0) {
+			const empty = document.createElement("p");
+			empty.className = "draft-border-empty";
+			empty.textContent = "Нет подходящих подгрупп (нейтральные в список не попадают)";
+			borderMenu.appendChild(empty);
+			return;
+		}
+		choices.forEach(function(sg) {
+			const option = document.createElement("label");
+			option.className = "draft-border-option";
+			const box = document.createElement("input");
+			box.type = "checkbox";
+			box.checked = node.borders.indexOf(sg.id) >= 0;
+			const swatch = document.createElement("i");
+			swatch.style.background = draftBorderColor(draftState, sg.id) || "#888888";
+			const text = document.createElement("span");
+			text.textContent = sg.name;
+			option.appendChild(box); option.appendChild(swatch); option.appendChild(text);
+			box.addEventListener("change", function() {
+				const current = findNode(selectedNodeId);
+				if (!current) return;
+				if (!Array.isArray(current.borders)) current.borders = [];
+				const at = current.borders.indexOf(sg.id);
+				if (box.checked && at < 0) current.borders.push(sg.id);
+				if (!box.checked && at >= 0) current.borders.splice(at, 1);
+				const chosenNow = choices.filter(function(x) { return current.borders.indexOf(x.id) >= 0; });
+				borderSummary.textContent = chosenNow.length > 0 ? chosenNow.map(function(x) { return x.name; }).join(", ") : "Выберите подгруппы";
+				renderNodeCard(current);
+			});
+			borderMenu.appendChild(option);
+		});
+	}
+	borderCheck.addEventListener("change", function() {
+		const node = findNode(selectedNodeId);
+		if (!node) return;
+		if (borderCheck.checked) node.borders = Array.isArray(node.borders) ? node.borders : [];
+		else delete node.borders;
+		updateBorderUi();
+		renderNodeCard(node);
+		if (borderCheck.checked) setBorderMenuOpen(true);
+	});
+	borderBtn.addEventListener("click", function() { setBorderMenuOpen(borderMenu.hidden); });
+	function closeBorderMenuOutside(e) {
+		if (!document.body.contains(borderDd)) { document.removeEventListener("click", closeBorderMenuOutside); return; }
+		if (!borderDd.contains(e.target)) setBorderMenuOpen(false);
+	}
+	document.addEventListener("click", closeBorderMenuOutside);
+	// после смены нейтральности/вложенности или удаления подгруппы
+	function pruneBorders(removedId) {
+		draftState.nodes.forEach(function(node) {
+			if (!Array.isArray(node.borders)) return;
+			node.borders = node.borders.filter(function(id) {
+				return id !== removedId && !draftGroupIsNeutral(draftState.subgroups, id);
+			});
+		});
+	}
+	function refreshGroupSelect() {
+		const node = findNode(selectedNodeId);
+		groupSelect.innerHTML = "";
+		const none = document.createElement("option");
+		none.value = ""; none.textContent = "— без подгруппы —";
+		groupSelect.appendChild(none);
+		draftState.subgroups.forEach(function(sg) {
+			const opt = document.createElement("option");
+			opt.value = sg.id; opt.textContent = sg.name;
+			groupSelect.appendChild(opt);
+		});
+		groupSelect.value = node ? (node.area || "") : "";
+		groupSelect.disabled = !node;
+	}
+	function renderGroups() {
+		groupsList.innerHTML = "";
+		groupsBadge.textContent = draftState.subgroups.length > 0 ? "· " + draftState.subgroups.length : "";
+		if (draftState.subgroups.length === 0) {
+			groupsList.textContent = "Подгрупп пока нет — добавьте первую ниже или импортируйте файл раздела";
+			updateBorderUi();
+			return;
+		}
+		function afterStructureChange(removedId) {
+			pruneBorders(removedId);
+			renderGroups(); refreshGroupSelect(); renderCanvas();
+		}
+		draftGroupTree(draftState.subgroups).forEach(function(entry) {
+			const sg = entry.sg;
+			const item = document.createElement("div");
+			item.className = "draft-group-item";
+			item.style.marginLeft = (entry.depth * 18) + "px";
+			const row = document.createElement("div");
+			row.className = "draft-group-row";
+			const color = document.createElement("input");
+			color.type = "color"; color.value = /^#[0-9a-fA-F]{6}$/.test(sg.color || "") ? sg.color : "#888888";
+			color.addEventListener("input", function() { sg.color = color.value; });
+			color.addEventListener("change", function() { renderCanvas(); updateBorderUi(); });
+			const name = document.createElement("input");
+			name.type = "text"; name.value = sg.name; name.className = "draft-group-row-name";
+			name.addEventListener("input", function() { sg.name = name.value || sg.id; refreshGroupSelect(); updateBorderUi(); });
+			const count = document.createElement("span");
+			count.className = "draft-group-count";
+			const n = draftState.nodes.filter(function(x) { return x.area === sg.id; }).length;
+			count.textContent = n + " лок.";
+			count.title = "id подгруппы в файле: " + sg.id;
+			const remove = document.createElement("button");
+			remove.type = "button"; remove.className = "draft-transition-remove"; remove.textContent = "×";
+			remove.title = "Удалить подгруппу (локации останутся, но без подгруппы)";
+			remove.addEventListener("click", function() {
+				if (!confirm("Удалить подгруппу «" + sg.name + "»? Локации останутся, но будут без подгруппы.")) return;
+				draftState.subgroups.forEach(function(x) { if (x.parentGroup === sg.id) { if (sg.parentGroup) x.parentGroup = sg.parentGroup; else delete x.parentGroup; } });
+				draftState.subgroups = draftState.subgroups.filter(function(x) { return x !== sg; });
+				draftState.nodes.forEach(function(x) { if (x.area === sg.id) x.area = ""; });
+				afterStructureChange(sg.id);
+			});
+			row.appendChild(color); row.appendChild(name);
+			const opts = row; // галочка и «Входит в» — в той же строке, что и название
+			const neutralLabel = document.createElement("label");
+			neutralLabel.className = "draft-check";
+			const neutralBox = document.createElement("input");
+			neutralBox.type = "checkbox"; neutralBox.checked = !!sg.neutral;
+			neutralBox.addEventListener("change", function() {
+				if (neutralBox.checked) sg.neutral = true; else delete sg.neutral;
+				afterStructureChange();
+			});
+			const neutralText = document.createElement("span");
+			neutralText.textContent = "Нейтральная";
+			neutralLabel.title = "Нейтральная территория: все подгруппы внутри неё тоже считаются нейтральными и не попадают в список границ";
+			neutralLabel.appendChild(neutralBox); neutralLabel.appendChild(neutralText);
+			// если подгруппа входит в нейтральную, она уже нейтральная — галочка не нужна
+			const source = sg.parentGroup ? draftGroupNeutralSource(draftState.subgroups, sg.parentGroup) : null;
+			if (source) {
+				const note = document.createElement("span");
+				note.className = "draft-group-note";
+				note.textContent = "нейтральная (от «" + source.name + "»)";
+				note.title = "Входит в нейтральную территорию «" + source.name + "», поэтому тоже нейтральная";
+				opts.appendChild(note);
+			} else {
+				opts.appendChild(neutralLabel);
+			}
+			const parentLabel = document.createElement("label");
+			parentLabel.className = "draft-group-parent";
+			const parentText = document.createElement("span");
+			parentText.textContent = "Входит в:";
+			const parentSelect = document.createElement("select");
+			const noParent = document.createElement("option");
+			noParent.value = ""; noParent.textContent = "— отдельная подгруппа —";
+			parentSelect.appendChild(noParent);
+			const blocked = draftGroupDescendants(draftState.subgroups, sg.id);
+			draftGroupTree(draftState.subgroups).forEach(function(other) {
+				if (other.sg === sg || blocked.has(other.sg.id)) return;
+				const opt = document.createElement("option");
+				opt.value = other.sg.id; opt.textContent = other.sg.name;
+				parentSelect.appendChild(opt);
+			});
+			parentSelect.value = sg.parentGroup || "";
+			parentSelect.addEventListener("change", function() {
+				if (parentSelect.value) sg.parentGroup = parentSelect.value; else delete sg.parentGroup;
+				afterStructureChange();
+			});
+			parentLabel.appendChild(parentText); parentLabel.appendChild(parentSelect);
+			opts.appendChild(parentLabel);
+			opts.appendChild(count); opts.appendChild(remove);
+			item.appendChild(row);
+			groupsList.appendChild(item);
+		});
+		updateBorderUi();
+	}
+	function addGroup() {
+		const name = groupNameInput.value.trim();
+		if (!name) { alert("Впишите название подгруппы"); return; }
+		if (draftState.subgroups.some(function(sg) { return sg.name.trim().toLowerCase() === name.toLowerCase(); })) {
+			alert("Подгруппа с таким названием уже есть"); return;
+		}
+		const taken = new Set(draftState.subgroups.map(function(sg) { return sg.id; }));
+		draftState.subgroups.push({ id: draftGroupSlug(name, taken), name: name, color: groupColorInput.value, extraIds: [] });
+		groupNameInput.value = "";
+		renderGroups(); refreshGroupSelect();
+	}
+	content.querySelector("#draftAddGroupBtn").addEventListener("click", addGroup);
+	groupNameInput.addEventListener("keydown", function(e) { if (e.key === "Enter") addGroup(); });
+	groupSelect.addEventListener("change", function() {
+		const node = findNode(selectedNodeId);
+		if (!node) return;
+		node.area = groupSelect.value;
+		renderGroups();
+	});
+
 	function refreshInspector() {
 		const node = findNode(selectedNodeId);
+		refreshGroupSelect();
 		nameInput.disabled = !node;
 		nameInput.value = node ? (node.name || "") : "";
 		suffixInput.disabled = !node;
 		suffixInput.value = node ? (node.idSuffix || "") : "";
 		refreshIdHint();
 		renderProps();
+		updateBorderUi();
 	}
 
 	content.querySelectorAll(".draft-btn[data-action]").forEach(function(btn) {
@@ -4555,9 +6714,13 @@ function buildDraftPage() {
 				selectedCell = null;
 				refreshInspector(); refreshTransitionTool(); renderCanvas();
 			} else if (action === "clear") {
-				if (!confirm("Удалить все локации черновика? Это нельзя отменить.")) return;
+				if (!confirm("Удалить все локации и подгруппы черновика? Это нельзя отменить.")) return;
 				draftState.nodes = [];
+				// подгруппы и данные файла раздела (границы, раскладка областей) тоже очищаем
+				draftState.subgroups = [];
+				draftState.fileMeta = null;
 				selectedNodeId = null; selectedCell = null;
+				renderGroups();
 				refreshInspector(); refreshTransitionTool(); renderCanvas();
 			}
 		});
@@ -4572,8 +6735,8 @@ function buildDraftPage() {
 		flashNote(ok ? "Сохранено на этом устройстве" : "Не удалось сохранить");
 	});
 	content.querySelector("#draftExportBtn").addEventListener("click", function() {
-		const locations = draftToRealLocations(draftState.nodes);
-		const blob = new Blob([JSON.stringify(locations, null, 2)], { type: "application/json" });
+		const exportData = draftToExportData(draftState);
+		const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
 		const url = URL.createObjectURL(blob);
 		const link = document.createElement("a");
 		link.href = url;
@@ -4590,12 +6753,14 @@ function buildDraftPage() {
 			try {
 				const parsed = JSON.parse(reader.result);
 				let incoming;
-				if (Array.isArray(parsed)) incoming = { nodes: realLocationsToDraftNodes(parsed) };
+				if (Array.isArray(parsed)) incoming = { nodes: realLocationsToDraftNodes(parsed), subgroups: [], fileMeta: null };
+				else if (parsed && Array.isArray(parsed.locations)) incoming = sectionFileToDraft(parsed);
 				else if (parsed && Array.isArray(parsed.nodes)) incoming = parsed;
 				else throw new Error("bad format");
 				draftState = normalizeDraft(incoming);
 				selectedNodeId = draftState.nodes[0] ? draftState.nodes[0].id : null;
 				selectedCell = null;
+				renderGroups();
 				refreshInspector(); refreshTransitionTool(); renderCanvas();
 				saveDraftToStorage(draftState);
 				flashNote("Импортировано и сохранено");
@@ -4606,6 +6771,7 @@ function buildDraftPage() {
 		reader.readAsText(file);
 	});
 
+	renderGroups();
 	refreshInspector();
 	refreshTransitionTool();
 	renderCanvas();
@@ -4633,7 +6799,19 @@ const PREVIEW_DATA = (function() {
 applySettings();
 renderSidebar();
 
+(function readSharedRoute() {
+	try {
+		const m = /^#r=(.+)$/.exec(location.hash);
+		if (!m) return;
+		const arr = JSON.parse(decodeURIComponent(m[1]));
+		if (Array.isArray(arr) && arr.length >= 3) sharedRoute = { gid: String(arr[0]), a: arr[1], b: arr[2], via: String(arr[3] || ""), ordered: !!arr[4] };
+		history.replaceState(null, "", location.pathname + location.search);
+	} catch (e) {}
+})();
+
 (function openDefaultGroup() {
+	const shared = sharedRoute ? groups.find(function(g) { return g.id === sharedRoute.gid; }) : null;
+	if (shared) { openGroup(shared); return; }
 	const home = groups.find(function(g) { return g.id === settings.homeland; });
 	if (home) openGroup(home);
 	else openGroup(groups[0]);
