@@ -6,7 +6,7 @@
   "clans": {
     "wind": {
       "name": "Племя Ветра",
-      "color": "#7fae5a"
+      "color": "#5fdcf0"
     },
     "river": {
       "name": "Речное племя",
@@ -22,7 +22,7 @@
     },
     "kpv": {
       "name": "Клан Падающей Воды",
-      "color": "#4fb0b0"
+      "color": "#2b4a66"
     },
     "sk": {
       "name": "Северный клан",
@@ -96,7 +96,8 @@
         "Бак возле изгороди",
         "Малый парк"
       ],
-      "color": "#b5651d"
+      "color": "#b5651d",
+      "parentGroup": "neutral"
     },
     {
       "id": "village",
@@ -165,7 +166,8 @@
         "Клуб \"Огонёк\"",
         "Рынок"
       ],
-      "color": "#4f7f4a"
+      "color": "#4f7f4a",
+      "parentGroup": "neutral"
     },
     {
       "id": "neutral",
@@ -520,7 +522,8 @@
         "Лунный ручей"
       ],
       "color": "#8a8f96",
-      "parent": "neutral"
+      "parent": "neutral",
+      "neutral": true
     },
     {
       "id": "common",
