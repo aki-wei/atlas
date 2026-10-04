@@ -6680,25 +6680,31 @@ function buildDraftPage() {
 		});
 		card.addEventListener("click", function() {
 			const prevCell = selectedCell;
+			const prevNodeId = selectedNodeId;
 			selectedNodeId = node.id;
 			selectedCell = null;
-			if (prevCell) {
-				const prevNode = findNode(prevCell.nodeId);
-				if (prevNode) renderNodeCard(prevNode);
-			}
+			// Список не пересобираем (раньше renderCanvas сбрасывал прокрутку в самый верх):
+			// перерисовываем только затронутые карточки
+			[prevCell && prevCell.nodeId, prevNodeId, node.id].forEach(function(id, i, arr) {
+				if (!id || arr.indexOf(id) !== i) return;
+				const n = findNode(id);
+				if (n) renderNodeCard(n);
+			});
 			refreshInspector();
 			refreshTransitionTool();
-			renderCanvas();
 		});
 		return card;
 	}
 
 	function renderCanvas() {
+		const scroller = nodesFlow.parentElement;
+		const savedTop = scroller ? scroller.scrollTop : 0;
 		nodesFlow.innerHTML = "";
 		draftState.nodes.forEach(function(node) {
 			nodesFlow.appendChild(createNodeCard(node));
 			renderNodeCard(node);
 		});
+		if (scroller) scroller.scrollTop = savedTop;
 	}
 
 	const groupSelect = content.querySelector(".draft-node-group");
