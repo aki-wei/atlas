@@ -1161,3 +1161,13 @@ button:active { transform: translateY(1px); }
 .draft-nodes-flow.brush-mode .draft-node { cursor: copy; }
 .draft-node.brush-source { border-style: dashed; border-color: var(--accent); }
 .draft-node.brush-marked { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background-color: var(--accent-soft); }
+
+/* Секции-подгруппы на поле */
+.draft-nodes-flow.sectioned { display: block; }
+.draft-group-cards { display: flex; flex-wrap: wrap-reverse; align-content: flex-start; justify-content: flex-start; align-items: flex-end; gap: 12px 34px; }
+.draft-section { margin-bottom: 10px; }
+.draft-section-head { width: auto; display: flex; align-items: center; gap: 6px; padding: 4px 8px; margin-bottom: 8px; background: transparent; border: none; border-radius: 6px; color: var(--accent); font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; }
+.draft-section-head:hover { background-color: var(--accent-soft); }
+.draft-section-arrow { width: 12px; text-align: center; }
+.draft-section-dot { width: 10px; height: 10px; border-radius: 50%; }
+.draft-section-count { font-size: 12px; font-weight: 500; color: var(--text-dim); }
