@@ -137,10 +137,20 @@ function applyResidenceFilter(list, group) {
 	if (picked.some(function(f) { return !f.item.area; })) return none;
 	const byArea = new Map();
 	const labels = [];
+	// Общие территории (озеро и берега) принадлежат четырём племенам — Грозы, Реки,
+	// Ветра и Теней: если выбрано хотя бы одно из них, общие локации показываются
+	// целиком (даже когда у самого племени в файле пока нет локаций)
+	const COMMON_TRIBES = ["thunder", "river", "wind", "shadow"];
+	let wantCommon = false;
 	picked.forEach(function(f) {
 		const item = f.item;
+		const tribeOfCommon = COMMON_TRIBES.indexOf(item.area) >= 0;
+		if (tribeOfCommon) wantCommon = true;
 		const sub = (list.subgroups || []).find(function(x) { return x.id === item.area; });
-		if (!sub || !sub.ids || sub.ids.length === 0) return;
+		if (!sub || !sub.ids || sub.ids.length === 0) {
+			if (tribeOfCommon) labels.push(item.label);
+			return;
+		}
 		let ids = sub.ids.map(String);
 		if (item.prefixes) ids = ids.filter(function(id) { return idHasPrefix(id, item.prefixes); });
 		else areaChildIds(list.subgroups, item.area).forEach(function(childId) {
@@ -155,16 +165,38 @@ function applyResidenceFilter(list, group) {
 		ids.forEach(function(id) { byArea.get(sub.id).ids.add(id); });
 		labels.push(item.label);
 	});
-	if (byArea.size === 0) return none;
+	if (wantCommon) {
+		const common = (list.subgroups || []).find(function(x) { return x.id === "common"; });
+		if (common && common.ids && common.ids.length > 0) {
+			if (!byArea.has(common.id)) byArea.set(common.id, { sub: common, ids: new Set() });
+			common.ids.forEach(function(id) { byArea.get(common.id).ids.add(String(id)); });
+		}
+	}
+	// Выбранные области пусты (например, только племя без локаций в файле):
+	// показываем пустой граф, а не откатываемся ко всей карте — иначе вылезают
+	// нейтры, которых человек не выбирал
+	const label = labels.length > 0 ? labels.join(", ") : null;
+	const emptyResult = function() {
+		const empty = [];
+		empty.subgroups = []; empty.parents = list.parents; empty.clans = list.clans;
+		empty.areaLayout = list.areaLayout; empty.areaRows = list.areaRows; empty.areaOrder = list.areaOrder;
+		return { list: empty, label: label };
+	};
+	if (byArea.size === 0) return emptyResult();
 	const all = new Set();
 	byArea.forEach(function(v) { v.ids.forEach(function(id) { all.add(id); }); });
 	const out = list.filter(function(l) { return all.has(String(l.id)); });
-	if (out.length === 0) return none;
+	if (out.length === 0) return emptyResult();
 	out.subgroups = [];
 	byArea.forEach(function(v) { out.subgroups.push(Object.assign({}, v.sub, { ids: Array.from(v.ids) })); });
 	out.parents = list.parents;
 	out.clans = list.clans;
-	return { list: out, label: labels.join(", ") };
+	// раскладка областей из файла тоже нужна: без неё урезанный граф (например, только
+	// нейтры) собирался автоподбором, и Город уезжал далеко от своих соединений
+	out.areaLayout = list.areaLayout;
+	out.areaRows = list.areaRows;
+	out.areaOrder = list.areaOrder;
+	return { list: out, label: label };
 }
 
 const commonHints = { "С": "Сам в себя", "Т": "Тупик" };
@@ -3419,7 +3451,44 @@ function placeAreasByCompass(clusters, spec, edgesGlobal, nodes, areas, groupOff
 	const GAP = 75;
 	const byId = new Map();
 	clusters.forEach(function(c, i) { if (c.id) byId.set(c.id, i); });
-	if (!spec || !byId.has(spec.center)) return null;
+	if (!spec) return null;
+	// План раскладки: каждая область со стороной и якорем (areaLayout из файла).
+	// Если какой-то якорь не попал на карту (выбраны не все области, например нет
+	// Реки или нейтров), область цепляется к ближайшему из оставшихся предков по
+	// цепочке — иначе она выпадала в «остаток» и уезжала от своих соседей
+	const SIDES = ["right", "left", "bottom", "top"];
+	const plan = [];
+	SIDES.forEach(function(side) {
+		(Array.isArray(spec[side]) ? spec[side] : []).forEach(function(id) { plan.push({ id: id, side: side, of: spec.center, attach: false }); });
+	});
+	(Array.isArray(spec.attach) ? spec.attach : []).forEach(function(a) {
+		if (a) plan.push({ id: a.id, side: a.side, of: a.of, attach: true });
+	});
+	const parentOf = new Map();
+	plan.forEach(function(e) { parentOf.set(e.id, e); });
+	// «Условные координаты» областей на сетке — нужны, чтобы понять, с какой
+	// стороны от запасного центра должна стоять область, когда настоящего центра нет
+	const vc = new Map();
+	vc.set(spec.center, [0, 0]);
+	SIDES.forEach(function(side) {
+		(Array.isArray(spec[side]) ? spec[side] : []).forEach(function(id, i) {
+			vc.set(id, side === "right" ? [1, i] : side === "left" ? [-1, i] : side === "bottom" ? [i, 1] : [i, -1]);
+		});
+	});
+	const DIR = { right: [1, 0], left: [-1, 0], bottom: [0, 1], top: [0, -1] };
+	plan.forEach(function(e) {
+		if (!e.attach) return;
+		const base = vc.get(e.of), d = DIR[e.side];
+		if (base && d) vc.set(e.id, [base[0] + d[0], base[1] + d[1]]);
+	});
+	// Центр: настоящий, а если его нет на карте — первая попавшая область из плана
+	let rootId = null;
+	if (byId.has(spec.center)) rootId = spec.center;
+	else {
+		const order = plan.map(function(e) { return e.id; });
+		for (let i = 0; i < order.length; i++) { if (byId.has(order[i])) { rootId = order[i]; break; } }
+	}
+	if (rootId === null) return null;
 	const laidOf = new Map(); // индекс кластера → результат layoutCluster
 	const rects = [];         // { minX, maxX, minY, maxY, side, ci, ox, oy }
 	const placedGi = new Set();
@@ -3461,7 +3530,7 @@ function placeAreasByCompass(clusters, spec, edgesGlobal, nodes, areas, groupOff
 		return { ci: ci, ox: ox, oy: oy, box: boxOf(laid, ox, oy) };
 	}
 	// Центр
-	const cc = byId.get(spec.center);
+	const cc = byId.get(rootId);
 	laidOf.set(cc, layoutClusterOf(clusters[cc], edgesGlobal));
 	used.add(cc);
 	const rectOf = new Map(); // индекс кластера → его прямоугольник из rects
@@ -3530,20 +3599,43 @@ function placeAreasByCompass(clusters, spec, edgesGlobal, nodes, areas, groupOff
 		rectOf.set(ci, r);
 		return r;
 	}
+	function sideToward(id) {
+		const a = vc.get(rootId) || [0, 0], b = vc.get(id) || [0, 0];
+		const dx = b[0] - a[0], dy = b[1] - a[1];
+		if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? "right" : "left";
+		if (dy !== 0) return dy > 0 ? "bottom" : "top";
+		return dx < 0 ? "left" : "right";
+	}
+	// Якорь области: её настоящий якорь, если он уже стоит; иначе ближайший
+	// стоящий предок по цепочке (сторона сохраняется); иначе запасной центр
+	function resolveAnchor(entry) {
+		let cur = entry.of;
+		for (let g = 0; g < 20 && cur !== undefined; g++) {
+			const ci = byId.get(cur);
+			if (ci !== undefined && rectOf.has(ci)) return { rect: rectOf.get(ci), side: entry.side };
+			const up = parentOf.get(cur);
+			cur = up ? up.of : undefined;
+		}
+		return { rect: centerRect, side: sideToward(entry.id) };
+	}
 	// Стороны центра: у right/left стопка идёт сверху вниз, у top/bottom — слева направо
-	["right", "left", "bottom", "top"].forEach(function(side) {
+	SIDES.forEach(function(side) {
 		let prev = null;
-		(Array.isArray(spec[side]) ? spec[side] : []).forEach(function(id) {
-			prev = placeBeside(id, side, centerRect, prev);
+		plan.forEach(function(e) {
+			if (e.attach || e.side !== side) return;
+			const r = resolveAnchor(e);
+			const direct = r.rect === centerRect && r.side === e.side;
+			const placed = placeBeside(e.id, r.side, r.rect, direct ? prev : null);
+			if (direct) prev = placed;
 		});
 	});
 	// attach: [{ id, side, of }] — область id с стороны side от уже поставленной
 	// области of (не обязательно центральной), по порядку списка. Нужно, когда
 	// область теснее связана с соседкой по кольцу, чем с центром
-	(Array.isArray(spec.attach) ? spec.attach : []).forEach(function(a) {
-		const anchorIdx = a && byId.get(a.of);
-		const anchor = anchorIdx !== undefined && anchorIdx !== false ? rectOf.get(anchorIdx) : null;
-		if (anchor) placeBeside(a.id, a.side, anchor, null);
+	plan.forEach(function(e) {
+		if (!e.attach) return;
+		const r = resolveAnchor(e);
+		placeBeside(e.id, r.side, r.rect, null);
 	});
 	// Всё, что не названо в areaLayout, — рядом снизу, слева направо
 	let restX = null, restY = 0;
@@ -3983,6 +4075,11 @@ function segmentHitsRect(p1, p2, rect, pad) {
 // рамку сверху/снизу или слева/справа (смотря что короче) одним изгибом.
 // skipAreas — области обоих концов перехода, их не огибаем
 function routeAroundAreas(p1, p2, areas, skipAreas) {
+	// Переход внутри одной области целиком лежит в её рамке, а рамки областей
+	// не пересекаются — огибать тут нечего. Раньше соседняя область с запасом
+	// по краям (pad) могла «зацепить» короткий переход у края и вызвать петлю
+	// в тысячу пикселей вокруг чужой области
+	if (skipAreas[0] && skipAreas[0] === skipAreas[1]) return [p1, p2];
 	let blocker = null;
 	for (let i = 0; i < areas.length; i++) {
 		const area = areas[i];
@@ -3992,6 +4089,14 @@ function routeAroundAreas(p1, p2, areas, skipAreas) {
 	if (!blocker) return [p1, p2];
 	const margin = 36;
 	const dx = p2.x - p1.x, dy = p2.y - p1.y;
+	const direct = Math.hypot(dx, dy);
+	// Обход принимаем, только если он не намного длиннее прямой: огромные
+	// петли вокруг области хуже, чем линия напрямую
+	function sane(points) {
+		let len = 0;
+		for (let i = 1; i < points.length; i++) len += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+		return len <= direct * 1.8 + 160 ? points : [p1, p2];
+	}
 	if (Math.abs(dx) >= Math.abs(dy)) {
 		// переход в основном горизонтальный — огибаем область сверху или снизу
 		const aboveY = blocker.minY - margin, belowY = blocker.maxY + margin;
@@ -3999,7 +4104,7 @@ function routeAroundAreas(p1, p2, areas, skipAreas) {
 		const t = (midX - p1.x) / (dx || 1e-6);
 		const lineY = p1.y + dy * t;
 		const y = Math.abs(lineY - aboveY) <= Math.abs(lineY - belowY) ? aboveY : belowY;
-		return [p1, { x: blocker.minX - margin, y: y }, { x: blocker.maxX + margin, y: y }, p2];
+		return sane([p1, { x: blocker.minX - margin, y: y }, { x: blocker.maxX + margin, y: y }, p2]);
 	}
 	// переход в основном вертикальный — огибаем область слева или справа
 	const leftX = blocker.minX - margin, rightX = blocker.maxX + margin;
@@ -4007,7 +4112,7 @@ function routeAroundAreas(p1, p2, areas, skipAreas) {
 	const t = (midY - p1.y) / (dy || 1e-6);
 	const lineX = p1.x + dx * t;
 	const x = Math.abs(lineX - leftX) <= Math.abs(lineX - rightX) ? leftX : rightX;
-	return [p1, { x: x, y: blocker.minY - margin }, { x: x, y: blocker.maxY + margin }, p2];
+	return sane([p1, { x: x, y: blocker.minY - margin }, { x: x, y: blocker.maxY + margin }, p2]);
 }
 
 // Галочки графа запоминаются на устройстве. Пока человек их не трогал, на телефоне
@@ -5686,6 +5791,11 @@ function buildGraphPanel(data, group, state) {
 	graphHide.add(hint, "graphHint", hint);
 	const routeIds = state.route ? state.route.path : null;
 	const filtered = applyResidenceFilter(data, group);
+	if (filtered.list.length === 0) {
+		wrap.innerHTML = '<p class="graph-empty">В выбранной области пока нет локаций</p>';
+		caption.textContent = filtered.label ? "ваш район: " + filtered.label : "";
+		return panel;
+	}
 	const stats = renderGraph(wrap, [{ section: group, list: filtered.list, color: group.color || GRAPH_COLORS[0] }], routeIds);
 	const parts = [];
 	if (filtered.label) parts.push("ваш район: " + filtered.label);
