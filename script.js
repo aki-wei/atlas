@@ -226,7 +226,8 @@ const LOCATION_TAGS = {
 	dive: { label: "Нырять", icon: "actions/58.png" },
 	healing: { label: "Целительская локация", isType: true, icon: "actions/128.png" },
 	safe: { label: "Безопасная локация (нельзя войти в боережим)", isType: true, icon: "actions/28.png" },
-	sleep: { label: "Спальная локация (переход 5 сек)", isType: true, icon: "actions/1.png", fixedSeconds: 5 }
+	sleep: { label: "Спальная локация (переход 5 сек)", isType: true, icon: "actions/1.png", fixedSeconds: 5 },
+	frolic: { label: "Резвиться и прыгать", icon: "actions/frolic.png" } // в скобках — необязательное уточнение (tag.note), напр. «бабочки»
 };
 
 const SPAWN_TAGS = {
@@ -242,7 +243,8 @@ const HUNT_TAGS = {
 	mice:   { label: "мыши",    icon: "actions/100.png" },
 	fish:   { label: "рыба",    icon: "actions/100.png" },
 	rabbit: { label: "кролики", icon: "actions/100.png" },
-	birds:  { label: "птицы",   icon: "actions/100.png" }
+	birds:  { label: "птицы",   icon: "actions/100.png" },
+	bats:   { label: "летучие мыши", icon: "actions/100.png" }
 };
 
 const POISON_HUNT_TAGS = {
@@ -309,6 +311,9 @@ function tagLabel(tag) {
 		const kindLabel = bot ? bot.label : (tag.botLabel || def.label);
 		return kindLabel + (tag.name ? " «" + tag.name + "»" : "") + (tag.bot === "combat" && tag.level ? " (" + tag.level + " бу)" : "");
 	}
+	if (tag.key === "frolic") {
+		return def.label + (tag.note ? " (" + tag.note + ")" : "");
+	}
 	if (def.hasLevel && tag.level !== undefined) {
 		return def.label + " (" + (def.levelUnit || "уровень") + " " + tag.level + ")";
 	}
@@ -368,6 +373,7 @@ function tagIdentity(tag) {
 	if (tag.key === "bot") parts.push(tag.bot || "", tag.name || "", tag.botLabel || "", tag.bot === "connector" ? (Array.isArray(tag.links) ? tag.links.map(String).sort().join(",") : "") : "", tag.bot === "combat" ? String(tag.level || "") : "");
 	if (tag.key === "custom") parts.push(tag.customLabel || "", tag.customKind || "");
 	if (tag.key === "climb" || tag.key === "swim") parts.push(String(tag.level));
+	if (tag.key === "frolic") parts.push(tag.note || "");
 	return parts.join("|");
 }
 
@@ -434,12 +440,13 @@ const CAN_HOVER = !!(window.matchMedia && window.matchMedia("(hover: hover)").ma
 
 // Ключ вида свойства для фильтра иконок на графе: имя бота не учитывается,
 // чтобы все «Блоггеры» (например) выбирались одним пунктом
-function tagFilterKey(tag) {
-	return tagIdentity(tag.key === "bot" ? Object.assign({}, tag, { name: "", links: [], level: undefined }) : tag);
+function tagForFilter(tag) {
+	if (tag.key === "bot") return Object.assign({}, tag, { name: "", links: [], level: undefined });
+	if (tag.key === "frolic") return Object.assign({}, tag, { note: "" });
+	return tag;
 }
-function tagFilterLabel(tag) {
-	return tagLabel(tag.key === "bot" ? Object.assign({}, tag, { name: "", links: [], level: undefined }) : tag);
-}
+function tagFilterKey(tag) { return tagIdentity(tagForFilter(tag)); }
+function tagFilterLabel(tag) { return tagLabel(tagForFilter(tag)); }
 function allTagsOfLocation(location) {
 	const out = (location.tags || []).slice();
 	Object.keys(location.deadends || {}).forEach(function(k) {
@@ -2781,6 +2788,16 @@ function createPropertyPicker(onAdd, options) {
 		}));
 	});
 
+	// «Резвиться и прыгать» — с необязательным уточнением в скобках
+	list.appendChild(makePropListButton(LOCATION_TAGS.frolic.icon, LOCATION_TAGS.frolic.label, function() {
+		const entered = prompt("Уточнение в скобках (необязательно, например: бабочки). Оставьте пустым, если не нужно:", "");
+		if (entered === null) return;
+		const tag = { key: "frolic" };
+		const note = entered.trim();
+		if (note) tag.note = note;
+		handleAdd(tag);
+	}));
+
 	function addHuntPicker(tagKey, kinds, def0, labelPh, kindPh, poison) {
 		const mainBtn = makePropListButton(def0.icon, def0.label, function() {
 			openSub();
@@ -3034,7 +3051,7 @@ function createPropertyPicker(onAdd, options) {
 // Кликабельны только свойства, у которых есть что менять (бот, охота, спавн,
 // своё свойство, лазание/плавание). Простые «флажки» (питьё, сон и т. п.)
 // редактировать нечего — их можно только убрать крестиком.
-const EDITABLE_PROP_KEYS = ["bot", "hunt", "poisonHunt", "spawn", "custom", "climb", "swim"];
+const EDITABLE_PROP_KEYS = ["bot", "hunt", "poisonHunt", "spawn", "custom", "climb", "swim", "frolic"];
 function propIsEditable(tag) { return !!tag && EDITABLE_PROP_KEYS.indexOf(tag.key) >= 0; }
 let propEditorSeq = 0;
 function closePropEditor(holder) {
@@ -3215,6 +3232,15 @@ function openPropEditor(holder, list, index, onDone) {
 			const next = { key: "custom", customLabel: label, icon: icon };
 			const kind = kindField.value.trim();
 			if (kind) next.customKind = kind;
+			return next;
+		};
+	} else if (tag.key === "frolic") {
+		const row = addRow();
+		const noteField = addField(row, "prop-frolic-note", "Уточнение в скобках (необязательно, напр. бабочки)", tag.note || "");
+		build = function() {
+			const next = { key: "frolic" };
+			const note = noteField.value.trim();
+			if (note) next.note = note;
 			return next;
 		};
 	} else { // climb / swim
