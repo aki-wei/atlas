@@ -742,7 +742,8 @@ function buildPropsBlock(kind, items) {
 		btn.setAttribute("aria-label", item.labelFn ? item.labelFn() : item.label);
 		const img = document.createElement("img");
 		img.className = item.cls;
-		img.src = item.src;
+		// абсолютный адрес: иначе в отдельном окне картинка, которой ещё нет в кэше, не грузится
+		img.src = new URL(item.src, document.baseURI).href;
 		img.alt = "";
 		btn.appendChild(img);
 		if (CAN_HOVER) {
@@ -1830,6 +1831,11 @@ function populateExternalWindow(extWin, data, route, titleText) {
 	const doc = extWin.document;
 	doc.head.innerHTML = "";
 	doc.body.innerHTML = "";
+	// у окна-«пустышки» нет адреса сайта, и относительные пути (иконки actions/*.png,
+	// шрифты fonts/*.ttf) не находятся: задаём базовый адрес главной страницы
+	const baseEl = doc.createElement("base");
+	baseEl.href = document.baseURI;
+	doc.head.appendChild(baseEl);
 	doc.title = titleText;
 	copyStylesTo(doc);
 	doc.documentElement.dataset.theme = document.documentElement.dataset.theme || "light";
