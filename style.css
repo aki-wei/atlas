@@ -22,6 +22,7 @@
 
 	--deadend: #484b52;
 	--self-loop: #4f9196;
+	--random-cell: #cd6e3c;
 	--hidden-cell: #7d6ba8;
 	--fast-cell: #b4963c;
 	--path-color: #a1518d;
@@ -333,6 +334,7 @@ button:active { transform: translateY(1px); }
 #map button.active, .point-map button.active, .graph-point-map button.active { background-color: var(--cell-active); }
 #map button.cell-deadend.active, .point-map button.cell-deadend.active { background-color: var(--deadend); }
 #map button.cell-self.active, .point-map button.cell-self.active { background-color: var(--self-loop); }
+#map button.cell-random.active, .point-map button.cell-random.active { background-color: var(--random-cell); }
 .point-map button.cell-hidden.active { background-color: var(--hidden-cell); }
 .point-map button.cell-fast.active { background-color: var(--fast-cell); }
 .point-map button.cell-next.active { background-color: var(--path-color); }
@@ -554,6 +556,7 @@ button:active { transform: translateY(1px); }
 .c-normal { fill: var(--cell-active); }
 .c-deadend { fill: var(--deadend); }
 .c-self { fill: var(--self-loop); }
+.c-random { fill: var(--random-cell); }
 .c-hidden { fill: var(--hidden-cell); }
 .c-fast { fill: var(--fast-cell); }
 .g-label {
@@ -639,7 +642,13 @@ button:active { transform: translateY(1px); }
 .gift-arrow { width: 10px; text-align: center; }
 .graph-icon-filter-list { margin-top: 6px; }
 .graph-icon-filter-list[hidden] { display: none; }
-.graph-icon-filter-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.graph-icon-filter-list { display: flex; flex-direction: column; gap: 2px; width: max-content; max-width: 100%; max-height: 280px; overflow-y: auto; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background-color: var(--surface-alt); }
+.gif-tools { display: flex; gap: 14px; padding-bottom: 4px; margin-bottom: 2px; border-bottom: 1px solid var(--border); }
+.gif-tool { width: auto; padding: 2px 0; border: none; background: none; font-size: 12px; color: var(--accent); cursor: pointer; }
+.gif-tool:hover { text-decoration: underline; }
+.gif-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: var(--text); cursor: pointer; }
+.gif-row input { margin: 0; cursor: pointer; }
+.gif-row img { width: 16px; height: 16px; object-fit: contain; }
 .gif-pill { display: inline-flex; align-items: center; gap: 6px; width: auto; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background-color: var(--surface-alt); color: var(--text-dim); font-size: 13px; }
 .gif-pill img { width: 16px; height: 16px; object-fit: contain; }
 .gif-pill.on { border-color: var(--accent); background-color: var(--accent-soft); color: var(--text); }
@@ -704,6 +713,7 @@ button:active { transform: translateY(1px); }
 .draft-mini-cell.type-crevice, .draft-mini-cell.type-hollow { background-color: var(--cell-active); }
 .draft-mini-cell.type-deadend { background-color: var(--deadend); }
 .draft-mini-cell.type-self { background-color: var(--self-loop); }
+.draft-mini-cell.type-random { background-color: var(--random-cell); }
 .draft-mini-cell.type-hidden { background-color: var(--hidden-cell); }
 .draft-mini-cell.type-fast { background-color: var(--fast-cell); }
 .draft-mini-cell.current { outline: 2px solid var(--route-color); outline-offset: -2px; }
@@ -1192,6 +1202,10 @@ button:active { transform: translateY(1px); }
 .g-icon-layer image, .g-icon-layer .g-icon-more { pointer-events: auto; }
 .graph-sections { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 8px; }
 .graph-sections-opts { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px 18px; padding-left: 22px; }
+.graph-sections-tools { display: inline-flex; align-items: center; gap: 6px; margin-left: -10px; }
+.graph-sections-tool { width: auto; padding: 1px 8px; font-size: 11px; line-height: 1.5; background: transparent; color: var(--text-dim); border-radius: 5px; }
+.graph-sections-tool:hover { color: var(--accent); border-color: var(--accent); }
+.draft-group-fold-gap { flex: 0 0 22px; width: 22px; height: 22px; }
 .graph-sections-warn { flex-basis: 100%; margin: 0; font-size: 0.85em; color: var(--accent, #d9a441); }
 /* ---- Подгруппы маршрута (сворачиваемые части длинного пути) ---- */
 .path-cards-grouped { display: block; }
@@ -1240,3 +1254,28 @@ button:active { transform: translateY(1px); }
 	font-size: max(8px, calc(13px * var(--ui-scale, 1))); line-height: 1.25; border-radius: calc(5px * var(--ui-scale, 1));
 }
 .ext-props-tip { position: fixed; z-index: 1000; background-color: var(--surface); color: var(--text); border: 1px solid var(--accent-dim); box-shadow: 0 4px 12px rgba(0,0,0,0.35); pointer-events: none; }
+/* Случайный переход в «Рыбе» */
+.random-field { display: flex; flex-direction: column; gap: 8px; }
+.random-field[hidden] { display: none; }
+.draft-random-pick[hidden] { display: none; }
+.draft-random-pick { display: flex; flex-direction: column; gap: 10px; }
+.draft-random-group-list { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; padding: 4px 2px; }
+.draft-random-group-list .draft-check { font-size: 13px; color: var(--text-dim); }
+/* Рыба: случайный переход — выбор локаций и целых подгрупп */
+.random-picker { flex: 1 1 100%; display: flex; flex-direction: column; gap: 6px; }
+.random-picker .draft-target-panel { position: static; margin-top: 0; box-shadow: none; }
+.draft-rp-folder-row { display: flex; align-items: center; gap: 4px; padding-right: 4px; }
+.draft-rp-folder-row .draft-target-folder { flex: 1 1 auto; min-width: 0; width: auto; padding-left: 4px; }
+.draft-rp-folder-row input[type="checkbox"], .draft-rp-item input[type="checkbox"] { flex: 0 0 auto; width: 16px; height: 16px; margin: 0; padding: 0; accent-color: var(--accent); cursor: pointer; }
+.random-picker .draft-target-search { width: calc(100% - 12px); box-sizing: border-box; }
+.random-picker .draft-target-list { overscroll-behavior: contain; }
+.draft-rp-item { user-select: none; }
+.draft-rp-gap { flex: 0 0 13px; }
+.draft-rp-item.covered { opacity: 0.6; cursor: default; }
+
+/* Граф: отсечение невидимого и уровни детализации (см. updateCulling / updateLod) */
+.g-cull { display: none; }
+.graph-svg.lod-icons .g-icons { display: none; }
+.graph-svg.lod-far .g-label-group { display: none; }
+.graph-svg.lod-far .g-edge.one { marker-end: none; }
+.graph-svg.lod-far .g-edge { stroke-dasharray: none; }
