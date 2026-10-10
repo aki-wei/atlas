@@ -45,32 +45,56 @@ const groups = [
 // для будущих карт можно просто дописать. Заголовок без группы-одиночки —
 // только подпись, выбираются пункты внутри
 const TUNNEL_PREFIXES = ["Туннели", "Воющие коридоры", "Ледяной Плен", "Ледяной плен"];
+// Лабиринты 7ДЛ (id подгруппы без суффикса — нижний лабиринт, с «_vl» — верхний)
+const LABYRINTHS = [
+	["labirint_zabveniya", "Лабиринт Забвения"], ["labirint_slabosti", "Лабиринт Слабости"],
+	["labirint_bessiliya", "Лабиринт Бессилия"], ["labirint_vnimatelnosti", "Лабиринт Внимательности"],
+	["labirint_iskusheniy", "Лабиринт Искушений"], ["labirint_temnoty", "Лабиринт Темноты"],
+	["labirint_zhazhdy", "Лабиринт Жажды"], ["velikiy_put", "Великий путь"],
+	["labirint_ostryh_zubev", "Лабиринт Острых зубьев"], ["labirint_znoya", "Лабиринт Зноя"],
+	["labirint_bezumnyh_voln", "Лабиринт Безумных волн"]
+];
+// Оазисы входят в прилегающие лабиринты: на графе показывается оазис рядом с выбранным лабиринтом.
+// fam — пункт относится к «нейтральной семье» (нейтры, 7ДЛ, деревни и тропы); sec — галочка раздела на графе
+function labyrinthItems(side) {
+	return LABYRINTHS.map(function(l) {
+		const id = l[0] + (side === "vl" ? "_vl" : "");
+		return { key: "7dl:" + side + ":" + l[0], label: l[1], area: id, sec: id, fam: true };
+	});
+}
 const RESIDENCES = [
 	{ title: "Озёрная вселенная", group: "ov", items: [
 		{ key: "ov:all", label: "Вся вселенная" },
 		{ label: "Нейтры", children: [
-			{ key: "ov:neutral", label: "Все нейтры", area: "neutral" },
-			{ key: "ov:village", label: "Посёлок (одиночки)", area: "village" },
-			{ key: "ov:city", label: "Город (одиночки)", area: "city" },
-			{ key: "ov:mountains", label: "Горы", area: "neutral", prefixes: ["Горы"] },
-			{ key: "ov:tunnels", label: "Туннели", area: "neutral", prefixes: TUNNEL_PREFIXES }
+				// подгруппы нейтров (Посёлок, Город, Горы, Туннели и т. д.) подставляются из JSON-файла,
+				// см. expandResidenceItems; fallbackKids — на случай, пока файл не загружен
+				{ key: "ov:neutral", label: "Все нейтры", area: "neutral", inlineKids: true, fallbackKids: [
+					{ key: "sg:ov:village", label: "Посёлок (одиночки)", subId: "village" },
+					{ key: "sg:ov:city", label: "Город (одиночки)", subId: "city" },
+					{ key: "sg:ov:~Горы", label: "Горы", subId: "~Горы" },
+					{ key: "sg:ov:~Туннели", label: "Туннели", subId: "~Туннели" }
+				] },
+				{ label: "Семидневный лабиринт (7ДЛ)", children: [
+					{ key: "7dl:vl", label: "Верхний лабиринт (весь)", area: "verkhniy_labirint", sec: "7dl_vl", fam: true },
+					{ label: "Верхний лабиринт: отдельные лабиринты", children: labyrinthItems("vl") },
+					{ key: "7dl:nl", label: "Нижний лабиринт (весь)", area: "nizhniy_labirint", sec: "7dl_nl", fam: true },
+					{ label: "Нижний лабиринт: отдельные лабиринты", children: labyrinthItems("nl") }
+				] },
+				{ label: "Деревня и тропы", children: [
+					{ key: "derevnya:old", label: "Старая деревня", area: "staraya_derevnya", sec: "staraya_derevnya", fam: true },
+					{ key: "7dl:newvillage", label: "Новая деревня", area: "novaya_derevnya", sec: "novaya_derevnya", fam: true },
+					{ key: "derevnya:paths", label: "Горные тропки", area: "gornye_tropki", sec: "gornye_tropki", fam: true }
+				] }
+			] },
+		{ key: "ov:egida", label: "Эгида (Грозовое племя и Племя Теней)", wholeLabel: "Вся Эгида", area: "egida", commonTribe: true, fallbackKids: [
+			{ key: "sg:ov:~Грозовое племя", label: "Грозовое племя", subId: "~Грозовое племя" },
+			{ key: "sg:ov:~Племя Теней", label: "Племя Теней", subId: "~Племя Теней" }
 		] },
-		{ key: "ov:thunder", label: "Грозовое племя", area: "egida", commonTribe: true },
 		{ key: "ov:river", label: "Речное племя", area: "river" },
 		{ key: "ov:wind", label: "Племя Ветра", area: "wind" },
-		{ key: "ov:shadow", label: "Племя Теней", area: "egida", commonTribe: true },
 		{ key: "ov:kpv", label: "Клан Падающей Воды", area: "kpv" },
 		{ key: "ov:sk", label: "Северный клан", area: "sk" },
 		{ key: "ov:home", label: "Домашние" }
-	] },
-	{ title: "Семидневный лабиринт (7ДЛ)", group: "ov", items: [
-		{ key: "7dl:vl", label: "Верхний лабиринт", area: "verkhniy_labirint" },
-		{ key: "7dl:nl", label: "Нижний лабиринт", area: "nizhniy_labirint" },
-		{ key: "7dl:newvillage", label: "Новая деревня", area: "novaya_derevnya" }
-	] },
-	{ title: "Деревня и тропы", group: "ov", items: [
-		{ key: "derevnya:old", label: "Старая деревня", area: "staraya_derevnya" },
-		{ key: "derevnya:paths", label: "Горные тропки", area: "gornye_tropki" }
 	] },
 	{ title: "Морская вселенная", group: "ov", items: [
 		{ key: "mv:all", label: "Вся вселенная" },
@@ -108,6 +132,26 @@ function matchesNeutralSub(sa, id) {
 	if (idHasPrefix(id, sa.prefixes)) return true;
 	return !!sa.takesRest && !NEUTRAL_SUBAREAS.some(function(other) { return other !== sa && idHasPrefix(id, other.prefixes); });
 }
+// Подобласти нейтров (Горы, Туннели и т. п.) берутся из JSON — вложенные подгруппы нейтров.
+// Если в файле их нет, остаётся прежнее деление по началу id (NEUTRAL_SUBAREAS)
+function neutralKidsOf(subgroups) {
+	const sub = (subgroups || []).find(function(s) { return s && String(s.id) === "neutral"; });
+	if (!sub || !sub.foldedKids) return null;
+	const kids = sub.foldedKids.filter(function(k) { return String(k.parent) === "neutral" && Array.isArray(k.ids) && k.ids.length > 0; });
+	return kids.length > 0 ? kids : null;
+}
+function neutralSubDefs(subgroups) {
+	const kids = neutralKidsOf(subgroups);
+	if (kids) {
+		return { fromJson: true, defs: kids.map(function(k) {
+			const set = new Set(k.ids.map(String));
+			return { label: k.name, match: function(id) { return set.has(String(id)); } };
+		}) };
+	}
+	return { fromJson: false, defs: NEUTRAL_SUBAREAS.map(function(sa) {
+		return { label: sa.label, match: function(id) { return matchesNeutralSub(sa, id); } };
+	}) };
+}
 function idHasPrefix(id, prefixes) {
 	id = String(id);
 	return prefixes.some(function(p) { return id.indexOf(p) === 0; });
@@ -127,20 +171,126 @@ function flatResidenceItems(items, out) {
 	});
 	return out;
 }
+// Старые ключи мест жительства (до перехода на подгруппы из JSON)
+// Если подгруппы «Горы» / «Туннели» не нашлись в JSON по названию — прежнее деление по началу id
+const LEGACY_EGIDA_SUBS = ["~Грозовое племя", "~Племя Теней"]; // не нашлись в JSON — вся Эгида, как раньше
+const LEGACY_SUB_PREFIXES = { "~Горы": ["Горы"], "~Туннели": TUNNEL_PREFIXES };
+const LEGACY_RESIDENCE_KEYS = {
+	"ov:village": "sg:ov:village", "ov:city": "sg:ov:city",
+	"ov:mountains": "sg:ov:~Горы", "ov:tunnels": "sg:ov:~Туннели",
+	"ov:thunder": "sg:ov:~Грозовое племя", "ov:shadow": "sg:ov:~Племя Теней"
+};
+// Пункты, созданные из подгрупп JSON: ключ «sg:<вкладка>:<id подгруппы>» (id с «~» впереди — поиск по названию)
+const dynamicResidenceItems = new Map();
 function residenceByKey(key) {
+	key = LEGACY_RESIDENCE_KEYS[key] || key;
 	for (let i = 0; i < RESIDENCES.length; i++) {
 		const flat = flatResidenceItems(RESIDENCES[i].items);
 		for (let j = 0; j < flat.length; j++) {
 			if (flat[j].key === key) return { block: RESIDENCES[i], item: flat[j] };
 		}
 	}
+	const m = /^sg:([^:]+):(.+)$/.exec(String(key));
+	if (m) {
+		const block = RESIDENCES.find(function(b) { return b.group === m[1]; });
+		if (block) {
+			const item = dynamicResidenceItems.get(key) || { key: key, label: m[2].replace(/^~/, ""), area: m[2], subId: m[2] };
+			return { block: block, item: item };
+		}
+	}
 	return null;
+}
+// Подгруппа по id (или по названию, если subId начинается с «~»): верхняя область и,
+// если это вложенная («свёрнутая») подгруппа — она сама
+function findSubgroupRef(sgs, subId) {
+	sgs = sgs || [];
+	subId = String(subId);
+	const byName = subId.charAt(0) === "~";
+	const needle = byName ? subId.slice(1).toLowerCase() : subId;
+	const same = function(id, name) { return byName ? String(name).toLowerCase() === needle : String(id) === needle; };
+	for (let i = 0; i < sgs.length; i++) if (sgs[i] && same(sgs[i].id, sgs[i].name)) return { top: sgs[i], kid: null };
+	for (let i = 0; i < sgs.length; i++) {
+		const kids = (sgs[i] && sgs[i].foldedKids) || [];
+		for (let j = 0; j < kids.length; j++) if (same(kids[j].id, kids[j].name)) return { top: sgs[i], kid: kids[j] };
+	}
+	return null;
+}
+// Прямые дочерние подгруппы: вложенные (foldedKids) и по parentGroup
+function subChildrenOf(sgs, id) {
+	sgs = sgs || [];
+	id = String(id);
+	const out = [], seen = new Set();
+	const push = function(cid, name, sg) {
+		cid = String(cid);
+		if (seen.has(cid) || cid === id) return;
+		seen.add(cid);
+		out.push({ id: cid, name: name ? String(name) : cid, sg: sg });
+	};
+	sgs.forEach(function(sg) {
+		(sg.foldedKids || []).forEach(function(k) { if (String(k.parent) === id) push(k.id, k.name, null); });
+	});
+	areaChildIds(sgs, id).forEach(function(cid) {
+		const c = sgs.find(function(x) { return String(x.id) === String(cid); });
+		if (c) push(c.id, c.name, c);
+	});
+	return out;
+}
+// Подгруппы из JSON, подставляемые в места жительства. Уже заданные вручную области
+// (лабиринты, деревни, племена) и разделы с галочками (section) пропускаем — они есть в списке
+function residenceSkipIds() {
+	const skip = new Set();
+	RESIDENCES.forEach(function(b) {
+		flatResidenceItems(b.items).forEach(function(it) { if (it.area) skip.add(String(it.area)); if (it.sec) skip.add(String(it.sec)); });
+	});
+	skip.delete("neutral");
+	return skip;
+}
+function residenceKidNode(gid, subs, kid, ancestors, skip, depth) {
+	const key = "sg:" + gid + ":" + kid.id;
+	const item = { key: key, label: kid.name, area: kid.id, subId: kid.id, ancestors: ancestors };
+	dynamicResidenceItems.set(key, item);
+	if (depth > 6) return item;
+	const subKids = subChildrenOf(subs, kid.id).filter(function(k) {
+		return !skip.has(k.id) && ancestors.indexOf("sg:" + gid + ":" + k.id) < 0 && !(k.sg && k.sg.section);
+	});
+	if (subKids.length === 0) return item;
+	return { label: kid.name, children: [Object.assign({}, item, { label: "Вся подгруппа «" + kid.name + "»" })]
+		.concat(subKids.map(function(k) { return residenceKidNode(gid, subs, k, ancestors.concat(key), skip, depth + 1); })) };
+}
+// Копия списка пунктов, в которую добавлены подгруппы из JSON (subs — подгруппы файла вкладки)
+function expandResidenceItems(gid, items, subs, skip) {
+	const out = [];
+	items.forEach(function(item) {
+		if (item.children) { out.push(Object.assign({}, item, { children: expandResidenceItems(gid, item.children, subs, skip) })); return; }
+		const base = Object.assign({}, item, { ancestors: [] });
+		if (!item.area || item.sec || item.fam) { out.push(base); return; }
+		const kids = subs ? subChildrenOf(subs, item.area).filter(function(k) { return !skip.has(k.id) && !(k.sg && k.sg.section); }) : [];
+		const nodes = kids.map(function(k) { return residenceKidNode(gid, subs, k, [item.key], skip, 0); });
+		if (nodes.length === 0 && item.fallbackKids) {
+			item.fallbackKids.forEach(function(f) { nodes.push(Object.assign({ area: f.subId, ancestors: [item.key] }, f)); });
+		}
+		if (nodes.length === 0) { out.push(base); return; }
+		if (item.inlineKids) { out.push(base); nodes.forEach(function(n) { out.push(n); }); return; }
+		out.push({ label: item.label, children: [Object.assign({}, base, { label: item.wholeLabel || ("Всё: " + item.label) })].concat(nodes) });
+	});
+	return out;
+}
+// Подгруппы файла вкладки (для настроек): грузятся один раз
+const residenceSubgroups = {};
+const residenceSubgroupsLoading = {};
+function loadResidenceSubgroups(groupId) {
+	if (residenceSubgroupsLoading[groupId]) return residenceSubgroupsLoading[groupId];
+	const g = groups.find(function(x) { return x.id === groupId; });
+	residenceSubgroupsLoading[groupId] = (g && g.files && g.files.length ? loadGroupData(g) : Promise.resolve({ list: [] }))
+		.then(function(r) { residenceSubgroups[groupId] = (r.list && r.list.subgroups) || []; return residenceSubgroups[groupId]; })
+		.catch(function() { residenceSubgroups[groupId] = []; return []; });
+	return residenceSubgroupsLoading[groupId];
 }
 
 // Фильтр графа по месту жительства: если живёшь в Посёлке/Городе/Горах и т. п.,
 // на графе своей вкладки показывается только эта область карты
 function applyResidenceFilter(list, group) {
-	const none = { list: list, label: null };
+	const none = { list: list, label: null, withSections: true };
 	const picked = (settings.residences || []).map(residenceByKey).filter(function(f) {
 		return f && f.block.group === group.id;
 	});
@@ -154,18 +304,37 @@ function applyResidenceFilter(list, group) {
 	// целиком (даже когда у самого племени в файле пока нет локаций)
 	const COMMON_TRIBES = ["thunder", "river", "wind", "shadow"];
 	let wantCommon = false;
+	let neutralPicked = false;
 	picked.forEach(function(f) {
 		const item = f.item;
-		const tribeOfCommon = COMMON_TRIBES.indexOf(item.area) >= 0 || !!item.commonTribe;
+		// пункт из подгрупп JSON: верхняя область и (если выбрана вложенная подгруппа) она сама
+		let area = item.area, kid = null, itemLabel = item.label, prefixes = item.prefixes || null;
+		if (item.subId) {
+			const ref = findSubgroupRef(list.subgroups, item.subId);
+			if (ref) {
+				area = ref.top.id; kid = ref.kid;
+				itemLabel = String((kid || ref.top).name || item.label);
+			} else if (LEGACY_EGIDA_SUBS.indexOf(item.subId) >= 0) {
+				area = "egida";
+			} else if (LEGACY_SUB_PREFIXES[item.subId]) {
+				area = "neutral"; prefixes = LEGACY_SUB_PREFIXES[item.subId];
+			} else return;
+		}
+		if (String(area) === "neutral") neutralPicked = true;
+		const tribeOfCommon = COMMON_TRIBES.indexOf(area) >= 0 || !!item.commonTribe || (!!item.subId && String(area) === "egida");
 		if (tribeOfCommon) wantCommon = true;
-		const sub = (list.subgroups || []).find(function(x) { return x.id === item.area; });
+		const sub = (list.subgroups || []).find(function(x) { return x.id === area; });
 		if (!sub || !sub.ids || sub.ids.length === 0) {
-			if (tribeOfCommon) labels.push(item.label);
+			if (tribeOfCommon) labels.push(itemLabel);
 			return;
 		}
 		let ids = sub.ids.map(String);
-		if (item.prefixes) ids = ids.filter(function(id) { return idHasPrefix(id, item.prefixes); });
-		else areaChildIds(list.subgroups, item.area).forEach(function(childId) {
+		if (kid) {
+			const kidSet = new Set((kid.ids || []).map(String));
+			ids = ids.filter(function(id) { return kidSet.has(id); });
+		}
+		else if (prefixes) ids = ids.filter(function(id) { return idHasPrefix(id, prefixes); });
+		else areaChildIds(list.subgroups, area).forEach(function(childId) {
 			// «Нейтры» охватывают Посёлок и Город — они остаются отдельными областями внутри
 			const child = (list.subgroups || []).find(function(x) { return x.id === childId; });
 			if (!child || !child.ids || child.ids.length === 0) return;
@@ -175,8 +344,26 @@ function applyResidenceFilter(list, group) {
 		if (ids.length === 0) return;
 		if (!byArea.has(sub.id)) byArea.set(sub.id, { sub: sub, ids: new Set() });
 		ids.forEach(function(id) { byArea.get(sub.id).ids.add(id); });
-		labels.push(item.label);
+		labels.push(itemLabel);
 	});
+	// Нейтры, 7ДЛ, деревни и тропы — одна «семья»: если выбрано что-то из неё, на графе
+	// остаются галочки разделов (7ДЛ и деревни по умолчанию свёрнуты, пока их не выбрали)
+	const NEUTRAL_FAMILY_KEYS = ["ov:neutral"];
+	const withFamily = neutralPicked || picked.some(function(f) {
+		if (f.item.fam || NEUTRAL_FAMILY_KEYS.indexOf(f.item.key) >= 0) return true;
+		if (!f.item.subId) return false;
+		const ref = findSubgroupRef(list.subgroups, f.item.subId);
+		return !!ref && (String(ref.top.id) === "neutral" || ["city", "village"].indexOf(String(ref.top.id)) >= 0);
+	});
+	if (withFamily) {
+		(list.subgroups || []).forEach(function(sub) {
+			const root = Array.isArray(sub.secPath) ? sub.secPath[0] : sub.section;
+			if (root !== "7dl" && root !== "derevnya") return;
+			if (!sub.ids || sub.ids.length === 0) return;
+			if (!byArea.has(sub.id)) byArea.set(sub.id, { sub: sub, ids: new Set() });
+			sub.ids.forEach(function(id) { byArea.get(sub.id).ids.add(String(id)); });
+		});
+	}
 	if (wantCommon) {
 		// озеро племён теперь вложено в область «Племена» (берега + озеро — одна область)
 		["plemena", "common"].forEach(function(commonId) {
@@ -195,7 +382,7 @@ function applyResidenceFilter(list, group) {
 		const empty = [];
 		empty.subgroups = []; empty.parents = list.parents; empty.clans = list.clans;
 		empty.areaLayout = list.areaLayout; empty.areaRows = list.areaRows; empty.areaOrder = list.areaOrder;
-		return { list: empty, label: label };
+		return { list: empty, label: label, withSections: false };
 	};
 	if (byArea.size === 0) return emptyResult();
 	const all = new Set();
@@ -211,10 +398,23 @@ function applyResidenceFilter(list, group) {
 	out.areaLayout = list.areaLayout;
 	out.areaRows = list.areaRows;
 	out.areaOrder = list.areaOrder;
-	return { list: out, label: label };
+	out.sections = list.sections;
+	return { list: out, label: label, withSections: withFamily };
 }
 
 const commonHints = { "С": "Сам в себя", "Т": "Тупик" };
+// Случайный переход: ведёт в случайную локацию (из выбранных локаций, подгрупп или из всех).
+// В файле — строка «Случайный» в transitions, а что именно доступно — в location.randoms[клетка]:
+// { all: true } или { ids: [...], groups: [...] }. Подсказка — случайные символы случайной длины
+const RANDOM_TRANSITION = "Случайный";
+const RANDOM_HINT_MIN = 3, RANDOM_HINT_MAX = 12; // длина подсказки: чтобы не растягивать страницу
+const RANDOM_HINT_CHARS = "абвгдежзиклмнопрстуфхцчшэюяАБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЭЮЯabcdefghijklmnopqrstuvwxyz0123456789?!#$%&*+=~<>№@";
+function randomHint() {
+	const len = RANDOM_HINT_MIN + Math.floor(Math.random() * (RANDOM_HINT_MAX - RANDOM_HINT_MIN + 1));
+	let out = "";
+	for (let i = 0; i < len; i++) out += RANDOM_HINT_CHARS.charAt(Math.floor(Math.random() * RANDOM_HINT_CHARS.length));
+	return out;
+}
 
 // ============================================================
 //  Функции и типы локаций (тэги)
@@ -464,13 +664,19 @@ const CAN_HOVER = !!(window.matchMedia && window.matchMedia("(hover: hover)").ma
 
 // Ключ вида свойства для фильтра иконок на графе: имя бота не учитывается,
 // чтобы все «Блоггеры» (например) выбирались одним пунктом
-function tagForFilter(tag) {
-	if (tag.key === "bot") return Object.assign({}, tag, { name: "", links: [], level: undefined });
-	if (tag.key === "frolic") return Object.assign({}, tag, { note: "" });
-	return tag;
+// Иконки одного типа — один пункт: все лазалки (любой высоты), все боты (любого вида),
+// вся охота, весь спавн и т. д. Отдельно остаются только «свои» свойства — по названию
+const FILTER_TYPE_LABELS = {
+	bot: "Боты", climb: "Лазательные локации", swim: "Плавательные локации", spawn: "Спавн",
+	hunt: "Охота", poisonHunt: "Охота на ядовитую дичь", frolic: "Резвиться и прыгать"
+};
+function tagFilterKey(tag) { return tag.key === "custom" ? tagIdentity(tag) : tag.key; }
+function tagFilterLabel(tag) {
+	if (tag.key === "custom") return tagLabel(tag);
+	if (FILTER_TYPE_LABELS[tag.key]) return FILTER_TYPE_LABELS[tag.key];
+	const def = LOCATION_TAGS[tag.key];
+	return def ? def.label : tagLabel(tag);
 }
-function tagFilterKey(tag) { return tagIdentity(tagForFilter(tag)); }
-function tagFilterLabel(tag) { return tagLabel(tagForFilter(tag)); }
 function allTagsOfLocation(location) {
 	const out = (location.tags || []).slice();
 	Object.keys(location.deadends || {}).forEach(function(k) {
@@ -656,6 +862,7 @@ function getTransitionType(transition) {
 	const normalized = normalizeAbbrev(transition);
 	if (normalized === "Т") return "deadend";
 	if (normalized === "С") return "self";
+	if (normalized === RANDOM_TRANSITION) return "random";
 	return "normal";
 }
 
@@ -668,6 +875,7 @@ function getTransitionTitle(data, location, transition, cellIndex) {
 			const info = location.deadends[String(cellIndex)];
 			if (info && info.name) return info.name;
 		}
+		if (normalized === RANDOM_TRANSITION) return randomHint();
 		const hints = hintsOf(data);
 		if (hints[normalized]) return hints[normalized];
 	}
@@ -812,13 +1020,14 @@ function applyLocationInfo(cells, activeIndices, data, location) {
 	activeIndices.forEach(function(cellIndex, transitionIndex) {
 		const cell = cells[cellIndex];
 		const transition = location.transitions[transitionIndex];
-		cell.classList.remove("cell-deadend", "cell-self");
+		cell.classList.remove("cell-deadend", "cell-self", "cell-random");
 		cell.removeAttribute("title");
 		if (transition === undefined) return;
 		cell.title = getTransitionTitle(data, location, transition, cellIndex);
 		const type = getTransitionType(transition);
 		if (type === "deadend") cell.classList.add("cell-deadend");
 		else if (type === "self") cell.classList.add("cell-self");
+		else if (type === "random") cell.classList.add("cell-random");
 	});
 	if (cells.length > 0) renderLocationTags(cells[0].closest(".map-holder"), location);
 }
@@ -827,7 +1036,7 @@ function paintRevealedLocation(map, data, location) {
 	const cells = map.querySelectorAll("button");
 	const activeIndices = [];
 	cells.forEach(function(cell) {
-		cell.classList.remove("active", "cell-deadend", "cell-self");
+		cell.classList.remove("active", "cell-deadend", "cell-self", "cell-random");
 		cell.removeAttribute("title");
 		cell.disabled = false;
 	});
@@ -846,8 +1055,9 @@ function paintRevealedLocation(map, data, location) {
 function computeRouteScope(data, group) {
 	const none = { allowed: null, text: null };
 	if (!group || group.id !== "ov" || !data.subgroups) return none;
-	const picked = (settings.residences || []).filter(function(k) { return k.indexOf("ov:") === 0; })
-		.map(residenceByKey).filter(Boolean);
+	const picked = (settings.residences || []).map(residenceByKey).filter(function(f) {
+		return f && (f.item.key.indexOf("ov:") === 0 || (!!f.item.subId && f.block.group === "ov"));
+	});
 	if (picked.length === 0) return none;
 	if (picked.some(function(f) { return f.item.key === "ov:all"; })) {
 		return { allowed: null, text: "Сейчас маршрут ищется по всей вселенной." };
@@ -859,9 +1069,22 @@ function computeRouteScope(data, group) {
 	// только если выбрано одно из этих племён
 	const COMMON_TRIBES = ["thunder", "river", "wind", "shadow"];
 	picked.forEach(function(f) {
-		const a = f.item.area;
-		if (a && ["neutral", "city", "village"].indexOf(a) < 0 && areas.indexOf(a) < 0) { areas.push(a); tribes.push(f.item.label); }
-		if (a && (COMMON_TRIBES.indexOf(a) >= 0 || f.item.commonTribe) && areas.indexOf("common") < 0) { areas.push("common"); areas.push("plemena"); }
+		let a = f.item.area;
+		let tribeLabel = f.item.label;
+		if (f.item.subId) {
+			// пункт из подгрупп JSON: берём верхнюю область, в которой лежит подгруппа
+			const ref = findSubgroupRef(data.subgroups, f.item.subId);
+			a = ref ? String(ref.top.id) : null;
+			if (ref) tribeLabel = String((ref.kid || ref.top).name || tribeLabel);
+		}
+		if (a && ["neutral", "city", "village"].indexOf(a) < 0 && areas.indexOf(a) < 0) { areas.push(a); tribes.push(tribeLabel); }
+		if (a && (COMMON_TRIBES.indexOf(a) >= 0 || a === "egida" || f.item.commonTribe) && areas.indexOf("common") < 0) { areas.push("common"); areas.push("plemena"); }
+	});
+	// вложенные подгруппы выбранных областей (лабиринты внутри верхнего/нижнего лабиринта)
+	areas.slice().forEach(function(a) {
+		// обычные нейтры/Город/Посёлок не расширяем: 7ДЛ и деревни — отдельный выбор
+		if (a === "neutral" || a === "city" || a === "village") return;
+		areaChildIds(data.subgroups, a).forEach(function(c) { if (areas.indexOf(c) < 0) areas.push(c); });
 	});
 	const allowed = new Set();
 	data.subgroups.forEach(function(sub) {
@@ -1133,13 +1356,14 @@ function createRouteCard(data, location, nextId, tags, showIcons, botNote) {
 		const type = getTransitionType(transition);
 		if (type === "deadend") cell.classList.add("cell-deadend");
 		else if (type === "self") cell.classList.add("cell-self");
+		else if (type === "random") cell.classList.add("cell-random");
 		else {
 			// невидимые и «пятисекундные» переходы окрашиваем своими цветами из настроек
 			const cellType = location.cellTypes && location.cellTypes[index];
 			if (cellType === "hidden") cell.classList.add("cell-hidden");
 			else if (cellType === "fast") cell.classList.add("cell-fast");
 		}
-		if (type !== "deadend" && type !== "self" && nextId !== undefined) {
+		if (type !== "deadend" && type !== "self" && type !== "random" && nextId !== undefined) {
 			const destination = findLocationById(data, transition);
 			if (destination && String(destination.id) === String(nextId)) cell.classList.add("cell-next");
 		}
@@ -1533,6 +1757,8 @@ function enableCustomTooltips(root) {
 		tip.style.top = Math.max(4, Math.min(e.clientY + 16, view.innerHeight - tip.offsetHeight - 6)) + "px";
 	}
 	root.addEventListener("mouseover", function(e) {
+		const rnd = e.target.closest(".cell-random");
+		if (rnd) rnd.setAttribute("title", randomHint());
 		const fresh = e.target.closest("[title]");
 		if (fresh) { fresh.dataset.tip = fresh.getAttribute("title"); fresh.removeAttribute("title"); }
 		const element = e.target.closest("[data-tip]");
@@ -1731,7 +1957,7 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 	function paintCode(location) {
 		const cells = map.querySelectorAll("button");
 		cells.forEach(function(cell) {
-			cell.classList.remove("active", "cell-deadend", "cell-self");
+			cell.classList.remove("active", "cell-deadend", "cell-self", "cell-random");
 			cell.removeAttribute("title");
 		});
 		const activeIndices = [];
@@ -1743,6 +1969,7 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 			const type = getTransitionType(transition);
 			if (type === "deadend") cells[cellIndex].classList.add("cell-deadend");
 			else if (type === "self") cells[cellIndex].classList.add("cell-self");
+			else if (type === "random") cells[cellIndex].classList.add("cell-random");
 		});
 	}
 	function showTitles(location) {
@@ -1770,7 +1997,7 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 	function resetPicker() {
 		const cells = map.querySelectorAll("button");
 		cells.forEach(function(cell) {
-			cell.classList.remove("cell-deadend", "cell-self");
+			cell.classList.remove("cell-deadend", "cell-self", "cell-random");
 			cell.removeAttribute("title");
 		});
 		selected = null;
@@ -1986,6 +2213,7 @@ const DEFAULT_COLORS = {
 	normal: "rgba(120, 135, 65, 1)",
 	deadend: "rgba(72, 75, 82, 1)",
 	self: "rgba(79, 145, 150, 1)",
+	random: "rgba(205, 110, 60, 1)",
 	hidden: "rgba(125, 107, 168, 1)",
 	fast: "rgba(180, 150, 60, 1)",
 	next: "rgba(161, 81, 141, 1)"
@@ -1995,6 +2223,7 @@ const COLOR_VARS = {
 	normal: "--cell-active",
 	deadend: "--deadend",
 	self: "--self-loop",
+	random: "--random-cell",
 	hidden: "--hidden-cell",
 	fast: "--fast-cell",
 	next: "--path-color"
@@ -2003,6 +2232,7 @@ const COLOR_LABELS = [
 	["normal", "Обычный переход"],
 	["deadend", "Тупик"],
 	["self", "Переход сам в себя"],
+	["random", "Случайный переход"],
 	["hidden", "Невидимый переход"],
 	["fast", "Переход 5 сек"],
 	["next", "Переход в следующую локацию маршрута"]
@@ -2032,7 +2262,9 @@ function loadSettings() {
 		if (typeof saved.homeland === "string") result.homeland = saved.homeland;
 		// Место жительства — конкретный пункт (племя и т. п.); если его нет
 		// (старые настройки), берём первый пункт той вкладки, что была выбрана
-		let keys = Array.isArray(saved.residences) ? saved.residences : [];
+		const fixKey = function(k) { return typeof k === "string" ? (LEGACY_RESIDENCE_KEYS[k] || k) : k; };
+		let keys = Array.isArray(saved.residences) ? saved.residences.map(fixKey) : [];
+		if (typeof saved.residence === "string") saved.residence = fixKey(saved.residence);
 		if (typeof saved.residence === "string") keys.push(saved.residence);
 		keys = keys.filter(function(k, i) { return typeof k === "string" && residenceByKey(k) && keys.indexOf(k) === i; });
 		if (keys.length === 0) {
@@ -2245,6 +2477,7 @@ const DRAFT_CELL_TYPES = [
 	{ key: "fast",    label: "Переход 5 сек" },
 	{ key: "deadend", label: "Тупик" },
 	{ key: "self",    label: "Сам в себя" },
+	{ key: "random",  label: "Случайный переход" },
 	{ key: "crevice", label: "Расщелина", requiresTag: "crevice" },
 	{ key: "hollow",  label: "Дупло",     requiresTag: "hollow" }
 ];
@@ -2301,6 +2534,11 @@ function normalizeDraft(draft) {
 			if (typeof cell.unknownName !== "string") cell.unknownName = "";
 			if (typeof cell.deadendName !== "string") cell.deadendName = "";
 			if (!Array.isArray(cell.deadendProps)) cell.deadendProps = [];
+			if (cell.type === "random") {
+				cell.randomLinks = Array.isArray(cell.randomLinks) ? cell.randomLinks.map(String) : [];
+				cell.randomGroups = Array.isArray(cell.randomGroups) ? cell.randomGroups.map(String) : [];
+				cell.randomAll = !!cell.randomAll || (cell.randomLinks.length === 0 && cell.randomGroups.length === 0);
+			}
 		});
 		delete node.tags; delete node.properties; delete node.code;
 		delete node.x; delete node.y;
@@ -2322,6 +2560,8 @@ let draftDbIds = new Set();
 function draftNameKey(name) { return String(name || "").trim().toLowerCase(); }
 
 // Локация, импортированная из файла, сохраняет свой id, пока её название не меняли
+const EYE_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+const EYE_OFF_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 3l18 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 function draftKeepsImportedId(node) {
 	return !!(node.importedId && !(node.idSuffix || "").trim() && draftBaseId(node) === node.importedBase);
 }
@@ -2374,6 +2614,7 @@ function draftToRealLocations(nodes) {
 		const transitions = [];
 		const cellTypes = {};
 		const deadends = {};
+		const randoms = {};
 		cellIndices.forEach(function(index) {
 			const cell = node.cells[index];
 			if (!cell) return;
@@ -2387,6 +2628,24 @@ function draftToRealLocations(nodes) {
 			else if (cell.type === "self") transitions.push("С");
 			else if (cell.type === "crevice") transitions.push("Расщелина");
 			else if (cell.type === "hollow") transitions.push("Дупло");
+			else if (cell.type === "random") {
+				transitions.push(RANDOM_TRANSITION);
+				if (cell.randomAll || (!(cell.randomLinks || []).length && !(cell.randomGroups || []).length)) randoms[index] = { all: true };
+				else {
+					const ids = [], groups = [];
+					(cell.randomLinks || []).forEach(function(link) {
+						const dbId = dbLinkOf(link);
+						const target = dbId !== null ? dbId : exportIds.get(link);
+						const id = target !== undefined ? target : String(link);
+						if (ids.indexOf(id) < 0) ids.push(id);
+					});
+					(cell.randomGroups || []).forEach(function(g) {
+						const id = dbLinkOf(g) !== null ? dbLinkOf(g) : String(g);
+						if (groups.indexOf(id) < 0) groups.push(id);
+					});
+					randoms[index] = { ids: ids, groups: groups };
+				}
+			}
 			else if (cell.target) {
 				const targetNode = nodes.find(function(n) { return n.id === cell.target; });
 				transitions.push(targetNode ? exportIds.get(targetNode.id) : "Т");
@@ -2416,6 +2675,7 @@ function draftToRealLocations(nodes) {
 		}
 		if (Object.keys(cellTypes).length > 0) location.cellTypes = cellTypes;
 		if (Object.keys(deadends).length > 0) location.deadends = deadends;
+		if (Object.keys(randoms).length > 0) location.randoms = randoms;
 		if (Array.isArray(node.borders) && node.borders.length > 0) location.borders = node.borders;
 		return location;
 	});
@@ -2652,6 +2912,7 @@ function realLocationsToDraftNodes(locations) {
 		const transitions = Array.isArray(item.source.transitions) ? item.source.transitions : [];
 		const cellTypes = item.cellTypes;
 		const deadends = item.deadends;
+		const randoms = item.source.randoms || {};
 		let transitionIndex = 0;
 		for (let i = 0; i < code.length && i < DRAFT_CODE_LENGTH; i++) {
 			if (code[i] !== "1") continue;
@@ -2672,6 +2933,13 @@ function realLocationsToDraftNodes(locations) {
 				const fastTarget = idMap[String(value)];
 				item.node.cells[i] = { type: forcedType, target: fastTarget || null, unknownName: fastTarget ? "" : String(value), deadendName: "", deadendProps: [] };
 			} else if (normalized === "С") item.node.cells[i] = { type: "self", target: null, unknownName: "", deadendName: "", deadendProps: [] };
+			else if (normalized === RANDOM_TRANSITION) {
+				const info = randoms[String(i)] || { all: true };
+				const links = (Array.isArray(info.ids) ? info.ids : []).map(function(id) { return idMap[String(id)] || (DB_LINK_PREFIX + String(id)); });
+				const grps = (Array.isArray(info.groups) ? info.groups : []).map(String);
+				item.node.cells[i] = { type: "random", target: null, unknownName: "", deadendName: "", deadendProps: [],
+					randomAll: !!info.all || (links.length === 0 && grps.length === 0), randomLinks: links, randomGroups: grps };
+			}
 			else if (normalized === "Расщелина") item.node.cells[i] = { type: "crevice", target: null, unknownName: "", deadendName: "", deadendProps: [] };
 			else if (normalized === "Дупло") item.node.cells[i] = { type: "hollow", target: null, unknownName: "", deadendName: "", deadendProps: [] };
 			else {
@@ -2690,6 +2958,12 @@ function saveDraftToStorage(draft) {
 
 let draftState = null;
 let draftCanvasCollapsed = new Set(); // id свёрнутых на поле подгрупп ("" — «Без подгруппы»)
+// Подгруппы, скрытые глазком: их локации не показываются на поле (запоминается на устройстве)
+const GROUP_HIDDEN_KEY = "atlas.draft.groupHidden";
+let draftHiddenGroups = (function() {
+	try { return new Set(JSON.parse(localStorage.getItem(GROUP_HIDDEN_KEY) || "[]")); } catch (e) { return new Set(); }
+})();
+function saveHiddenGroups() { try { localStorage.setItem(GROUP_HIDDEN_KEY, JSON.stringify(Array.from(draftHiddenGroups))); } catch (e) {} }
 let draftClipboard = null;   // копия локации (глубокий клон), живёт, пока открыта страница
 const histIconIds = new Map(), histIcons = [];
 // В снимках истории большие картинки-иконки хранятся один раз (ссылкой), иначе
@@ -2849,6 +3123,7 @@ function createConnectorHint() {
 }
 // Локации из загруженных разделов — чтобы бот-переходник мог вести и в уже существующие
 let draftDbLocations = [];
+let draftDbGroups = []; // подгруппы разделов сайта: { id, name, section }
 const DB_LINK_PREFIX = "db:";
 // Иконка бота-переходника по умолчанию (две стрелки), чтобы не требовать загрузку картинки
 const CONNECTOR_DEFAULT_ICON = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="22" fill="#2b4a66" stroke="#5fdcf0" stroke-width="2"/><path d="M10 18h22m0 0-6-6m6 6-6 6" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M38 30H16m0 0 6-6m-6 6 6 6" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>');
@@ -2856,13 +3131,15 @@ function dbLinkOf(link) {
 	link = String(link);
 	return link.indexOf(DB_LINK_PREFIX) === 0 ? link.slice(DB_LINK_PREFIX.length) : null;
 }
-function createConnectorLinksField(initial) {
+function createConnectorLinksField(initial, opts) {
+	opts = opts || {};
 	const links = Array.isArray(initial) ? initial.map(String) : [];
 	const box = document.createElement("div");
 	box.className = "prop-links";
 	const title = document.createElement("div");
 	title.className = "prop-links-title";
-	title.textContent = "Куда ведёт бот (можно несколько локаций):";
+	title.textContent = opts.title || "Куда ведёт бот (можно несколько локаций):";
+	function notify() { if (typeof opts.onChange === "function") opts.onChange(); }
 	const chips = document.createElement("div");
 	chips.className = "prop-links-chips";
 	const input = document.createElement("input");
@@ -2900,6 +3177,7 @@ function createConnectorLinksField(initial) {
 				links.splice(links.indexOf(link), 1);
 				renderChips();
 				renderResults();
+				notify();
 			});
 			chip.appendChild(remove);
 			chips.appendChild(chip);
@@ -2970,6 +3248,7 @@ function createConnectorLinksField(initial) {
 				btn.setAttribute("aria-pressed", was ? "false" : "true");
 				mark.textContent = was ? "" : "✓ ";
 				renderChips();
+				notify();
 			});
 			results.appendChild(btn);
 		});
@@ -2990,11 +3269,403 @@ function createConnectorLinksField(initial) {
 			const at = links.indexOf(list[0].link);
 			if (at >= 0) links.splice(at, 1); else links.push(list[0].link);
 			renderChips();
+			notify();
 		}
 		renderResults();
 	});
 	renderChips();
 	return { element: box, getLinks: function() { return links.slice(); } };
+}
+
+// Выбор целей случайного перехода: поиск как в выборе обычного перехода (папки-подгруппы),
+// но у каждой подгруппы есть галочка — можно отметить подгруппу целиком.
+// Данные лежат в самой клетке: cell.randomLinks (локации) и cell.randomGroups (подгруппы).
+// Оптимизация: тяжёлые индексы строятся один раз, отметка не перерисовывает список
+// (обновляются только галочки), а перерисовка карточки откладывается и склеивается.
+let randomDbIndexCache = null;
+function randomDbIndex() {
+	const c = randomDbIndexCache;
+	if (c && c.locs === draftDbLocations && c.groups === draftDbGroups && c.locN === draftDbLocations.length && c.groupN === draftDbGroups.length) return c;
+	const locById = new Map(), byArea = new Map();
+	draftDbLocations.forEach(function(l) {
+		locById.set(String(l.id), l);
+		if (l.area) { if (!byArea.has(l.area)) byArea.set(l.area, []); byArea.get(l.area).push(l); }
+	});
+	const groupById = new Map();
+	draftDbGroups.forEach(function(g) { groupById.set(g.id, g); });
+	randomDbIndexCache = { locs: draftDbLocations, groups: draftDbGroups, locN: draftDbLocations.length, groupN: draftDbGroups.length, locById: locById, byArea: byArea, groupById: groupById, lc: new Map() };
+	return randomDbIndexCache;
+}
+function createRandomPicker(cell, opts) {
+	opts = opts || {};
+	if (!Array.isArray(cell.randomLinks)) cell.randomLinks = [];
+	if (!Array.isArray(cell.randomGroups)) cell.randomGroups = [];
+	const ROW_CAP = 400;
+	const picker = document.createElement("div");
+	picker.className = "draft-target-picker random-picker";
+	const btn = document.createElement("button");
+	btn.type = "button";
+	btn.className = "draft-target-btn";
+	btn.setAttribute("aria-expanded", "false");
+	const btnLabel = document.createElement("span");
+	btnLabel.className = "draft-target-label";
+	const caret = document.createElement("span");
+	caret.className = "draft-target-caret"; caret.textContent = "▾";
+	btn.appendChild(btnLabel); btn.appendChild(caret);
+	const panel = document.createElement("div");
+	panel.className = "draft-target-panel";
+	panel.hidden = true;
+	const search = document.createElement("input");
+	search.type = "text";
+	search.className = "draft-target-search";
+	search.placeholder = "Поиск: локация, подгруппа, id, свойство…";
+	const list = document.createElement("div");
+	list.className = "draft-target-list";
+	panel.appendChild(search); panel.appendChild(list);
+	// чипы под списком: иначе список «ехал» бы при каждой отметке
+	const chips = document.createElement("div");
+	chips.className = "prop-links-chips";
+	picker.appendChild(btn); picker.appendChild(panel); picker.appendChild(chips);
+	picker.addEventListener("click", function(e) { e.stopPropagation(); });
+
+	let openGroups = new Set();
+	let idx = null;          // индекс «Рыбы» и сайта, строится при открытии панели
+	let itemRecs = [], folderRecs = [];
+	let notifyTimer = null;
+
+	function subgroups() { return (draftState && Array.isArray(draftState.subgroups)) ? draftState.subgroups : []; }
+	function allNodes() { return (draftState && Array.isArray(draftState.nodes)) ? draftState.nodes : []; }
+	function nodeLabels() {
+		// подписи всех локаций за один проход (draftNodeLabel на каждую локацию дал бы O(n²))
+		const all = allNodes();
+		const counts = new Map();
+		all.forEach(function(n) { const k = (n.name || "").trim(); counts.set(k, (counts.get(k) || 0) + 1); });
+		const out = new Map();
+		all.forEach(function(n, i) {
+			const name = (n.name && n.name.trim()) ? n.name.trim() : "Без названия";
+			out.set(n.id, counts.get((n.name || "").trim()) > 1 ? name + " [" + (i + 1) + "]" : name);
+		});
+		return out;
+	}
+	function groupName(key) {
+		const db = randomDbIndex();
+		const dbId = dbLinkOf(key);
+		if (dbId !== null) { const g = db.groupById.get(dbId); return g ? g.name : dbId; }
+		const sg = draftGroupFind(subgroups(), key);
+		return sg ? sg.name : String(key);
+	}
+	function linkName(link, labels) {
+		const dbId = dbLinkOf(link);
+		if (dbId !== null) { const l = randomDbIndex().locById.get(dbId); return l ? l.name : dbId; }
+		return labels.has(link) ? labels.get(link) : String(link);
+	}
+	function toggle(arr, key, on) {
+		const at = arr.indexOf(key);
+		if (on && at < 0) arr.push(key);
+		else if (!on && at >= 0) arr.splice(at, 1);
+	}
+	function scheduleNotify(now) {
+		if (typeof opts.onChange !== "function") return;
+		clearTimeout(notifyTimer);
+		if (now) { notifyTimer = null; opts.onChange(); return; }
+		notifyTimer = setTimeout(function() { notifyTimer = null; opts.onChange(); }, 250);
+	}
+	function syncSummary() {
+		const n = cell.randomLinks.length + cell.randomGroups.length;
+		btnLabel.textContent = n ? "Выбрано: " + n + " — добавить ещё…" : "Выбрать локации и подгруппы…";
+	}
+	function renderChips() {
+		chips.innerHTML = "";
+		const labels = nodeLabels();
+		function addChip(text, onRemove) {
+			const chip = document.createElement("span");
+			chip.className = "draft-prop-chip";
+			chip.appendChild(document.createTextNode(text));
+			const remove = document.createElement("span");
+			remove.className = "draft-prop-chip-remove";
+			remove.textContent = "×"; remove.title = "Убрать";
+			remove.addEventListener("click", function() { onRemove(); changed(); });
+			chip.appendChild(remove);
+			chips.appendChild(chip);
+		}
+		cell.randomGroups.forEach(function(g) { addChip("📁 " + groupName(g), function() { toggle(cell.randomGroups, g, false); }); });
+		cell.randomLinks.forEach(function(l) { addChip(linkName(l, labels), function() { toggle(cell.randomLinks, l, false); }); });
+	}
+	// проставляет галочки у уже нарисованных строк — без перерисовки списка
+	function syncChecks() {
+		itemRecs.forEach(function(r) {
+			const covered = !!r.coverKey && cell.randomGroups.indexOf(r.coverKey) >= 0;
+			r.box.checked = covered || cell.randomLinks.indexOf(r.link) >= 0;
+			r.box.disabled = covered;
+			r.row.classList.toggle("covered", covered);
+			r.row.title = covered ? "Входит в отмеченную подгруппу" : "";
+		});
+		folderRecs.forEach(function(r) { r.box.checked = cell.randomGroups.indexOf(r.groupKey) >= 0; });
+	}
+	function changed() { syncSummary(); renderChips(); syncChecks(); scheduleNotify(false); }
+
+	function buildIndex() {
+		const all = allNodes();
+		const labels = nodeLabels();
+		const db = randomDbIndex();
+		const draftNames = new Set();
+		all.forEach(function(n) { draftNames.add(draftNameKey(n.name)); if (n.importedId) draftNames.add(draftNameKey(n.importedId)); });
+		const nodes = all.slice().reverse().map(function(n) {
+			const label = labels.get(n.id);
+			return { id: n.id, label: label, loc: { id: n.id, name: n.name || "", tags: n.props || [] } };
+		});
+		const sgs = subgroups();
+		const dbGroups = draftDbGroups.filter(function(g) { return !sgs.some(function(sg) { return sg.id === g.id; }); });
+		const dbCache = new Map(), inAnyGroup = new Set();
+		function dbLocsOf(g) {
+			if (dbCache.has(g.id)) return dbCache.get(g.id);
+			const seen = new Set(), arr = [];
+			function put(l) {
+				if (!l) return;
+				const k = String(l.id);
+				if (seen.has(k)) return;
+				if (draftNames.has(draftNameKey(l.id)) || draftNames.has(draftNameKey(l.name))) return;
+				seen.add(k); arr.push(l); inAnyGroup.add(k);
+			}
+			(g.ids || []).forEach(function(id) { put(db.locById.get(String(id))); });
+			(db.byArea.get(g.id) || []).forEach(put);
+			dbCache.set(g.id, arr);
+			return arr;
+		}
+		dbGroups.forEach(dbLocsOf);
+		const sections = [];
+		dbGroups.forEach(function(g) { if (sections.indexOf(g.section) < 0) sections.push(g.section); });
+		const secTrees = sections.map(function(section) {
+			const secGroups = dbGroups.filter(function(g) { return g.section === section; });
+			return { section: section, groups: secGroups, tree: draftGroupTree(secGroups) };
+		});
+		idx = { nodes: nodes, sgs: sgs, draftNames: draftNames, dbLocsOf: dbLocsOf, inAnyGroup: inAnyGroup, secTrees: secTrees, db: db };
+	}
+
+	function renderList() {
+		if (!idx) buildIndex();
+		const scrollTop = list.scrollTop;
+		list.innerHTML = "";
+		itemRecs = []; folderRecs = [];
+		const frag = document.createDocumentFragment();
+		const q = search.value.trim().toLowerCase();
+		const sgs = idx.sgs;
+		let rows = 0, capped = false;
+		// совпадения считаем один раз на локацию и запрос
+		const hitCache = new Map();
+		function locHit(key, name, loc) {
+			if (!q) return true;
+			if (hitCache.has(key)) return hitCache.get(key);
+			let ok = String(name).toLowerCase().includes(q) || String(loc.id).toLowerCase() === q;
+			if (!ok) ok = (!!loc.tags && loc.tags.length > 0 && locationTagsMatch(loc, q)) || !!searchExtraMatch(loc, q);
+			hitCache.set(key, ok);
+			return ok;
+		}
+		function addItem(link, label, depth, coverKey) {
+			if (rows >= ROW_CAP) { capped = true; return; }
+			rows++;
+			const row = document.createElement("label");
+			row.className = "draft-target-item draft-rp-item";
+			row.style.paddingLeft = (10 + depth * 14) + "px";
+			const box = document.createElement("input");
+			box.type = "checkbox";
+			box.addEventListener("change", function() { toggle(cell.randomLinks, link, box.checked); changed(); });
+			const text = document.createElement("span");
+			text.className = "draft-target-fname"; text.textContent = label;
+			row.appendChild(box); row.appendChild(text);
+			frag.appendChild(row);
+			itemRecs.push({ link: link, row: row, box: box, coverKey: coverKey || "" });
+		}
+		function addFolder(openKey, groupKey, name, color, depth, count) {
+			const isOpen = !!q || openGroups.has(openKey);
+			const row = document.createElement("div");
+			row.className = "draft-rp-folder-row";
+			row.style.paddingLeft = (6 + depth * 14) + "px";
+			if (groupKey !== null) {
+				const box = document.createElement("input");
+				box.type = "checkbox";
+				box.title = "Отметить подгруппу целиком";
+				box.addEventListener("change", function() { toggle(cell.randomGroups, groupKey, box.checked); changed(); });
+				row.appendChild(box);
+				folderRecs.push({ groupKey: groupKey, box: box });
+			} else {
+				const gap = document.createElement("span");
+				gap.className = "draft-rp-gap";
+				row.appendChild(gap);
+			}
+			const fb = document.createElement("button");
+			fb.type = "button";
+			fb.className = "draft-target-folder";
+			fb.setAttribute("aria-expanded", isOpen ? "true" : "false");
+			const arrow = document.createElement("span");
+			arrow.className = "draft-target-arrow"; arrow.textContent = isOpen ? "▾" : "▸";
+			const dot = document.createElement("i");
+			dot.className = "draft-target-dot"; dot.style.background = color || "#888";
+			const text = document.createElement("span");
+			text.className = "draft-target-fname"; text.textContent = name;
+			const cnt = document.createElement("span");
+			cnt.className = "draft-target-count"; cnt.textContent = String(count);
+			fb.appendChild(arrow); fb.appendChild(dot); fb.appendChild(text); fb.appendChild(cnt);
+			fb.addEventListener("click", function() {
+				if (q) return;
+				if (openGroups.has(openKey)) openGroups.delete(openKey); else openGroups.add(openKey);
+				renderList();
+			});
+			row.appendChild(fb);
+			frag.appendChild(row);
+			return isOpen;
+		}
+		function note(text) {
+			const el = document.createElement("div");
+			el.className = "draft-target-empty";
+			el.textContent = text;
+			frag.appendChild(el);
+		}
+
+		// --- локации «Рыбы» по подгруппам ---
+		const byArea = new Map();
+		const areaOf = new Map();
+		allNodes().forEach(function(n) { areaOf.set(n.id, (n.area && draftGroupFind(sgs, n.area)) ? n.area : ""); });
+		idx.nodes.forEach(function(n) {
+			const key = areaOf.get(n.id) || "";
+			if (!byArea.has(key)) byArea.set(key, []);
+			byArea.get(key).push(n);
+		});
+		function nameHit(name) { return !!q && String(name || "").toLowerCase().includes(q); }
+		function draftShown(key, groupHit) {
+			return (byArea.get(key) || []).filter(function(n) { return !q || groupHit || locHit("n:" + n.id, n.label, n.loc); });
+		}
+		const totalMemo = new Map();
+		function draftTotal(sg) {
+			if (totalMemo.has(sg.id)) return totalMemo.get(sg.id);
+			let n = draftShown(sg.id, nameHit(sg.name)).length;
+			draftGroupDescendants(sgs, sg.id).forEach(function(id) {
+				const d = draftGroupFind(sgs, id);
+				n += draftShown(id, d ? nameHit(d.name) : false).length;
+			});
+			totalMemo.set(sg.id, n);
+			return n;
+		}
+		draftGroupTree(sgs).forEach(function(entry) {
+			const sg = entry.sg;
+			if (!q) {
+				let cur = sg.parentGroup ? draftGroupFind(sgs, sg.parentGroup) : null;
+				for (let guard = 0; cur && guard < 30; guard++) {
+					if (!openGroups.has(cur.id)) return;
+					cur = cur.parentGroup ? draftGroupFind(sgs, cur.parentGroup) : null;
+				}
+			}
+			const hit = nameHit(sg.name);
+			const count = draftTotal(sg);
+			if (count === 0 && (q ? !hit : true)) return;
+			if (!addFolder(sg.id, sg.id, sg.name, sg.color, entry.depth, count)) return;
+			draftShown(sg.id, hit).forEach(function(n) { addItem(n.id, n.label, entry.depth + 1, sg.id); });
+		});
+		const loose = draftShown("", false);
+		if (loose.length > 0) {
+			if (sgs.length === 0) loose.forEach(function(n) { addItem(n.id, n.label, 0, ""); });
+			else if (addFolder("", null, "Без подгруппы", "#999", 0, loose.length)) loose.forEach(function(n) { addItem(n.id, n.label, 1, ""); });
+		}
+
+		// --- подгруппы сайта: разделы → подгруппы → локации ---
+		idx.secTrees.forEach(function(sec) {
+			const secGroups = sec.groups;
+			function gHit(g) { return nameHit(g.name) || nameHit(g.section); }
+			function shownLocs(g) {
+				const hit = gHit(g);
+				return idx.dbLocsOf(g).filter(function(l) { return !q || hit || locHit("d:" + l.id, l.name, l); });
+			}
+			const dbTotalMemo = new Map();
+			function groupTotal(g) {
+				if (dbTotalMemo.has(g.id)) return dbTotalMemo.get(g.id);
+				let n = shownLocs(g).length;
+				draftGroupDescendants(secGroups, g.id).forEach(function(id) {
+					const d = draftGroupFind(secGroups, id);
+					if (d) n += shownLocs(d).length;
+				});
+				dbTotalMemo.set(g.id, n);
+				return n;
+			}
+			// без запроса подсчёт не нужен, пока раздел свёрнут
+			if (!q && !openGroups.has("sec:" + sec.section)) {
+				if (secGroups.length > 0) addFolder("sec:" + sec.section, null, "Сайт — " + (sec.section || "без раздела"), "#7a8aa0", 0, secGroups.length);
+				return;
+			}
+			const tree = sec.tree.filter(function(entry) { return q ? (gHit(entry.sg) || groupTotal(entry.sg) > 0) : true; });
+			if (tree.length === 0) return;
+			if (!addFolder("sec:" + sec.section, null, "Сайт — " + (sec.section || "без раздела"), "#7a8aa0", 0, tree.length)) return;
+			tree.forEach(function(entry) {
+				const g = entry.sg;
+				if (!q) {
+					let cur = g.parentGroup ? draftGroupFind(secGroups, g.parentGroup) : null;
+					for (let guard = 0; cur && guard < 30; guard++) {
+						if (!openGroups.has(DB_LINK_PREFIX + cur.id)) return;
+						cur = cur.parentGroup ? draftGroupFind(secGroups, cur.parentGroup) : null;
+					}
+				}
+				const key = DB_LINK_PREFIX + g.id;
+				// число локаций считаем только у развёрнутых подгрупп; у свёрнутых — без запроса берём длину списка
+				const count = q ? groupTotal(g) : idx.dbLocsOf(g).length;
+				if (!addFolder(key, key, g.name, "#7a8aa0", entry.depth + 1, count)) return;
+				shownLocs(g).forEach(function(l) { addItem(DB_LINK_PREFIX + l.id, l.name, entry.depth + 2, key); });
+			});
+		});
+		// локации сайта вне подгрупп — только по запросу
+		if (q) {
+			const found = [];
+			for (let i = 0; i < draftDbLocations.length && found.length < 40; i++) {
+				const l = draftDbLocations[i];
+				if (idx.inAnyGroup.has(String(l.id))) continue;
+				if (idx.draftNames.has(draftNameKey(l.id)) || idx.draftNames.has(draftNameKey(l.name))) continue;
+				if (locHit("d:" + l.id, l.name, l)) found.push(l);
+			}
+			if (found.length > 0 && addFolder("__db_locs__", null, "Локации сайта без подгруппы", "#7a8aa0", 0, found.length)) {
+				found.forEach(function(l) { addItem(DB_LINK_PREFIX + l.id, l.name + (l.section ? " — " + l.section : ""), 1, ""); });
+			}
+		}
+		if (capped) note("Показаны первые " + ROW_CAP + " строк — уточните запрос или сверните лишние папки");
+		if (frag.childNodes.length === 0) note(q ? "Ничего не найдено" : "Локаций и подгрупп пока нет");
+		list.appendChild(frag);
+		syncChecks();
+		list.scrollTop = scrollTop;
+	}
+	function setOpen(open) {
+		panel.hidden = !open;
+		btn.setAttribute("aria-expanded", open ? "true" : "false");
+		picker.classList.toggle("open", open);
+		if (!open && notifyTimer) scheduleNotify(true);
+	}
+	btn.addEventListener("click", function() {
+		if (!panel.hidden) { setOpen(false); return; }
+		buildIndex();
+		// развёрнута только подгруппа текущей локации и её родители
+		openGroups = new Set();
+		const cur = opts.nodeId ? allNodes().find(function(n) { return n.id === opts.nodeId; }) : null;
+		let area = cur && cur.area ? draftGroupFind(subgroups(), cur.area) : null;
+		if (!area) openGroups.add("");
+		for (let guard = 0; area && guard < 30; guard++) {
+			openGroups.add(area.id);
+			area = area.parentGroup ? draftGroupFind(subgroups(), area.parentGroup) : null;
+		}
+		search.value = "";
+		renderList();
+		setOpen(true);
+		if (!IS_TOUCH) search.focus();
+	});
+	search.addEventListener("input", debounce(renderList, 250));
+	panel.addEventListener("keydown", function(e) { if (e.key === "Escape") { setOpen(false); btn.focus(); } });
+	function closeOutside(e) {
+		if (!document.body.contains(picker)) {
+			document.removeEventListener("click", closeOutside);
+			if (notifyTimer) scheduleNotify(true);
+			return;
+		}
+		const path = e.composedPath ? e.composedPath() : [];
+		if (path.indexOf(picker) < 0 && !picker.contains(e.target)) setOpen(false);
+	}
+	document.addEventListener("click", closeOutside);
+	syncSummary(); renderChips();
+	return { element: picker };
 }
 
 function makePropListButton(src, label, onClick) {
@@ -4065,6 +4736,94 @@ function layoutClusterOf(cluster, edgesGlobal) {
 // каждую локацию этих территорий подтягиваем к её соседям (внешним — сильнее),
 // не давая заезжать в чужие области и разлетаться дальше MAXD от исходного места.
 // Область при этом растягивается и изгибается вдоль соседей
+// Лабиринты 7ДЛ раскладываются «улиткой»: верхний лабиринт по порядку (Забвения → … →
+// Безумных волн), дальше нижний в обратном порядке — как идёт настоящий маршрут через
+// оазисы. Снаружи начало пути, к центру — конец
+const LABYRINTH_IDS = new Set(LABYRINTHS.map(function(l) { return l[0]; }).concat(LABYRINTHS.map(function(l) { return l[0] + "_vl"; })));
+function isLabyrinthCluster(c) { return !!c && !!c.id && LABYRINTH_IDS.has(String(c.id)); }
+// Индексы кластеров-лабиринтов в порядке пути (снаружи внутрь)
+function labyrinthSpiralOrder(clusters) {
+	const byId = new Map();
+	clusters.forEach(function(c, ci) { if (isLabyrinthCluster(c)) byId.set(String(c.id), ci); });
+	const seq = [];
+	LABYRINTHS.forEach(function(l) { if (byId.has(l[0] + "_vl")) seq.push(byId.get(l[0] + "_vl")); });
+	LABYRINTHS.slice().reverse().forEach(function(l) { if (byId.has(l[0])) seq.push(byId.get(l[0])); });
+	return seq;
+}
+// Укладывает блоки по спирали. items — [{ ci, laid }] в порядке пути (снаружи внутрь).
+// Без hole — спираль от центра, левый верхний угол рамки всей улитки — (originX, originY).
+// С hole { minX, maxX, minY, maxY } — улитка обвивает эту область (остальную карту) и
+// возвращает готовые координаты. Возвращает [{ ci, ox, oy }]
+function layoutSpiralBlocks(items, originX, originY, hole) {
+	const GAP = 160;
+	const blocks = items.map(function(it) {
+		return { ci: it.ci, w: it.laid.w + NODE_W, h: it.laid.h + NODE_H + LABEL_CLEARANCE };
+	});
+	// от внутреннего конца наружу: последний блок пути — ближе всего к центру, первый — снаружи
+	const order = blocks.slice().reverse();
+	const maxDim = order.reduce(function(m, b) { return Math.max(m, b.w, b.h); }, 0);
+	const pitch = maxDim + GAP;
+	const placed = [];
+	let hx = 0, hy = 0, hw = 0, hh = 0;
+	if (hole) {
+		hx = (hole.minX + hole.maxX) / 2; hy = (hole.minY + hole.maxY) / 2;
+		hw = hole.maxX - hole.minX; hh = hole.maxY - hole.minY;
+		placed.push({ cx: hx, cy: hy, w: hw, h: hh, ci: -1 });
+	}
+	const baseA = hole ? hw / 2 + maxDim / 2 + GAP : 0, baseB = hole ? hh / 2 + maxDim / 2 + GAP : 0;
+	let theta = 0;
+	order.forEach(function(b, k) {
+		let cx = hx, cy = hy;
+		if (k > 0 || hole) {
+			for (let guard = 0; guard < 400000; guard++) {
+				const grow = pitch * theta / (2 * Math.PI);
+				const a = baseA + grow, c = baseB + grow;
+				cx = hx + a * Math.cos(theta); cy = hy + c * Math.sin(theta);
+				const hit = placed.some(function(q) {
+					return Math.abs(cx - q.cx) < (b.w + q.w) / 2 + GAP && Math.abs(cy - q.cy) < (b.h + q.h) / 2 + GAP;
+				});
+				if (!hit) break;
+				theta += Math.max(0.004, 40 / Math.max(a, c, 100));
+			}
+		}
+		placed.push({ cx: cx, cy: cy, w: b.w, h: b.h, ci: b.ci });
+	});
+	const real = placed.filter(function(q) { return q.ci >= 0; });
+	let minX = 0, minY = 0;
+	if (!hole) {
+		minX = Infinity; minY = Infinity;
+		real.forEach(function(q) { minX = Math.min(minX, q.cx - q.w / 2); minY = Math.min(minY, q.cy - q.h / 2); });
+	}
+	return real.map(function(q) {
+		const left = hole ? q.cx - q.w / 2 : originX + (q.cx - q.w / 2 - minX);
+		const top = hole ? q.cy - q.h / 2 : originY + (q.cy - q.h / 2 - minY);
+		return { ci: q.ci, ox: left + NODE_W / 2, oy: top + NODE_H / 2 };
+	});
+}
+// Предпустынье (озеро) живёт в Горах, а Предпустынье (море) стоит рядом с локацией
+// лабиринта, с которой соединяется, — вне рамки лабиринта, у ближайшего её края
+const PRE_LAKE_ID = "Предпустынье (озеро)";
+function satelliteSpot(cluster, edgesGlobal, nodes, boxes) {
+	const inside = new Set(cluster.indices);
+	let nb = null;
+	edgesGlobal.forEach(function(e) {
+		if (nb !== null) return;
+		if (inside.has(e.a) && !inside.has(e.b)) nb = e.b;
+		else if (inside.has(e.b) && !inside.has(e.a)) nb = e.a;
+	});
+	if (nb === null) return null;
+	const nx = nodes[nb].x, ny = nodes[nb].y;
+	const box = boxes.find(function(b) { return nx >= b.minX && nx <= b.maxX && ny >= b.minY && ny <= b.maxY; });
+	const OUT = NODE_W / 2 + 60;
+	if (!box) return { x: nx + NODE_W + 40, y: ny };
+	const d = [nx - box.minX, box.maxX - nx, ny - box.minY, box.maxY - ny];
+	const m = Math.min.apply(null, d);
+	if (m === d[0]) return { x: box.minX - OUT, y: ny };
+	if (m === d[1]) return { x: box.maxX + OUT, y: ny };
+	if (m === d[2]) return { x: nx, y: box.minY - NODE_H / 2 - LABEL_CLEARANCE - 60 };
+	return { x: nx, y: box.maxY + NODE_H / 2 + 60 };
+}
+
 const OASIS_AREA_IDS = ["verkhniy_labirint", "nizhniy_labirint"];
 const FLEX_AREA_IDS = ["plemena", "common"].concat(OASIS_AREA_IDS);
 function relaxFlexibleAreas(clusters, edgesGlobal, nodes, rects, onlyIds) {
@@ -4364,13 +5123,45 @@ function placeAreasByCompass(clusters, spec, edgesGlobal, nodes, areas, groupOff
 	rects.forEach(function(r) { restY = Math.max(restY, r.box.maxY); });
 	restY += GAP + NODE_H / 2;
 	rects.forEach(function(r) { restX = restX === null ? r.box.minX + NODE_W / 2 : Math.min(restX, r.box.minX + NODE_W / 2); });
+	const spiralCis = labyrinthSpiralOrder(clusters).filter(function(ci) { return !used.has(ci); });
+	const spiralSet = new Set(spiralCis.length >= 2 ? spiralCis : []);
+	const satelliteSet = new Set();
+	clusters.forEach(function(c, ci) { if (c.satellite && !used.has(ci)) satelliteSet.add(ci); });
 	clusters.forEach(function(c, ci) {
-		if (used.has(ci)) return;
+		if (used.has(ci) || spiralSet.has(ci) || satelliteSet.has(ci)) return;
 		used.add(ci);
 		const laid = layoutClusterOf(c, edgesGlobal);
 		laidOf.set(ci, laid);
 		rects.push(place(ci, restX, restY));
 		restX += laid.w + NODE_W + GAP;
+	});
+	// Лабиринты 7ДЛ (их два и больше) идут улиткой вокруг всей остальной карты —
+	// нейтров, племён и прочего
+	if (spiralSet.size > 0) {
+		const items = spiralCis.map(function(ci) {
+			const laid = layoutClusterOf(clusters[ci], edgesGlobal);
+			laidOf.set(ci, laid);
+			return { ci: ci, laid: laid };
+		});
+		const hole = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+		rects.forEach(function(r) {
+			hole.minX = Math.min(hole.minX, r.box.minX); hole.maxX = Math.max(hole.maxX, r.box.maxX);
+			hole.minY = Math.min(hole.minY, r.box.minY); hole.maxY = Math.max(hole.maxY, r.box.maxY);
+		});
+		const spots = layoutSpiralBlocks(items, 0, 0, rects.length > 0 ? hole : null);
+		spots.forEach(function(sp) {
+			used.add(sp.ci);
+			rects.push(place(sp.ci, sp.ox, sp.oy));
+		});
+	}
+	// Одиночки-спутники (Предпустынье (море)): рядом с локацией, с которой соединяются
+	satelliteSet.forEach(function(ci) {
+		used.add(ci);
+		const laid = layoutClusterOf(clusters[ci], edgesGlobal);
+		laidOf.set(ci, laid);
+		const spot = satelliteSpot(clusters[ci], edgesGlobal, nodes, rects.map(function(r) { return { minX: r.box.minX + NODE_W / 2, maxX: r.box.maxX - NODE_W / 2, minY: r.box.minY + NODE_H / 2, maxY: r.box.maxY - NODE_H / 2 - LABEL_CLEARANCE }; }));
+		if (spot) rects.push(place(ci, spot.x, spot.y));
+		else { rects.push(place(ci, restX, restY)); restX += laid.w + NODE_W + GAP; }
 	});
 	relaxFlexibleAreas(clusters, edgesGlobal, nodes, rects);
 	// Сдвигаем всё так, чтобы левый верхний угол был в (groupOffsetX, 0)
@@ -4541,12 +5332,32 @@ function buildMapModel(entries) {
 				return { id: sub.id, name: sub.name, color: sub.color || null,
 					parentName: (sub.parent && list.parents) ? (list.parents[sub.parent] || null) : null, indices: indices, foldedKids: sub.foldedKids || null };
 			}).filter(function(c) { return c.indices.length > 0; });
+			// Предпустынье (озеро) — в Горы (в кластер нейтров); то, что осталось от 7ДЛ
+			// (Предпустынье (море)), ставится отдельно рядом со своим лабиринтом
+			const neutralCluster = clusters.find(function(c) { return c.id === "neutral"; });
+			const sevenCluster = clusters.find(function(c) { return c.id === "7dl"; });
+			if (neutralCluster && sevenCluster) {
+				const lakeGi = indexById.get(PRE_LAKE_ID);
+				const at = lakeGi === undefined ? -1 : sevenCluster.indices.indexOf(lakeGi);
+				if (at >= 0) { sevenCluster.indices.splice(at, 1); neutralCluster.indices.push(lakeGi); }
+			}
+			if (sevenCluster) sevenCluster.satellite = true;
+			clusters = clusters.filter(function(c) { return c.indices.length > 0; });
 			// Нейтры делим на Горы и Туннели: раскладываются порознь, не смешиваясь
 			clusters.forEach(function(c) {
 				if (c.id !== "neutral") return;
-				const parts = NEUTRAL_SUBAREAS.map(function(sa) {
-					return c.indices.filter(function(gi) { return matchesNeutralSub(sa, nodes[gi].location.id); });
-				}).filter(function(part) { return part.length > 0; });
+				const sd = neutralSubDefs(subgroups);
+				const taken = new Set();
+				const parts = sd.defs.map(function(d) {
+					const part = c.indices.filter(function(gi) { return !taken.has(gi) && d.match(nodes[gi].location.id); });
+					part.forEach(function(gi) { taken.add(gi); });
+					return part;
+				});
+				// локации нейтров, не попавшие ни в одну подгруппу из JSON, — отдельная часть
+				if (sd.fromJson) parts.push(c.indices.filter(function(gi) { return !taken.has(gi); }));
+				const partsNonEmpty = parts.filter(function(part) { return part.length > 0; });
+				parts.length = 0;
+				partsNonEmpty.forEach(function(part) { parts.push(part); });
 				const covered = parts.reduce(function(sum, part) { return sum + part.length; }, 0);
 				if (parts.length < 2 || covered !== c.indices.length) return;
 				c.groups = parts;
@@ -4686,6 +5497,22 @@ function buildMapModel(entries) {
 			}
 		}
 		clusters = orderedIdx.map(function(ci) { return clusters[ci]; });
+		// Лабиринты 7ДЛ (их два и больше) идут не в общих рядах, а улиткой вокруг них;
+		// одиночки-спутники (Предпустынье (море)) ставятся рядом со своей локацией.
+		// Переносим их в конец списка, в рядах пропускаем
+		const oldClusters = clusters;
+		const spiralOrder = labyrinthSpiralOrder(oldClusters);
+		const useSpiral = spiralOrder.length >= 2;
+		const spiralSet = new Set(useSpiral ? spiralOrder : []);
+		const satIdx = [];
+		oldClusters.forEach(function(c, ci) { if (c.satellite) satIdx.push(ci); });
+		const satSet = new Set(satIdx);
+		const keepClusters = oldClusters.filter(function(c, ci) { return !spiralSet.has(ci) && !satSet.has(ci); });
+		clusters = keepClusters
+			.concat(useSpiral ? spiralOrder.map(function(ci) { return oldClusters[ci]; }) : [])
+			.concat(satIdx.map(function(ci) { return oldClusters[ci]; }));
+		const mainCount = keepClusters.length;
+		const spiralEnd = mainCount + (useSpiral ? spiralOrder.length : 0);
 
 		// Укладываем кластеры в строки слева направо с переносом (как текст),
 		// так что ни один прямоугольник-область не пересекается с соседним
@@ -4698,6 +5525,7 @@ function buildMapModel(entries) {
 		const placedGi = new Set();
 		const entryRects = []; // рамки областей этого файла — для подтягивания оазисов
 		clusters.forEach(function(cluster, ci) {
+			if (ci >= mainCount) return; // лабиринты — ниже, улиткой
 			const laid = layoutClusterOf(cluster, entryEdgesGlobal);
 			const isNewRow = rowX > 0 && (forcedRowBreaks.has(ci) || rowX + laid.w > maxRowWidth);
 			if (isNewRow) {
@@ -4779,6 +5607,47 @@ function buildMapModel(entries) {
 			rowX += extraDx + laid.w + CLUSTER_GAP;
 			rowMaxH = Math.max(rowMaxH, laid.h + Math.max(0, extraDy));
 		});
+		function addFixedArea(cluster, ci, laid, ox, oy) {
+			laid.positions.forEach(function(p, li) {
+				const gi = cluster.indices[li];
+				nodes[gi].x = p.x - laid.minX + ox;
+				nodes[gi].y = p.y - laid.minY + oy;
+				placedGi.add(gi);
+			});
+			const areaObj = {
+				id: cluster.id, name: cluster.name, color: cluster.color, parentName: cluster.parentName,
+				indices: cluster.indices.slice(),
+				minX: ox - NODE_W / 2, maxX: ox + laid.w + NODE_W / 2,
+				minY: oy - NODE_H / 2, maxY: oy + laid.h + NODE_H / 2 + LABEL_CLEARANCE
+			};
+			if (cluster.name) areas.push(areaObj);
+			entryRects.push({ ci: ci, box: { minX: areaObj.minX, maxX: areaObj.maxX, minY: areaObj.minY, maxY: areaObj.maxY }, area: areaObj });
+			entryMaxX = Math.max(entryMaxX, areaObj.maxX - NODE_W / 2);
+			entryMaxY = Math.max(entryMaxY, oy + laid.h);
+		}
+		if (spiralEnd > mainCount) {
+			const items = [];
+			for (let ci = mainCount; ci < spiralEnd; ci++) items.push({ ci: ci, laid: layoutClusterOf(clusters[ci], entryEdgesGlobal) });
+			// улитка обвивает всё, что уже стоит в рядах
+			let hole = null;
+			if (entryRects.length > 0) {
+				hole = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+				entryRects.forEach(function(r) {
+					hole.minX = Math.min(hole.minX, r.box.minX); hole.maxX = Math.max(hole.maxX, r.box.maxX);
+					hole.minY = Math.min(hole.minY, r.box.minY); hole.maxY = Math.max(hole.maxY, r.box.maxY);
+				});
+			}
+			layoutSpiralBlocks(items, groupOffsetX, 0, hole).forEach(function(sp) {
+				addFixedArea(clusters[sp.ci], sp.ci, items[sp.ci - mainCount].laid, sp.ox, sp.oy);
+			});
+		}
+		for (let ci = spiralEnd; ci < clusters.length; ci++) {
+			const cluster = clusters[ci];
+			const laid = layoutClusterOf(cluster, entryEdgesGlobal);
+			const spot = satelliteSpot(cluster, entryEdgesGlobal, nodes, entryRects.map(function(r) { return { minX: r.box.minX + NODE_W / 2, maxX: r.box.maxX - NODE_W / 2, minY: r.box.minY + NODE_H / 2, maxY: r.box.maxY - NODE_H / 2 - LABEL_CLEARANCE }; }));
+			if (spot) addFixedArea(cluster, ci, laid, spot.x, spot.y);
+			else addFixedArea(cluster, ci, laid, groupOffsetX, entryMaxY + NODE_H + CLUSTER_GAP);
+		}
 		// Оазисы лабиринтов — не в своём углу, а рядом с теми лабиринтами, к которым они ведут
 		if (clusters.some(function(c) { return c.id && OASIS_AREA_IDS.indexOf(c.id) >= 0; })) {
 			relaxFlexibleAreas(clusters, entryEdgesGlobal, nodes, entryRects, OASIS_AREA_IDS);
@@ -4796,7 +5665,7 @@ function buildMapModel(entries) {
 }
 
 function cellPaths(location) {
-	const paths = { normal: "", deadend: "", self: "", fast: "", hidden: "", mark: "" };
+	const paths = { normal: "", deadend: "", self: "", random: "", fast: "", hidden: "", mark: "" };
 	let transitionIndex = 0;
 	location.code.split("").forEach(function(bit, index) {
 		if (bit !== "1") return;
@@ -4805,7 +5674,7 @@ function cellPaths(location) {
 		let type = "normal";
 		if (transition !== undefined) {
 			const transitionType = getTransitionType(transition);
-			if (transitionType === "deadend" || transitionType === "self") type = transitionType;
+			if (transitionType === "deadend" || transitionType === "self" || transitionType === "random") type = transitionType;
 			else if (location.cellTypes && location.cellTypes[index] === "fast") type = "fast";
 			else if (location.cellTypes && location.cellTypes[index] === "hidden") type = "hidden";
 		}
@@ -4944,7 +5813,7 @@ function saveGraphConnect(value) {
 	try { localStorage.setItem(GRAPH_CONNECT_KEY, value ? "1" : "0"); } catch (e) {}
 }
 
-function renderGraph(wrap, entries, routeIds) {
+function renderGraph(wrap, entries, routeIds, startView) {
 	wrap.innerHTML = `
 		<div class="graph-toolbar">
 			<div class="graph-search-wrap">
@@ -5041,24 +5910,34 @@ function renderGraph(wrap, entries, routeIds) {
 			labelLayer.appendChild(outerLabel);
 		}
 		// Внутренние рамки нужны, только если область нейтров показана не вся
-		// целиком: иначе рамка и название совпадали бы с рамкой самой области
-		const subs = NEUTRAL_SUBAREAS.map(function(sa) {
-			return { sa: sa, idx: nested.indices.filter(function(gi) { return matchesNeutralSub(sa, nodes[gi].location.id); }) };
-		}).filter(function(x) { return x.idx.length > 1; });
-		const whole = subs.length === 1 && subs[0].idx.length === nested.indices.length;
-		if (whole) nested.name = nested.name + ": " + subs[0].sa.label;
-		else subs.forEach(function(x) {
-			const b = boxOfIndices(x.idx);
-			if (!b) return;
-			frameLayer.appendChild(svgEl("rect", {
-				"class": "g-area-frame", x: b.minX - 5, y: b.minY - 6, width: b.maxX - b.minX + 10,
-				height: b.maxY - b.minY + 12, rx: 8, stroke: nc, fill: "none", "stroke-dasharray": "3 4"
-			}));
-			// название — под рамкой, чтобы не налезать на название области сверху
-			const sl = svgEl("text", { "class": "g-area-label", x: b.minX, y: b.maxY + 14, fill: nc });
-			sl.textContent = x.sa.label;
-			labelLayer.appendChild(sl);
-		});
+		// целиком: иначе рамка и название совпадали бы с рамкой самой области.
+		// Если подобласти (Горы, Туннели и т. п.) есть в JSON — их рамки и названия рисуются
+		// ниже, вместе с остальными вложенными областями, чтобы не получилось двух одинаковых подписей
+		const neutralDefs = neutralSubDefs(graphSubgroups);
+		if (neutralDefs.fromJson) {
+			const covering = neutralDefs.defs.filter(function(d) {
+				return nested.indices.length > 0 && nested.indices.every(function(gi) { return d.match(nodes[gi].location.id); });
+			});
+			if (covering.length === 1) nested.name = nested.name + ": " + covering[0].label;
+		} else {
+			const subs = NEUTRAL_SUBAREAS.map(function(sa) {
+				return { sa: sa, idx: nested.indices.filter(function(gi) { return matchesNeutralSub(sa, nodes[gi].location.id); }) };
+			}).filter(function(x) { return x.idx.length > 1; });
+			const whole = subs.length === 1 && subs[0].idx.length === nested.indices.length;
+			if (whole) nested.name = nested.name + ": " + subs[0].sa.label;
+			else subs.forEach(function(x) {
+				const b = boxOfIndices(x.idx);
+				if (!b) return;
+				frameLayer.appendChild(svgEl("rect", {
+					"class": "g-area-frame", x: b.minX - 5, y: b.minY - 6, width: b.maxX - b.minX + 10,
+					height: b.maxY - b.minY + 12, rx: 8, stroke: nc, fill: "none", "stroke-dasharray": "3 4"
+				}));
+				// название — под рамкой, чтобы не налезать на название области сверху
+				const sl = svgEl("text", { "class": "g-area-label", x: b.minX, y: b.maxY + 14, fill: nc });
+				sl.textContent = x.sa.label;
+				labelLayer.appendChild(sl);
+			});
+		}
 	}
 	// Вложенные области (Грозовое племя и Лагерь Грозы внутри Эгиды и т. п.) — пунктирная рамка с подписью
 	const allSubgroups = [];
@@ -5181,7 +6060,9 @@ function renderGraph(wrap, entries, routeIds) {
 				pts[pts.length - 1] = labelEdgePoint(edge.b, pts[pts.length - 2]);
 			}
 			meta.line.setAttribute("d", pts.map(function(p, i) { return (i === 0 ? "M" : "L") + p.x + "," + p.y; }).join(" "));
+			meta.bbox = null;
 		});
+		scheduleCull();
 	}
 
 	function clientToGraphPoint(e) {
@@ -5228,9 +6109,12 @@ function renderGraph(wrap, entries, routeIds) {
 		});
 	});
 	(function() {
-		const saved = loadGraphIconSel();
+		let saved = loadGraphIconSel();
 		if (!saved) return;
-		const valid = saved.filter(function(k) { return presentKinds.has(k); });
+		// старые сохранённые ключи (отдельно по высоте, виду бота и т. п.) → тип свойства
+		saved = saved.map(function(k) { k = String(k); return k.indexOf("custom|") === 0 ? k : k.split("|")[0]; });
+		if (saved.length === 0) { iconFilter = new Set(); return; }
+		const valid = saved.filter(function(k, i) { return presentKinds.has(k) && saved.indexOf(k) === i; });
 		if (valid.length > 0 && valid.length < presentKinds.size) iconFilter = new Set(valid);
 	})();
 	let fieldsOn = loadGraphFlag(GRAPH_FIELDS_KEY);
@@ -5414,7 +6298,7 @@ function renderGraph(wrap, entries, routeIds) {
 				updateTip(node, e);
 			});
 			group.addEventListener("mousemove", function(e) { updateTip(node, e); });
-			group.addEventListener("mouseleave", function() { clearHighlight(); tip.style.display = "none"; });
+			group.addEventListener("mouseleave", function() { tip.style.display = "none"; clearTimeout(clearTimer); clearTimer = setTimeout(clearHighlight, 90); });
 		} else {
 			group.addEventListener("click", function(e) {
 				tip.textContent = node.location.name;
@@ -5439,7 +6323,7 @@ function renderGraph(wrap, entries, routeIds) {
 			<label class="draft-check" title="Показывать линии переходов на графе"><input type="checkbox" class="graph-connect-input"><span>Соединять переходы между собой</span></label>
 		</div>
 		<div class="graph-icon-filter" hidden>
-			<button type="button" class="graph-icon-filter-toggle" aria-expanded="false"><span class="gift-arrow">▸</span><span>Какие иконки показывать</span></button>
+			<button type="button" class="graph-icon-filter-toggle" aria-expanded="false"><span class="gift-arrow">▸</span><span class="gift-text">Какие иконки показывать</span></button>
 			<div class="graph-icon-filter-list" hidden></div>
 		</div>
 	`;
@@ -5487,32 +6371,39 @@ function renderGraph(wrap, entries, routeIds) {
 	}
 	function renderFilterList() {
 		filterList.innerHTML = "";
-		const allBtn = document.createElement("button");
-		allBtn.type = "button";
-		allBtn.className = "gif-pill gif-all" + (iconFilter ? "" : " on");
-		allBtn.textContent = "Все";
-		allBtn.addEventListener("click", function() {
-			iconFilter = null; saveFilter(); redrawIcons(); renderFilterList();
-		});
-		filterList.appendChild(allBtn);
+		const total = presentKinds.size;
+		const shown = iconFilter ? iconFilter.size : total;
+		opts.querySelector(".gift-text").textContent = "Какие иконки показывать (" + shown + " из " + total + ")";
+		const tools = document.createElement("div");
+		tools.className = "gif-tools";
+		const makeTool = function(text, onClick) {
+			const b = document.createElement("button");
+			b.type = "button"; b.className = "gif-tool"; b.textContent = text;
+			b.addEventListener("click", onClick);
+			tools.appendChild(b);
+		};
+		makeTool("Выбрать все", function() { iconFilter = null; saveFilter(); redrawIcons(); renderFilterList(); });
+		makeTool("Снять все", function() { iconFilter = new Set(); saveFilter(); redrawIcons(); renderFilterList(); });
+		filterList.appendChild(tools);
 		presentKinds.forEach(function(kind) {
-			const btn = document.createElement("button");
-			btn.type = "button";
-			btn.className = "gif-pill" + (!iconFilter || iconFilter.has(kind.key) ? " on" : "");
+			const row = document.createElement("label");
+			row.className = "gif-row";
+			const box = document.createElement("input");
+			box.type = "checkbox";
+			box.checked = !iconFilter || iconFilter.has(kind.key);
 			const img = document.createElement("img");
 			img.src = kind.src; img.alt = "";
 			if (/ loc-tag-icon-poison/.test(kind.cls)) img.className = "loc-tag-icon-poison";
-			btn.appendChild(img);
-			btn.appendChild(document.createTextNode(kind.label));
-			btn.addEventListener("click", function() {
-				// из режима «все» первый клик оставляет только выбранный вид
-				if (!iconFilter) iconFilter = new Set([kind.key]);
-				else if (iconFilter.has(kind.key)) iconFilter.delete(kind.key);
-				else iconFilter.add(kind.key);
-				if (iconFilter.size === 0 || iconFilter.size === presentKinds.size) iconFilter = null;
+			const text = document.createElement("span");
+			text.textContent = kind.label;
+			row.appendChild(box); row.appendChild(img); row.appendChild(text);
+			box.addEventListener("change", function() {
+				const next = iconFilter ? new Set(iconFilter) : new Set(Array.from(presentKinds.keys()));
+				if (box.checked) next.add(kind.key); else next.delete(kind.key);
+				iconFilter = next.size === presentKinds.size ? null : next;
 				saveFilter(); redrawIcons(); renderFilterList();
 			});
-			filterList.appendChild(btn);
+			filterList.appendChild(row);
 		});
 	}
 	renderFilterList();
@@ -5529,17 +6420,19 @@ function renderGraph(wrap, entries, routeIds) {
 
 	let lit = [];
 	let selectedIndex = -1;
+	let clearTimer = null;
 	function highlight(index) {
-		clearHighlight();
-		svg.classList.add("dim");
+		clearTimeout(clearTimer);
+		clearHighlight(true);
+		if (!svg.classList.contains("dim")) svg.classList.add("dim");
 		const node = nodes[index];
 		lit.push(nodeEls[index]);
 		node.neighbors.forEach(function(neighbor) { lit.push(nodeEls[neighbor]); });
 		node.edgeIndices.forEach(function(edgeIndex) { lit.push(edgeEls[edgeIndex].outer); lit.push(edgeEls[edgeIndex].inner); });
 		lit.forEach(function(element) { element.classList.add("hl"); });
 	}
-	function clearHighlight() {
-		svg.classList.remove("dim");
+	function clearHighlight(keepDim) {
+		if (!keepDim) svg.classList.remove("dim");
 		lit.forEach(function(element) { element.classList.remove("hl"); });
 		lit = [];
 	}
@@ -5569,6 +6462,7 @@ function renderGraph(wrap, entries, routeIds) {
 	}
 
 	const view = { x: 0, y: 0, w: 1000, h: 1000 };
+	let viewReady = false;
 	let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 	nodes.forEach(function(node) {
 		minX = Math.min(minX, node.x - NODE_W / 2);
@@ -5576,10 +6470,80 @@ function renderGraph(wrap, entries, routeIds) {
 		minY = Math.min(minY, node.y - NODE_H / 2);
 		maxY = Math.max(maxY, node.y + NODE_H / 2 + 10);
 	});
-	function applyView() {
-		const rect = svg.getBoundingClientRect();
-		view.h = view.w * rect.height / Math.max(rect.width, 1);
+	// Производительность: размер холста берём из кэша (он меняется только при ресайзе), а запись
+	// viewBox и отсечение невидимого делаем не чаще одного раза за кадр — иначе каждое событие
+	// мыши/колеса перерисовывало бы весь граф
+	let sizeCache = null;
+	function svgSize() {
+		if (sizeCache) return sizeCache;
+		const r = svg.getBoundingClientRect();
+		const size = { w: r.width, h: r.height };
+		if (r.width > 0) sizeCache = size;
+		return size;
+	}
+	let viewFrame = 0;
+	function flushView() {
+		viewFrame = 0;
 		svg.setAttribute("viewBox", view.x + " " + view.y + " " + view.w + " " + view.h);
+		updateLod();
+		updateCulling();
+	}
+	function applyView() {
+		const size = svgSize();
+		view.h = view.w * size.h / Math.max(size.w, 1);
+		if (!viewFrame) viewFrame = requestAnimationFrame(flushView);
+	}
+	// Уровень детализации: при сильном отдалении иконки и подписи мельче пикселя —
+	// их не рисуем (и стрелки/штрихи линий тоже)
+	const LOD_ICONS_SCALE = 2.6, LOD_FAR_SCALE = 3.6;
+	function updateLod() {
+		const scale = view.w / Math.max(svgSize().w, 1);
+		svg.classList.toggle("lod-icons", scale > LOD_ICONS_SCALE);
+		svg.classList.toggle("lod-far", scale > LOD_FAR_SCALE);
+	}
+	// Отсечение: локации и линии вне экрана скрываем (display:none) — браузер их не рисует
+	const nodeHidden = new Uint8Array(nodes.length);
+	const edgeHidden = new Uint8Array(edgeMetas.length);
+	function pathBox(d) {
+		const nums = String(d || "").match(/-?\d+(?:\.\d+)?(?:e[-+]?\d+)?/gi);
+		if (!nums || nums.length < 2) return null;
+		let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+		for (let i = 0; i + 1 < nums.length; i += 2) {
+			const x = parseFloat(nums[i]), y = parseFloat(nums[i + 1]);
+			if (x < x0) x0 = x; if (x > x1) x1 = x;
+			if (y < y0) y0 = y; if (y > y1) y1 = y;
+		}
+		return { x0: x0 - 6, y0: y0 - 6, x1: x1 + 6, y1: y1 + 6 };
+	}
+	let cullFrame = 0;
+	function scheduleCull() {
+		if (viewFrame || cullFrame) return; // flushView всё равно пересчитает
+		cullFrame = requestAnimationFrame(function() { cullFrame = 0; updateCulling(); });
+	}
+	function updateCulling() {
+		const mx = view.w * 0.08 + 24, my = view.h * 0.08 + 24;
+		const vx0 = view.x - mx, vx1 = view.x + view.w + mx, vy0 = view.y - my, vy1 = view.y + view.h + my;
+		const padSide = 34, padTop = 34, padBottom = LABEL_CLEARANCE + 16;
+		for (let i = 0; i < nodes.length; i++) {
+			const n = nodes[i];
+			const hide = (n.x + NODE_W / 2 + padSide < vx0) || (n.x - NODE_W / 2 - padSide > vx1) ||
+				(n.y + NODE_H / 2 + padBottom < vy0) || (n.y - NODE_H / 2 - padTop > vy1);
+			if (hide !== !!nodeHidden[i]) {
+				nodeHidden[i] = hide ? 1 : 0;
+				nodeEls[i].classList.toggle("g-cull", hide);
+				if (iconGroups[i]) iconGroups[i].classList.toggle("g-cull", hide);
+			}
+		}
+		for (let i = 0; i < edgeMetas.length; i++) {
+			const meta = edgeMetas[i];
+			if (!meta.bbox) meta.bbox = pathBox(meta.line.getAttribute("d"));
+			const b = meta.bbox;
+			const hide = !!b && (b.x1 < vx0 || b.x0 > vx1 || b.y1 < vy0 || b.y0 > vy1);
+			if (hide !== !!edgeHidden[i]) {
+				edgeHidden[i] = hide ? 1 : 0;
+				meta.line.classList.toggle("g-cull", hide);
+			}
+		}
 	}
 	function fitView() {
 		const rect = svg.getBoundingClientRect();
@@ -5696,9 +6660,9 @@ function renderGraph(wrap, entries, routeIds) {
 	});
 	svg.addEventListener("pointermove", function(e) {
 		if (!drag) return;
-		const rect = svg.getBoundingClientRect();
-		view.x = drag.viewX - (e.clientX - drag.x) * view.w / rect.width;
-		view.y = drag.viewY - (e.clientY - drag.y) * view.h / rect.height;
+		const rect = svgSize();
+		view.x = drag.viewX - (e.clientX - drag.x) * view.w / Math.max(rect.w, 1);
+		view.y = drag.viewY - (e.clientY - drag.y) * view.h / Math.max(rect.h, 1);
 		applyView();
 	});
 	function endDrag() { drag = null; svg.classList.remove("grabbing"); }
@@ -5724,11 +6688,30 @@ function renderGraph(wrap, entries, routeIds) {
 		clearTimeout(locateArea.timer);
 		locateArea.timer = setTimeout(clearHighlight, 2200);
 	}
+	// Область вместе со своими вложенными областями (у «Верхнего лабиринта» своих локаций
+	// только оазисы, а сами лабиринты — вложенные области: при поиске нужны все)
+	function withNestedAreas(area) {
+		if (!area.id || area.id === "neutral") return area;
+		const seen = new Set([String(area.id)]);
+		const have = new Set(area.indices);
+		const extra = [];
+		(function walk(id) {
+			areaChildIds(allSubgroups, id).forEach(function(childId) {
+				if (seen.has(childId)) return;
+				seen.add(childId);
+				const child = areaById[childId];
+				if (child) child.indices.forEach(function(gi) { if (!have.has(gi)) { have.add(gi); extra.push(gi); } });
+				walk(childId);
+			});
+		})(String(area.id));
+		return extra.length > 0 ? Object.assign({}, area, { indices: area.indices.concat(extra) }) : area;
+	}
 	function findMatchingAreas(trimmed) {
-		const found = areas.filter(function(area) { return area.name.toLowerCase().includes(trimmed); });
+		const found = areas.filter(function(area) { return area.name.toLowerCase().includes(trimmed); }).map(withNestedAreas);
 		// Горы и Туннели — области внутри нейтров
 		const neutralArea = areas.find(function(a) { return a.id === "neutral"; });
-		if (neutralArea) {
+		// при подобластях из JSON они находятся ниже, среди вложенных областей
+		if (neutralArea && !neutralKidsOf(allSubgroups)) {
 			NEUTRAL_SUBAREAS.forEach(function(sa) {
 				const hit = sa.label.toLowerCase().includes(trimmed) || (sa.label === "Туннели" && ("воющие коридоры".includes(trimmed) || "ледяной плен".includes(trimmed)));
 				if (!hit || found.some(function(a) { return a.name === sa.label; })) return;
@@ -5876,7 +6859,7 @@ function renderGraph(wrap, entries, routeIds) {
 		});
 	}
 	if (typeof ResizeObserver === "function") {
-		new ResizeObserver(applyView).observe(wrap);
+		new ResizeObserver(function() { sizeCache = null; applyView(); }).observe(wrap);
 		new ResizeObserver(debounce(layoutAreaLabels, 60)).observe(wrap);
 	}
 	requestAnimationFrame(function() { requestAnimationFrame(layoutAreaLabels); });
@@ -5899,10 +6882,19 @@ function renderGraph(wrap, entries, routeIds) {
 		}
 	}
 	requestAnimationFrame(function() {
-		if (routeNodeIndices.length > 0) fitToNodes(routeNodeIndices);
+		// при перерисовке (галочки разделов под графом) остаёмся там, где смотрел пользователь
+		if (startView && isFinite(startView.x) && isFinite(startView.y) && startView.w > 0) {
+			view.w = Math.min(Math.max(startView.w, 90), (maxX - minX + 100) * 3);
+			view.x = startView.x; view.y = startView.y;
+			applyView();
+		}
+		else if (routeNodeIndices.length > 0) fitToNodes(routeNodeIndices);
 		else fitView();
+		viewReady = true;
 	});
-	return { nodes: nodes.length, edges: edges.length, routeNodes: routeNodeIndices.length };
+	// текущий вид (null, пока граф ещё не выставил начальный масштаб)
+	return { nodes: nodes.length, edges: edges.length, routeNodes: routeNodeIndices.length,
+		getView: function() { return viewReady ? { x: view.x, y: view.y, w: view.w } : null; } };
 }
 
 // ============================================================
@@ -6670,7 +7662,7 @@ function buildCheckPanel(data, state, mode) {
 		checked = false; state.checkCode = null; state.checkLocationName = null;
 	}
 	function stripLocationInfo() {
-		getCells().forEach(function(cell) { cell.removeAttribute("title"); cell.classList.remove("cell-deadend", "cell-self"); });
+		getCells().forEach(function(cell) { cell.removeAttribute("title"); cell.classList.remove("cell-deadend", "cell-self", "cell-random"); });
 		renderLocationTags(map.parentElement, null);
 	}
 	mapClearBtn.addEventListener("click", function() {
@@ -6808,9 +7800,11 @@ function buildGraphPanel(data, group, state) {
 	// 7ДЛ очень большой, поэтому по умолчанию скрыт
 	const secDefs = Array.isArray(filtered.list.sections) ? filtered.list.sections : (Array.isArray(data.sections) ? data.sections : null);
 	const SEC_KEY = "atlas.graph.hiddenSections3";
-	const useSecs = !!secDefs && !filtered.label; // при выбранном месте жительства фильтр разделов не нужен
+	const BULK_SECTION_IDS = ["7dl_vl", "7dl_nl", "derevnya"]; // разделы с кнопками «выбрать все» / «снять все»
+	const useSecs = !!secDefs && (!filtered.label || filtered.withSections);
 	let hiddenSecs = null;
-	try { const raw = localStorage.getItem(SEC_KEY); if (raw) hiddenSecs = new Set(JSON.parse(raw)); } catch (e) {}
+	// при выбранном месте жительства свёрнутость разделов задаётся им (а не сохранённым выбором)
+	if (!filtered.label) { try { const raw = localStorage.getItem(SEC_KEY); if (raw) hiddenSecs = new Set(JSON.parse(raw)); } catch (e) {} }
 	const secOfLoc = new Map(); // id локации → разделы, в которые она входит
 	if (useSecs) {
 		(data.subgroups || filtered.list.subgroups || []).forEach(function(sg) {
@@ -6822,6 +7816,28 @@ function buildGraphPanel(data, group, state) {
 			hiddenSecs = new Set();
 			const hideAll = function(d) { hiddenSecs.add(d.id); (d.options || []).forEach(hideAll); };
 			secDefs.forEach(function(d) { if (d.defaultHidden) hideAll(d); });
+			if (filtered.label) {
+				// 7ДЛ, деревни и тропы свёрнуты, кроме того, что выбрано в месте жительства
+				// специально (весь лабиринт, отдельный лабиринт, деревня): оно показывается,
+				// а галочки внизу остаются, чтобы можно было включить остальное
+				const showDef = function(d) { hiddenSecs.delete(d.id); (d.options || []).forEach(showDef); };
+				const findTrail = function(defs, id, trail) {
+					for (let i = 0; i < defs.length; i++) {
+						const t = trail.concat(defs[i]);
+						if (defs[i].id === id) return t;
+						const deeper = findTrail(defs[i].options || [], id, t);
+						if (deeper) return deeper;
+					}
+					return null;
+				};
+				(settings.residences || []).map(residenceByKey).forEach(function(f) {
+					if (!f || !f.item.sec) return;
+					const trail = findTrail(secDefs, f.item.sec, []);
+					if (!trail) return;
+					trail.slice(0, -1).forEach(function(d) { hiddenSecs.delete(d.id); });
+					showDef(trail[trail.length - 1]);
+				});
+			}
 		}
 	}
 	// Оазисы лабиринтов: по умолчанию виден только тот оазис, который примыкает
@@ -6860,9 +7876,13 @@ function buildGraphPanel(data, group, state) {
 		["subgroups", "areaOrder", "areaRows", "areaLayout", "clans", "parents", "sections"].forEach(function(k) { out[k] = filtered.list[k]; });
 		return out;
 	}
+	let lastGraph = null;
 	function drawGraph() {
 		const list = visibleList();
-		const stats = renderGraph(wrap, [{ section: group, list: list, color: group.color || GRAPH_COLORS[0] }], routeIds);
+		// первый показ — по умолчанию; дальше (включили/выключили раздел) сохраняем место и масштаб
+		const keepView = lastGraph && lastGraph.getView ? lastGraph.getView() : null;
+		const stats = renderGraph(wrap, [{ section: group, list: list, color: group.color || GRAPH_COLORS[0] }], routeIds, keepView);
+		lastGraph = stats;
 		const parts = [];
 		if (filtered.label) parts.push("ваш район: " + filtered.label);
 		parts.push("локаций: " + stats.nodes, "переходов: " + stats.edges);
@@ -6873,7 +7893,7 @@ function buildGraphPanel(data, group, state) {
 	if (useSecs && secDefs.length > 1) {
 		const bar = document.createElement("div");
 		bar.className = "graph-sections";
-		const persist = function() { try { localStorage.setItem(SEC_KEY, JSON.stringify(Array.from(hiddenSecs))); } catch (e) {} drawGraph(); };
+		const persist = function() { if (!filtered.label) { try { localStorage.setItem(SEC_KEY, JSON.stringify(Array.from(hiddenSecs))); } catch (e) {} } drawGraph(); };
 		const addNode = function(def, container, depth) {
 			const label = document.createElement("label");
 			label.className = "draft-check";
@@ -6916,13 +7936,41 @@ function buildGraphPanel(data, group, state) {
 					def.options.forEach(function(o) { addNode(o, kids, depth + 1); });
 				};
 				box.addEventListener("change", function() { if (box.checked) hiddenSecs.delete(def.id); else hiddenSecs.add(def.id); fill(); persist(); });
+				// Маленькие кнопки «выбрать все» / «снять все» рядом с галочкой верхнего / нижнего
+				// лабиринта и деревни: отмечают или снимают все вложенные пункты разом
+				if (BULK_SECTION_IDS.indexOf(def.id) >= 0) {
+					const tools = document.createElement("span");
+					tools.className = "graph-sections-tools";
+					const makeTool = function(text, title, selectAll) {
+						const b = document.createElement("button");
+						b.type = "button"; b.className = "graph-sections-tool";
+						b.textContent = text; b.title = title;
+						b.addEventListener("click", function() {
+							const walk = function(d) {
+								(d.options || []).forEach(function(o) {
+									if (selectAll) hiddenSecs.delete(o.id); else hiddenSecs.add(o.id);
+									walk(o);
+								});
+							};
+							walk(def);
+							// «выбрать все» заодно включает и сам раздел; «снять все» его оставляет
+							// включённым, чтобы можно было сразу отметить нужное вручную
+							if (selectAll) { hiddenSecs.delete(def.id); box.checked = true; }
+							fill(); persist();
+						});
+						return b;
+					};
+					tools.appendChild(makeTool("выбрать все", "Отметить все пункты раздела", true));
+					tools.appendChild(makeTool("снять все", "Снять отметки со всех пунктов раздела", false));
+					container.insertBefore(tools, kids);
+				}
 				fill();
 			} else {
 				box.addEventListener("change", function() { if (box.checked) hiddenSecs.delete(def.id); else hiddenSecs.add(def.id); persist(); });
 			}
 		};
 		secDefs.forEach(function(def) {
-			if (def.id === "mv") return; // МВ появится позже
+			if (def.id === "mv" || def.id === "vv") return; // МВ и ВВ появятся позже
 			addNode(def, bar, 0);
 		});
 		panel.appendChild(bar);
@@ -7122,7 +8170,7 @@ function buildSettingsPage() {
 	content.querySelector("#openColors").addEventListener("click", function() { showSection("colors"); });
 	content.querySelector("#openDuration").addEventListener("click", function() { showSection("duration"); });
 	content.querySelector("#openTheme").addEventListener("click", function() { showSection("theme"); updateThemeButton(); });
-	content.querySelector("#openHomeland").addEventListener("click", function() { showSection("homeland"); renderHomelandList(); });
+	content.querySelector("#openHomeland").addEventListener("click", function() { showSection("homeland"); renderHomelandList(); ensureResidenceData(); });
 	content.querySelector("#openFeedback").addEventListener("click", function() { showSection("feedback"); });
 	content.querySelector("#openThanks").addEventListener("click", function() { showSection("thanks"); });
 	content.querySelectorAll(".settings-back").forEach(function(btn) { btn.addEventListener("click", showMenu); });
@@ -7200,8 +8248,52 @@ function buildSettingsPage() {
 
 	const homelandList = content.querySelector("#homelandList");
 	const openTitles = new Set();
+	// связи «вся подгруппа ↔ её части»: выбор одного снимает выбор с другого
+	let residenceRelations = new Map();
+	function relate(a, b) {
+		if (!residenceRelations.has(a)) residenceRelations.set(a, new Set());
+		if (!residenceRelations.has(b)) residenceRelations.set(b, new Set());
+		residenceRelations.get(a).add(b); residenceRelations.get(b).add(a);
+	}
+	// старые пункты, найденные по названию («~Горы»), заменяем на настоящие подгруппы из JSON
+	function migrateNamedResidences(gid) {
+		let changed = false;
+		const swap = function(k) {
+			const m = /^sg:([^:]+):~(.+)$/.exec(String(k));
+			if (!m || m[1] !== gid) return k;
+			let found = null;
+			dynamicResidenceItems.forEach(function(item, key) {
+				if (!found && key.indexOf("sg:" + gid + ":") === 0 && key.charAt(("sg:" + gid + ":").length) !== "~" && String(item.label).toLowerCase() === m[2].toLowerCase()) found = key;
+			});
+			if (found) changed = true;
+			return found || k;
+		};
+		settings.residences = settings.residences.map(swap).filter(function(k, i, all) { return all.indexOf(k) === i; });
+		settings.residence = swap(settings.residence);
+		if (changed) saveSettings();
+	}
+	// нужные файлы вкладок грузим один раз; когда загрузятся — список перерисовывается с подгруппами из JSON
+	function ensureResidenceData() {
+		const gids = [];
+		RESIDENCES.forEach(function(b) { if (!b.single && gids.indexOf(b.group) < 0) gids.push(b.group); });
+		gids.forEach(function(gid) {
+			if (residenceSubgroups[gid] !== undefined) return;
+			loadResidenceSubgroups(gid).then(function() { if (!sections.homeland.hidden) renderHomelandList(); });
+		});
+	}
 	function renderHomelandList() {
 		homelandList.innerHTML = "";
+		residenceRelations = new Map();
+		const skipIds = residenceSkipIds();
+		const views = new Map(); // блок → пункты с подгруппами из JSON
+		RESIDENCES.forEach(function(b) {
+			const expanded = b.single ? b.items : expandResidenceItems(b.group, b.items, residenceSubgroups[b.group] || null, skipIds);
+			views.set(b, expanded);
+			flatResidenceItems(expanded).forEach(function(it) {
+				(it.ancestors || []).forEach(function(anc) { relate(anc, it.key); });
+			});
+		});
+		Object.keys(residenceSubgroups).forEach(migrateNamedResidences);
 		function leaf(item, block, parent) {
 			const btn = document.createElement("button");
 			btn.type = "button";
@@ -7220,25 +8312,23 @@ function buildSettingsPage() {
 						}
 					}
 				} else {
-					// «Все нейтры» и отдельные виды нейтров (Посёлок, Город, Горы, Туннели)
-					// взаимоисключающие: выбор одного снимает выбор с другой стороны
-					const NEUTRAL_PARENT = "ov:neutral";
-					const NEUTRAL_CHILDREN = ["ov:village", "ov:city", "ov:mountains", "ov:tunnels"];
-					let drop = [];
-					if (item.key === NEUTRAL_PARENT) drop = NEUTRAL_CHILDREN;
-					else if (NEUTRAL_CHILDREN.indexOf(item.key) >= 0) drop = [NEUTRAL_PARENT];
+					// Подгруппа целиком и её части (например, «Все нейтры» и «Горы») взаимоисключающие:
+					// выбор одного снимает выбор с другого
+					let drop = Array.from(residenceRelations.get(item.key) || []);
 					// Живёшь только в одной вселенной: выбор в другой вселенной (в том числе
 					// в Звёздном племени, Сумрачном лесу, Душевой) снимает всё остальное
-					RESIDENCES.forEach(function(other) {
-						if (other === block) return;
-						flatResidenceItems(other.items).forEach(function(x) { drop.push(x.key); });
+					settings.residences.forEach(function(k) {
+						const r = residenceByKey(k);
+						if (r && r.block !== block) drop.push(k);
 					});
 					// Внутри своей вселенной «Вся вселенная» и отдельные области исключают друг друга
-					const blockItems = flatResidenceItems(block.items);
-					const allItem = blockItems.find(function(x) { return /:all$/.test(x.key); });
-					if (allItem) {
-						if (item.key === allItem.key) blockItems.forEach(function(x) { if (x.key !== item.key) drop.push(x.key); });
-						else drop.push(allItem.key);
+					const allKey = flatResidenceItems(block.items).map(function(x) { return x.key; }).find(function(k) { return /:all$/.test(k); });
+					if (allKey) {
+						if (item.key === allKey) settings.residences.forEach(function(k) {
+							const r = residenceByKey(k);
+							if (r && r.block === block && k !== item.key) drop.push(k);
+						});
+						else drop.push(allKey);
 					}
 					settings.residences = settings.residences.filter(function(k) { return drop.indexOf(k) < 0; });
 					settings.residences.push(item.key);
@@ -7264,6 +8354,7 @@ function buildSettingsPage() {
 			return box;
 		}
 		function hasCur(items) { return flatResidenceItems(items).some(function(x) { return settings.residences.indexOf(x.key) >= 0; }); }
+		function itemsOf(b) { return views.get(b) || b.items; }
 		function renderItems(items, block, parent) {
 			items.forEach(function(item) {
 				if (item.children) renderItems(item.children, block, dropdown(item.label, parent, hasCur(item.children)));
@@ -7274,11 +8365,11 @@ function buildSettingsPage() {
 			const blocks = RESIDENCES.filter(function(b) { return b.group === g.id; });
 			if (blocks.length === 0) return;
 			if (blocks.length === 1 && blocks[0].single) { leaf(blocks[0].items[0], blocks[0], homelandList); return; }
-			const all = [].concat.apply([], blocks.map(function(b) { return b.items; }));
+			const all = [].concat.apply([], blocks.map(itemsOf));
 			const box = dropdown(g.label, homelandList, hasCur(all));
 			blocks.forEach(function(block) {
-				if (blocks.length === 1) renderItems(block.items, block, box);
-				else renderItems(block.items, block, dropdown(block.title, box, hasCur(block.items)));
+				if (blocks.length === 1) renderItems(itemsOf(block), block, box);
+				else renderItems(itemsOf(block), block, dropdown(block.title, box, hasCur(itemsOf(block))));
 			});
 		});
 	}
@@ -7395,6 +8486,13 @@ function buildDraftPage() {
 						<div class="prop-picker-holder deadend-picker-holder"></div>
 					</div>
 				</div>
+				<div class="draft-field random-field" hidden id="randomFields">
+					<label class="draft-check"><input type="checkbox" class="draft-random-all"><span>Любая локация (все локации)</span></label>
+					<div class="draft-random-pick" hidden>
+						<div class="draft-random-links"></div>
+						<div class="draft-random-groups"></div>
+					</div>
+				</div>
 				<div class="draft-transition-hint-row">
 					<p class="draft-transition-hint"></p>
 					<button type="button" class="draft-transition-remove" title="Удалить этот переход" hidden>✕</button>
@@ -7419,10 +8517,14 @@ function buildDraftPage() {
 	// Подгружаем названия и id из всех разделов для проверки совпадений
 	draftDbIds = new Set();
 	draftDbLocations = [];
+	draftDbGroups = [];
 	groups.filter(function(g) { return g.files; }).forEach(function(g) {
 		loadGroupData(g).then(function(result) {
+			((result.list && result.list.subgroups) || []).forEach(function(sg) {
+				if (sg && sg.id !== undefined && sg.name) draftDbGroups.push({ id: String(sg.id), name: sg.name, section: g.title || g.label || "", ids: (Array.isArray(sg.ids) ? sg.ids : []).map(String), parentGroup: sg.parentGroup ? String(sg.parentGroup) : "" });
+			});
 			(result.list || []).forEach(function(loc) {
-				if (loc && loc.id != null && loc.name) draftDbLocations.push({ id: loc.id, name: loc.name, tags: loc.tags || [], deadends: loc.deadends || {}, section: g.title || g.label || "" });
+				if (loc && loc.id != null && loc.name) draftDbLocations.push({ id: loc.id, name: loc.name, tags: loc.tags || [], deadends: loc.deadends || {}, section: g.title || g.label || "", area: loc.area !== undefined && loc.area !== null ? String(loc.area) : "" });
 				if (loc && loc.id != null) draftDbIds.add(draftNameKey(loc.id));
 				if (loc && loc.name) draftDbIds.add(draftNameKey(loc.name));
 			});
@@ -7447,6 +8549,11 @@ function buildDraftPage() {
 	const deadendNameInput = content.querySelector(".draft-deadend-name");
 	const deadendChipsHolder = content.querySelector(".deadend-props-chips");
 	const deadendPickerHolder = content.querySelector(".deadend-picker-holder");
+	const randomFields = content.querySelector("#randomFields");
+	const randomAllBox = content.querySelector(".draft-random-all");
+	const randomPick = content.querySelector(".draft-random-pick");
+	const randomLinksHolder = content.querySelector(".draft-random-links");
+	const randomGroupsHolder = content.querySelector(".draft-random-groups");
 
 	const UNKNOWN_TARGET = "";
 	function findNode(id) { return draftState.nodes.find(function(node) { return node.id === id; }); }
@@ -7671,6 +8778,13 @@ function buildDraftPage() {
 			deadendName: prev.deadendName || "",
 			deadendProps: prev.deadendProps || []
 		};
+		if (typeSelect.value === "random") {
+			const keep = prev.type === "random";
+			const cellNow = node.cells[selectedCell.index];
+			cellNow.randomAll = keep ? !!prev.randomAll : true;
+			cellNow.randomLinks = keep ? (prev.randomLinks || []) : [];
+			cellNow.randomGroups = keep ? (prev.randomGroups || []) : [];
+		}
 		refreshTransitionTool();
 		renderNodeCard(node);
 	});
@@ -7826,11 +8940,49 @@ function buildDraftPage() {
 		refreshTransitionTool();
 	});
 
+	// Случайный переход: что ему доступно — все локации, либо выбранные локации
+	// (в том числе эта же, из «Рыбы» и с сайта) и целые подгруппы
+	function currentRandomCell() {
+		const node = selectedCell ? findNode(selectedCell.nodeId) : null;
+		const cell = node && node.cells[selectedCell.index];
+		return node && cell && cell.type === "random" ? { node: node, cell: cell } : null;
+	}
+	function renderRandomFields() {
+		randomLinksHolder.innerHTML = "";
+		randomGroupsHolder.innerHTML = "";
+		const cur = currentRandomCell();
+		if (!cur) { randomFields.hidden = true; return; }
+		const cell = cur.cell, node = cur.node;
+		if (!Array.isArray(cell.randomLinks)) cell.randomLinks = [];
+		if (!Array.isArray(cell.randomGroups)) cell.randomGroups = [];
+		randomFields.hidden = false;
+		randomAllBox.checked = !!cell.randomAll;
+		randomPick.hidden = !!cell.randomAll;
+		if (cell.randomAll) return;
+		const title = document.createElement("div");
+		title.className = "prop-links-title";
+		title.textContent = "Куда может привести (локации и целые подгруппы; можно выбрать и саму эту локацию):";
+		randomLinksHolder.appendChild(title);
+		const picker = createRandomPicker(cell, {
+			nodeId: node.id,
+			onChange: function() { renderNodeCard(node); }
+		});
+		randomLinksHolder.appendChild(picker.element);
+	}
+	randomAllBox.addEventListener("change", function() {
+		const cur = currentRandomCell();
+		if (!cur) return;
+		cur.cell.randomAll = randomAllBox.checked;
+		renderRandomFields();
+		renderNodeCard(cur.node);
+	});
+
 	function refreshTransitionTool() {
 		const node = selectedCell ? findNode(selectedCell.nodeId) : null;
 		if (!node || node.locked) selectedCell = null;
 		transitionTarget.hidden = true;
 		deadendFields.hidden = true;
+		randomFields.hidden = true;
 		typeSelect.disabled = !selectedCell;
 		transitionRemoveBtn.hidden = !selectedCell;
 		if (!selectedCell) {
@@ -7859,6 +9011,7 @@ function buildDraftPage() {
 		} else {
 			renderDeadendProps();
 		}
+		renderRandomFields();
 	}
 
 	function deleteDraftNode(id) {
@@ -7869,6 +9022,7 @@ function buildDraftPage() {
 			});
 			Object.keys(node.cells).forEach(function(key) {
 				if (node.cells[key] && node.cells[key].target === id) node.cells[key].target = null;
+				if (node.cells[key] && Array.isArray(node.cells[key].randomLinks)) node.cells[key].randomLinks = node.cells[key].randomLinks.filter(function(link) { return link !== id; });
 			});
 		});
 		if (selectedNodeId === id) selectedNodeId = null;
@@ -7947,6 +9101,9 @@ function buildDraftPage() {
 				}
 			} else if (cell.type === "deadend" && cell.deadendName) {
 				title += " → " + cell.deadendName;
+			} else if (cell.type === "random") {
+				const nl = (cell.randomLinks || []).length, ng = (cell.randomGroups || []).length;
+				title += cell.randomAll ? " → любая локация" : " → " + [nl ? nl + " лок." : "", ng ? ng + " подгр." : ""].filter(Boolean).join(", ");
 			}
 			cellEl.title = title;
 		});
@@ -8096,9 +9253,11 @@ function buildDraftPage() {
 				let cur = sg.parentGroup ? draftGroupFind(subgroups, sg.parentGroup) : null;
 				for (let guard = 0; cur && guard < 30; guard++) {
 					if (draftCanvasCollapsed.has(cur.id)) return; // родитель свёрнут — вложенное скрыто
+						if (draftHiddenGroups.has(cur.id)) return;    // родитель скрыт глазком — вложенное тоже
 					cur = cur.parentGroup ? draftGroupFind(subgroups, cur.parentGroup) : null;
 				}
-				const count = total(sg);
+				if (draftHiddenGroups.has(sg.id)) return;
+					const count = total(sg);
 				if (count === 0) return;
 				addSection(sg.id, sg.name, sg.color, entry.depth, byArea.get(sg.id) || [], count);
 			});
@@ -8261,23 +9420,46 @@ function buildDraftPage() {
 		draftGroupTree(draftState.subgroups).forEach(function(entry) {
 			const sg = entry.sg;
 			if (hiddenByFolder(sg)) return;
-			const folded = foldedGroups.has(sg.id);
 			const kidCount = draftGroupDescendants(draftState.subgroups, sg.id).size;
+			const folded = kidCount > 0 && foldedGroups.has(sg.id);
 			const item = document.createElement("div");
 			item.className = "draft-group-item" + (folded ? " folded" : "");
 			item.style.marginLeft = (entry.depth * 18) + "px";
 			const row = document.createElement("div");
 			row.className = "draft-group-row";
-			const fold = document.createElement("button");
-			fold.type = "button"; fold.className = "draft-group-fold";
-			fold.textContent = folded ? "▸" : "▾";
-			fold.setAttribute("aria-expanded", folded ? "false" : "true");
-			fold.title = folded ? "Развернуть подгруппу" : "Свернуть подгруппу";
-			fold.addEventListener("click", function() {
-				if (foldedGroups.has(sg.id)) foldedGroups.delete(sg.id); else foldedGroups.add(sg.id);
-				saveFolds(); renderGroups();
-			});
-			row.appendChild(fold);
+			// у подгруппы без вложенных кнопки сворачивания нет — вместо неё пустое место,
+			// чтобы глазок и название стояли ровно
+			if (kidCount > 0) {
+				const fold = document.createElement("button");
+				fold.type = "button"; fold.className = "draft-group-fold";
+				fold.textContent = folded ? "▸" : "▾";
+				fold.setAttribute("aria-expanded", folded ? "false" : "true");
+				fold.title = folded ? "Развернуть подгруппу" : "Свернуть подгруппу";
+				fold.addEventListener("click", function() {
+					if (foldedGroups.has(sg.id)) foldedGroups.delete(sg.id); else foldedGroups.add(sg.id);
+					saveFolds(); renderGroups();
+				});
+				row.appendChild(fold);
+			} else {
+				const gap = document.createElement("span");
+				gap.className = "draft-group-fold-gap";
+				row.appendChild(gap);
+			}
+				const hidden = draftHiddenGroups.has(sg.id);
+				const eye = document.createElement("button");
+				eye.type = "button"; eye.className = "draft-group-eye" + (hidden ? " off" : "");
+				// размер задаём прямо здесь: общий стиль кнопок растягивает их на всю строку
+				eye.style.cssText = "flex:0 0 22px;width:22px;height:22px;min-width:0;padding:0;margin:0;background:transparent;border:none;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;order:0;";
+				eye.style.color = hidden ? "var(--text-dim)" : "var(--accent)";
+				eye.setAttribute("aria-pressed", hidden ? "true" : "false");
+				eye.title = hidden ? "Показать локации подгруппы на поле" : "Скрыть локации подгруппы с поля";
+				eye.setAttribute("aria-label", eye.title);
+				eye.innerHTML = hidden ? EYE_OFF_SVG : EYE_SVG;
+				eye.addEventListener("click", function() {
+					if (draftHiddenGroups.has(sg.id)) draftHiddenGroups.delete(sg.id); else draftHiddenGroups.add(sg.id);
+					saveHiddenGroups(); renderGroups(); renderCanvas();
+				});
+				row.appendChild(eye);
 			const color = document.createElement("input");
 			color.type = "color"; color.value = /^#[0-9a-fA-F]{6}$/.test(sg.color || "") ? sg.color : "#888888";
 			color.addEventListener("input", function() { sg.color = color.value; });
@@ -8287,7 +9469,10 @@ function buildDraftPage() {
 			name.addEventListener("input", function() { sg.name = name.value || sg.id; refreshGroupSelect(); updateBorderUi(); });
 			const count = document.createElement("span");
 			count.className = "draft-group-count";
-			const n = draftState.nodes.filter(function(x) { return x.area === sg.id; }).length;
+			// считаем все локации внутри: и свои, и во вложенных подгруппах
+			const inside = new Set(draftGroupDescendants(draftState.subgroups, sg.id));
+			inside.add(sg.id);
+			const n = draftState.nodes.filter(function(x) { return inside.has(x.area); }).length;
 			count.textContent = (kidCount > 0 && folded ? kidCount + " подгр., " : "") + n + " лок.";
 			count.title = "id подгруппы в файле: " + sg.id;
 			const remove = document.createElement("button");
@@ -8681,7 +9866,11 @@ function buildDraftPage() {
 				draftState = normalizeDraft(incoming);
 				selectedNodeId = draftState.nodes[0] ? draftState.nodes[0].id : null;
 				selectedCell = null;
-				renderGroups();
+				// после импорта все подгруппы свёрнуты (и в списке подгрупп, и на поле), глазки сброшены
+					draftHiddenGroups.clear(); saveHiddenGroups();
+					draftState.subgroups.forEach(function(sg) { foldedGroups.add(sg.id); draftCanvasCollapsed.add(sg.id); });
+					saveFolds();
+					renderGroups();
 				refreshInspector(); refreshTransitionTool(); renderCanvas();
 				saveDraftToStorage(draftState);
 				commitHistory();
@@ -8704,12 +9893,12 @@ function buildDraftPage() {
 //  Пример для предпросмотра цветов
 // ============================================================
 const PREVIEW_DATA = (function() {
-	const cells = [0, 4, 9, 25, 34, 50, 55, 59];
+	const cells = [0, 4, 9, 17, 25, 34, 50, 55, 59];
 	const code = [];
 	for (let i = 0; i < 60; i++) code.push(cells.indexOf(i) >= 0 ? "1" : "0");
 	return withHints([
-		{ id: 1, name: "Пример", code: code.join(""), transitions: [2, "Т", "С", 2, 3, 3, 3, 3],
-		  cellTypes: { "34": "hidden", "55": "fast" } },
+		{ id: 1, name: "Пример", code: code.join(""), transitions: [2, "Т", "С", RANDOM_TRANSITION, 2, 3, 3, 3, 3],
+		  cellTypes: { "34": "hidden", "55": "fast" }, randoms: { "17": { all: true } } },
 		{ id: 2, name: "Следующая локация", code: "0".repeat(60), transitions: [] },
 		{ id: 3, name: "Другая локация", code: "0".repeat(60), transitions: [] }
 	], {});
@@ -8742,6 +9931,12 @@ renderSidebar();
 	if (home) openGroup(home);
 	else openGroup(groups[0]);
 })();
+
+// Подсказка случайного перехода — новые случайные символы при каждом наведении
+document.addEventListener("mouseover", function(e) {
+	const el = e.target && e.target.closest ? e.target.closest(".cell-random") : null;
+	if (el) el.setAttribute("title", randomHint());
+});
 
 document.addEventListener("click", function(e) {
 	document.querySelectorAll(".search-results").forEach(function(box) {
