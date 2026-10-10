@@ -889,12 +889,16 @@ function getTransitionTitle(data, location, transition, cellIndex) {
 	return destination ? destination.name : String(transition);
 }
 
+const phantomHintsCache = new WeakMap();
 function getPhantomAbbrevHints(data) {
+	const hit = phantomHintsCache.get(data);
+	if (hit && hit.hints === data.hints && hit.size === data.length) return hit.phantom;
 	const phantom = {};
 	const hints = hintsOf(data);
 	Object.keys(hints).forEach(function(key) {
 		if (!findLocationById(data, key)) phantom[key] = hints[key];
 	});
+	phantomHintsCache.set(data, { hints: data.hints, size: data.length, phantom: phantom });
 	return phantom;
 }
 
@@ -906,6 +910,34 @@ function findLocationsByTransition(data, abbrev) {
 	});
 }
 
+// Поисковый «слепок» локации: название, подписи свойств, названия тупиков и ботов в нижнем регистре,
+// собранные один раз. Раньше на каждую букву запроса всё это пересчитывалось для каждой локации
+const searchBlobCache = new WeakMap();
+function searchBlobOf(location) {
+	const tags = location.tags || [];
+	const cached = searchBlobCache.get(location);
+	if (cached && cached.name === location.name && cached.tags === location.tags && cached.tagCount === tags.length && cached.deadends === location.deadends) return cached.blob;
+	const parts = [String(location.name || "")];
+	tags.forEach(function(tag) { parts.push(tagLabel(tag), String(tag.name || tag.customLabel || "")); });
+	const deadends = location.deadends || {};
+	Object.keys(deadends).forEach(function(k) {
+		const info = deadends[k];
+		if (!info) return;
+		parts.push(String(info.name || ""));
+		(info.props || []).forEach(function(tag) { parts.push(tagLabel(tag), String(tag.name || tag.customLabel || "")); });
+	});
+	const blob = parts.join("\n").toLowerCase();
+	searchBlobCache.set(location, { name: location.name, tags: location.tags, tagCount: tags.length, deadends: location.deadends, blob: blob });
+	return blob;
+}
+const SEARCH_LIMIT = 60; // сколько вариантов показывать в списке: тысячи кнопок заметно тормозят страницу
+function appendSearchLimitNote(container, total) {
+	if (total <= SEARCH_LIMIT) return;
+	const note = document.createElement("p");
+	note.className = "search-empty";
+	note.textContent = "Показано " + SEARCH_LIMIT + " из " + total + " — уточните запрос";
+	container.appendChild(note);
+}
 function locationTagsMatch(location, trimmedQuery) {
 	if (!location.tags || location.tags.length === 0) return false;
 	return location.tags.some(function(tag) {
@@ -964,20 +996,20 @@ function findLocations(data, query) {
 			(sub.ids || []).forEach(function(id) { groupIds[String(id)] = true; });
 		}
 	});
+	const hasGroups = Object.keys(groupIds).length > 0;
 	const direct = data.filter(function(location) {
-		return groupIds[String(location.id)] ||
+		return (hasGroups && groupIds[String(location.id)]) ||
 			String(location.id).toLowerCase() === trimmed ||
-			location.name.toLowerCase().includes(trimmed) ||
-			locationTagsMatch(location, trimmed) ||
-			!!searchExtraMatch(location, trimmed);
+			searchBlobOf(location).indexOf(trimmed) >= 0;
 	});
 	if (/^\d+$/.test(trimmed)) return direct;
 	const phantomHints = getPhantomAbbrevHints(data);
 	const extra = [];
+	const seenLoc = new Set(direct);
 	Object.keys(phantomHints).forEach(function(abbrev) {
 		if (!phantomHints[abbrev].toLowerCase().includes(trimmed)) return;
 		findLocationsByTransition(data, abbrev).forEach(function(location) {
-			if (direct.indexOf(location) === -1 && extra.indexOf(location) === -1) extra.push(location);
+			if (!seenLoc.has(location)) { seenLoc.add(location); extra.push(location); }
 		});
 	});
 	return direct.concat(extra);
@@ -987,18 +1019,21 @@ function findLocations(data, query) {
 // жительства, затем (для конечной точки) ближайшие к начальной локации по переходам.
 // Для начальной точки — только по месту жительства. Совпадения по названию/id не трогаем.
 // ctx: { isEnd, getAnchor() -> локация слева или null, getOwn() -> Set id или null }
+const sortGraphCache = new WeakMap(); // граф переходов считается один раз, а не на каждую введённую букву
 function sortSearchByProximity(data, matches, query, ctx) {
 	if (!ctx || matches.length < 2) return matches;
 	const q = String(query || "").trim().toLowerCase();
 	function byProp(location) {
 		return String(location.id).toLowerCase() !== q && !String(location.name).toLowerCase().includes(q) &&
-			(locationTagsMatch(location, q) || !!searchExtraMatch(location, q));
+			searchBlobOf(location).indexOf(q) >= 0;
 	}
 	const own = ctx.getOwn ? ctx.getOwn() : null;
 	const anchor = ctx.isEnd && ctx.getAnchor ? ctx.getAnchor() : null;
 	let tree = null;
 	if (anchor) {
-		const graph = buildTransitionGraph(data, null);
+		let graph = sortGraphCache.get(data);
+		if (!graph || graph.size !== data.length) { graph = { graph: buildTransitionGraph(data, null), size: data.length }; sortGraphCache.set(data, graph); }
+		graph = graph.graph;
 		const start = String(anchor.id);
 		tree = own ? weightedTree(graph, start, own) : bfsTree(graph, start);
 	}
@@ -1069,6 +1104,16 @@ function computeRouteScope(data, group) {
 		return { allowed: null, text: "Сейчас маршрут ищется по всей вселенной." };
 	}
 	const areas = ["neutral", "city", "village"];
+	// Нейтральная территория доступна при любом месте жительства — вместе со всеми подгруппами,
+	// которые в JSON вложены в нейтры (кроме 7ДЛ и деревень: они выбираются отдельно)
+	(function addNeutralKids(id) {
+		areaChildIds(data.subgroups, id).forEach(function(c) {
+			const sg = data.subgroups.find(function(x) { return String(x.id) === String(c); });
+			if (!sg || isBulkSectionSub(sg) || areas.indexOf(String(c)) >= 0) return;
+			areas.push(String(c));
+			addNeutralKids(c);
+		});
+	})("neutral");
 	const tribes = [];
 	// Общие территории принадлежат четырём племенам (Ветра, Реки, Теней, Грозы):
 	// для одиночки, КПВ и т. п. это чужая территория, так что открываются
@@ -1094,7 +1139,8 @@ function computeRouteScope(data, group) {
 	});
 	const allowed = new Set();
 	data.subgroups.forEach(function(sub) {
-		if (areas.indexOf(sub.id) >= 0) (sub.ids || []).forEach(function(id) { allowed.add(String(id)); });
+		// 7ДЛ, деревни и всё, что входит в нейтры, доступно всегда (горные тропки отдельно обходятся при поиске)
+		if (areas.indexOf(sub.id) >= 0 || isBulkSectionSub(sub)) (sub.ids || []).forEach(function(id) { allowed.add(String(id)); });
 	});
 	const text = "Сейчас ваш маршрут настроен на свободное перемещение по нейтрам" +
 		(tribes.length > 0 ? " и территориям: " + tribes.join(", ") : "") + ".";
@@ -2052,7 +2098,7 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 			searchResults.innerHTML = '<p class="search-empty">Локация не найдена</p>';
 			return;
 		}
-		matches.forEach(function(location) {
+		matches.slice(0, SEARCH_LIMIT).forEach(function(location) {
 			const optionButton = document.createElement("button");
 			optionButton.type = "button";
 			optionButton.className = "search-option";
@@ -2060,6 +2106,7 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 			optionButton.addEventListener("click", function() { selectLocation(location, false); });
 			searchResults.appendChild(optionButton);
 		});
+		appendSearchLimitNote(searchResults, matches.length);
 		hints.forEach(function(entry) {
 			searchResults.appendChild(createSectionHint(entry, function(target) { cross.goTo(target, query); }));
 		});
@@ -6756,7 +6803,7 @@ function renderGraph(wrap, entries, routeIds, startView) {
 		const byId = [], byName = [];
 		nodes.forEach(function(node, index) {
 			if (String(node.location.id).toLowerCase() === trimmed) byId.push(index);
-			else if (node.location.name.toLowerCase().includes(trimmed) || searchExtraMatch(node.location, trimmed) || locationTagsMatch(node.location, trimmed)) byName.push(index);
+			else if (searchBlobOf(node.location).indexOf(trimmed) >= 0) byName.push(index);
 		});
 		return byId.concat(byName);
 	}
@@ -6784,7 +6831,7 @@ function renderGraph(wrap, entries, routeIds, startView) {
 			});
 			searchResults.appendChild(optionButton);
 		});
-		matches.forEach(function(index) {
+		matches.slice(0, SEARCH_LIMIT).forEach(function(index) {
 			const node = nodes[index];
 			const optionButton = document.createElement("button");
 			optionButton.type = "button";
@@ -6797,6 +6844,7 @@ function renderGraph(wrap, entries, routeIds, startView) {
 			});
 			searchResults.appendChild(optionButton);
 		});
+		appendSearchLimitNote(searchResults, matches.length);
 	}
 	searchInput.addEventListener("input", debounce(runSearch, 140));
 	searchInput.addEventListener("keydown", function(e) {
@@ -7702,7 +7750,7 @@ function buildCheckPanel(data, state, mode) {
 		if (!query.trim()) return;
 		const matches = findLocations(data, query);
 		if (matches.length === 0) { searchResults.innerHTML = '<p class="search-empty">Локация не найдена</p>'; return; }
-		matches.forEach(function(location) {
+		matches.slice(0, SEARCH_LIMIT).forEach(function(location) {
 			const optionButton = document.createElement("button");
 			optionButton.type = "button";
 			optionButton.className = "search-option";
@@ -7710,6 +7758,7 @@ function buildCheckPanel(data, state, mode) {
 			optionButton.addEventListener("click", function() { pickLocation(location); });
 			searchResults.appendChild(optionButton);
 		});
+		appendSearchLimitNote(searchResults, matches.length);
 	}
 	searchBtn.addEventListener("click", runSearch);
 	searchInput.addEventListener("input", debounce(runSearch, 140));
