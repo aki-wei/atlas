@@ -1020,7 +1020,6 @@ function findLocations(data, query) {
 // жительства, затем (для конечной точки) ближайшие к начальной локации по переходам.
 // Для начальной точки — только по месту жительства. Совпадения по названию/id не трогаем.
 // ctx: { isEnd, getAnchor() -> локация слева или null, getOwn() -> Set id или null }
-const sortTreeCache = new WeakMap();
 const sortGraphCache = new WeakMap(); // граф переходов считается один раз, а не на каждую введённую букву
 function sortSearchByProximity(data, matches, query, ctx) {
 	if (!ctx || matches.length < 2) return matches;
@@ -1037,15 +1036,7 @@ function sortSearchByProximity(data, matches, query, ctx) {
 		if (!graph || graph.size !== data.length) { graph = { graph: buildTransitionGraph(data, null), size: data.length }; sortGraphCache.set(data, graph); }
 		graph = graph.graph;
 		const start = String(anchor.id);
-		// дерево расстояний не меняется, пока та же начальная точка и тот же набор «своих»
-		// локаций, поэтому на каждую следующую букву запроса его не пересчитываем
-		const ownSig = own ? own.size : -1;
-		const hit = sortTreeCache.get(data);
-		if (hit && hit.graph === graph && hit.start === start && hit.own === own && hit.ownSig === ownSig) tree = hit.tree;
-		else {
-			tree = own ? weightedTree(graph, start, own) : bfsTree(graph, start);
-			sortTreeCache.set(data, { graph: graph, start: start, own: own, ownSig: ownSig, tree: tree });
-		}
+		tree = own ? weightedTree(graph, start, own) : bfsTree(graph, start);
 	}
 	const order = new Map();
 	matches.forEach(function(location, i) { order.set(location, i); });
@@ -1260,54 +1251,16 @@ function bestViaOrder(start, via, end, dist) {
 // Взвешенный поиск: «чужие» локации (вне own) стоят дороже своих
 const FOREIGN_COST = 8;
 function weightedTree(graph, start, own) {
-	// Дейкстра на бинарной куче. Раньше на каждом шаге перебирались все найденные вершины
-	// (квадратичное время — тысячи локаций заметно тормозили поиск). Порядок выбора при равных
-	// расстояниях прежний: раньше добавленная вершина идёт первой, поэтому маршруты не меняются
-	const dist = new Map(), prev = new Map(), done = new Set(), seq = new Map();
-	const heap = [];
-	function less(a, b) { return a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]); }
-	function push(item) {
-		let i = heap.length;
-		heap.push(item);
-		while (i > 0) {
-			const parent = (i - 1) >> 1;
-			if (!less(heap[i], heap[parent])) break;
-			const t = heap[i]; heap[i] = heap[parent]; heap[parent] = t;
-			i = parent;
-		}
-	}
-	function pop() {
-		const top = heap[0], last = heap.pop();
-		if (heap.length > 0) {
-			heap[0] = last;
-			let i = 0;
-			for (;;) {
-				const l = 2 * i + 1, r = l + 1;
-				let m = i;
-				if (l < heap.length && less(heap[l], heap[m])) m = l;
-				if (r < heap.length && less(heap[r], heap[m])) m = r;
-				if (m === i) break;
-				const t = heap[i]; heap[i] = heap[m]; heap[m] = t;
-				i = m;
-			}
-		}
-		return top;
-	}
-	let counter = 0;
-	dist.set(start, 0); prev.set(start, null); seq.set(start, counter++);
-	push([0, seq.get(start), start]);
-	while (heap.length > 0) {
-		const top = pop();
-		const bd = top[0], best = top[2];
-		if (done.has(best) || bd !== dist.get(best)) continue;
+	const dist = new Map(), prev = new Map(), done = new Set();
+	dist.set(start, 0); prev.set(start, null);
+	for (;;) {
+		let best = null, bd = Infinity;
+		dist.forEach(function(d, k) { if (!done.has(k) && d < bd) { bd = d; best = k; } });
+		if (best === null) break;
 		done.add(best);
 		(graph[best] || []).forEach(function(n) {
 			const nd = bd + (own.has(n) ? 1 : FOREIGN_COST);
-			if (!dist.has(n)) seq.set(n, counter++);
-			if (!dist.has(n) || nd < dist.get(n)) {
-				dist.set(n, nd); prev.set(n, best);
-				push([nd, seq.get(n), n]);
-			}
+			if (!dist.has(n) || nd < dist.get(n)) { dist.set(n, nd); prev.set(n, best); }
 		});
 	}
 	return { dist: dist, prev: prev };
@@ -7234,7 +7187,18 @@ function ensureFooter() {
 		footer.id = "siteFooter";
 		const startYear = 2026;
 		const nowYear = Math.max(startYear, new Date().getFullYear());
-		footer.textContent = "© Вэй [1441760], Обугливание [1607231], " + (nowYear > startYear ? startYear + "-" + nowYear : String(startYear));
+		const years = nowYear > startYear ? startYear + "-" + nowYear : String(startYear);
+		[
+			"© " + years + ". Вэй [1441760] — автор проекта и организатор.", "Обугливание [1607231] — почётный картограф атласа.",
+			"Шапки сайта отрисованы Дебилом [999481].",
+			"Некоторые иконки были взяты напрямую с сайта catwar.net (.su).",
+			"Сайт был практически полностью создан при помощи нейросетей."
+		].forEach(function(text) {
+			const line = document.createElement("span");
+			line.className = "footer-line";
+			line.textContent = text;
+			footer.appendChild(line);
+		});
 		content.appendChild(footer);
 	}
 }
@@ -7414,17 +7378,7 @@ function buildPathPanel(data, group, state, titleEl) {
 		}
 	}
 
-	// набор «своих» локаций считается заново только при смене места жительства или данных,
-	// а не на каждую букву запроса (так же работает и кэш дерева расстояний при сортировке)
-	let ownSortCache = null;
-	function ownIdsForSort() {
-		let key;
-		try { key = JSON.stringify(settings.residences || []) + "|" + data.length + "|" + (data.subgroups ? data.subgroups.length : 0); } catch (e) { key = null; }
-		if (key !== null && ownSortCache && ownSortCache.key === key) return ownSortCache.value;
-		const value = computeRouteScope(data, group).allowed;
-		ownSortCache = { key: key, value: value };
-		return value;
-	}
+	function ownIdsForSort() { return computeRouteScope(data, group).allowed; }
 	const pickerA = createLocationPicker(data, "Начальная локация", function(location) {
 		const changed = (state.pointA || null) !== (location || null);
 		pointA = location; state.pointA = location;
@@ -8815,7 +8769,7 @@ function buildDraftPage() {
 	targetBtn.addEventListener("click", function() {
 		if (targetPanel.hidden) openTargetPanel(); else setTargetPanelOpen(false);
 	});
-	targetSearch.addEventListener("input", debounce(renderTargetList, 120));
+	targetSearch.addEventListener("input", renderTargetList);
 	targetPanel.addEventListener("keydown", function(e) { if (e.key === "Escape") { setTargetPanelOpen(false); targetBtn.focus(); } });
 	function closeTargetOutside(e) {
 		if (!document.body.contains(targetPicker)) { document.removeEventListener("click", closeTargetOutside); return; }
