@@ -245,13 +245,19 @@ function residenceSkipIds() {
 	skip.delete("neutral");
 	return skip;
 }
+// Подгруппы разделов 7ДЛ и «Деревня и тропы» в местах жительства заданы вручную
+function isBulkSectionSub(sg) {
+	if (!sg || !sg.section) return false;
+	const root = Array.isArray(sg.secPath) ? sg.secPath[0] : sg.section;
+	return root === "7dl" || root === "derevnya";
+}
 function residenceKidNode(gid, subs, kid, ancestors, skip, depth) {
 	const key = "sg:" + gid + ":" + kid.id;
 	const item = { key: key, label: kid.name, area: kid.id, subId: kid.id, ancestors: ancestors };
 	dynamicResidenceItems.set(key, item);
 	if (depth > 6) return item;
 	const subKids = subChildrenOf(subs, kid.id).filter(function(k) {
-		return !skip.has(k.id) && ancestors.indexOf("sg:" + gid + ":" + k.id) < 0 && !(k.sg && k.sg.section);
+		return !skip.has(k.id) && ancestors.indexOf("sg:" + gid + ":" + k.id) < 0 && !isBulkSectionSub(k.sg);
 	});
 	if (subKids.length === 0) return item;
 	return { label: kid.name, children: [Object.assign({}, item, { label: "Вся подгруппа «" + kid.name + "»" })]
@@ -264,7 +270,7 @@ function expandResidenceItems(gid, items, subs, skip) {
 		if (item.children) { out.push(Object.assign({}, item, { children: expandResidenceItems(gid, item.children, subs, skip) })); return; }
 		const base = Object.assign({}, item, { ancestors: [] });
 		if (!item.area || item.sec || item.fam) { out.push(base); return; }
-		const kids = subs ? subChildrenOf(subs, item.area).filter(function(k) { return !skip.has(k.id) && !(k.sg && k.sg.section); }) : [];
+		const kids = subs ? subChildrenOf(subs, item.area).filter(function(k) { return !skip.has(k.id) && !isBulkSectionSub(k.sg); }) : [];
 		const nodes = kids.map(function(k) { return residenceKidNode(gid, subs, k, [item.key], skip, 0); });
 		if (nodes.length === 0 && item.fallbackKids) {
 			item.fallbackKids.forEach(function(f) { nodes.push(Object.assign({ area: f.subId, ancestors: [item.key] }, f)); });
