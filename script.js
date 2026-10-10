@@ -5038,7 +5038,7 @@ function renderGraph(wrap, entries, routeIds) {
 			const outerLabel = svgEl("text", { "class": "g-area-label", x: members[0].minX + 10, y: members[0].minY + 16, fill: nc });
 			const legacyKids = kids.length === 2 && kids.every(function(k) { return k.id === "city" || k.id === "village"; });
 			outerLabel.textContent = nested.name + (legacyKids ? " (вместе с Посёлком и Городом)" : " (включая: " + kids.map(function(k) { return k.name; }).join(", ") + ")");
-			frameLayer.appendChild(outerLabel);
+			labelLayer.appendChild(outerLabel);
 		}
 		// Внутренние рамки нужны, только если область нейтров показана не вся
 		// целиком: иначе рамка и название совпадали бы с рамкой самой области
@@ -5830,7 +5830,58 @@ function renderGraph(wrap, entries, routeIds) {
 		if (searchInput.value) { searchInput.value = ""; searchResults.innerHTML = ""; searchInput.classList.remove("not-found"); }
 	});
 
-	if (typeof ResizeObserver === "function") new ResizeObserver(applyView).observe(wrap);
+	// Подписи областей и подгрупп никогда не должны налезать друг на друга. Ширина текста
+	// зависит от шрифта и размера экрана (телефон/компьютер), поэтому подписи
+	// расставляем по реально измеренным размерам: каждая остаётся на своём месте, а если
+	// задевает уже стоящую — сдвигается на ближайшее свободное место
+	function layoutAreaLabels() {
+		const texts = Array.prototype.slice.call(labelLayer.querySelectorAll("text.g-area-label"));
+		if (texts.length < 2) return;
+		const items = [];
+		for (let i = 0; i < texts.length; i++) {
+			const el = texts[i];
+			if (el._ox === undefined) { el._ox = parseFloat(el.getAttribute("x")); el._oy = parseFloat(el.getAttribute("y")); }
+			el.setAttribute("x", el._ox); el.setAttribute("y", el._oy);
+			let bb = null;
+			try { bb = el.getBBox(); } catch (e) {}
+			if (!bb || !(bb.width > 0)) return; // граф ещё не показан — повторим позже
+			items.push({ el: el, w: bb.width, h: bb.height, dx: bb.x - el._ox, dy: bb.y - el._oy });
+		}
+		items.sort(function(a, b) { return (a.el._oy - b.el._oy) || (a.el._ox - b.el._ox); });
+		const PAD = 3;
+		const placed = [];
+		function boxAt(it, x, y) { return { x0: x + it.dx - PAD, y0: y + it.dy - PAD, x1: x + it.dx + it.w + PAD, y1: y + it.dy + it.h + PAD }; }
+		function free(b) {
+			return !placed.some(function(p) { return b.x0 < p.x1 && b.x1 > p.x0 && b.y0 < p.y1 && b.y1 > p.y0; });
+		}
+		items.forEach(function(it) {
+			const ox = it.el._ox, oy = it.el._oy, step = it.h + 2 * PAD;
+			let best = null;
+			// сначала только по вертикали (вниз, затем вверх), потом со сдвигом вправо
+			search:
+			for (let shift = 0; shift < 40; shift++) {
+				const dxs = shift === 0 ? [0] : [it.w * 0.5 * shift];
+				for (let k = 0; k < 40; k++) {
+					const dys = k === 0 ? [0] : [k * step, -k * step];
+					for (let a = 0; a < dxs.length; a++) {
+						for (let b = 0; b < dys.length; b++) {
+							if (free(boxAt(it, ox + dxs[a], oy + dys[b]))) { best = { x: ox + dxs[a], y: oy + dys[b] }; break search; }
+						}
+					}
+				}
+			}
+			if (!best) best = { x: ox, y: oy };
+			it.el.setAttribute("x", best.x); it.el.setAttribute("y", best.y);
+			placed.push(boxAt(it, best.x, best.y));
+		});
+	}
+	if (typeof ResizeObserver === "function") {
+		new ResizeObserver(applyView).observe(wrap);
+		new ResizeObserver(debounce(layoutAreaLabels, 60)).observe(wrap);
+	}
+	requestAnimationFrame(function() { requestAnimationFrame(layoutAreaLabels); });
+	if (document.fonts && document.fonts.ready) document.fonts.ready.then(layoutAreaLabels);
+	setTimeout(layoutAreaLabels, 400);
 
 	const routeNodeIndices = [];
 	if (routeIds && routeIds.length > 0) {
