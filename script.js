@@ -6902,7 +6902,7 @@ function buildGroupPage(group) {
 	`;
 
 	const note = content.querySelector("#groupNote");
-	content.querySelector("#groupHint").appendChild(createFeedbackLink("Хотите уточнить локации/переходы или ввести карту?", "feedback-link page-head-link"));
+	content.querySelector("#groupHint").appendChild(createFeedbackLink("Хотите уточнить локации/переходы или добавить карту?", "feedback-link page-head-link"));
 	const toolArea = content.querySelector("#toolArea");
 
 	currentView = state.view;
