@@ -31,7 +31,7 @@ const TAB_COLOR_VARS = {
 
 // По одному JSON-файлу на вкладку
 const groups = [
-	{ id: "ov", label: "ОВ+МВ", title: "Озёрная, Морская и Ведёрчатая вселенные", icon: "icons/1.svg", files: ["data/ov.json"] },
+	{ id: "ov", label: "ОВ+МВ", title: "Озёрная и Морская вселенные", icon: "icons/1.svg", files: ["data/ov.json"] },
 	{ id: "vt", label: "ВТ", title: "Вселенная Творцов", icon: "icons/2.svg", files: ["data/vt.json"] },
 	{ id: "zp", label: "ЗП", title: "Звёздное племя", icon: "icons/5.png", files: ["data/zp.json"] },
 	{ id: "sl", label: "СЛ", title: "Сумрачный лес", icon: "icons/0.png", files: ["data/sl.json"] },
