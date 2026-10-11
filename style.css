@@ -335,6 +335,8 @@ button:active { transform: translateY(1px); }
 #map button.cell-deadend.active, .point-map button.cell-deadend.active { background-color: var(--deadend); }
 #map button.cell-self.active, .point-map button.cell-self.active { background-color: var(--self-loop); }
 #map button.cell-random.active, .point-map button.cell-random.active { background-color: var(--random-cell); }
+#map button.cell-hidden.active { background-color: var(--hidden-cell); }
+#map button.cell-fast.active { background-color: var(--fast-cell); }
 .point-map button.cell-hidden.active { background-color: var(--hidden-cell); }
 .point-map button.cell-fast.active { background-color: var(--fast-cell); }
 .point-map button.cell-next.active { background-color: var(--path-color); }
@@ -912,7 +914,9 @@ button:active { transform: translateY(1px); }
 .homeland-dd-body .homeland-btn { padding: 10px 14px; font-size: 15px; font-weight: 500; }
 .homeland-dd-body .homeland-dd > summary { padding: 10px 14px; font-size: 15px; font-weight: 500; }
 
-.graph-residence-hint { margin: 0 0 10px; font-size: 14px; color: var(--text-dim); }
+.graph-residence-hint { margin: 0 0 6px; font-size: 13px; line-height: 1.4; color: var(--text-dim); }
+/* внутри панели между блоками и так есть зазор, поэтому подсказку чуть подтягиваем к соседям */
+.tool-panel > .graph-residence-hint { margin: -6px 0 -4px; }
 .graph-residence-hint a { color: var(--accent); text-decoration: underline; cursor: pointer; }
 
 /* Блоки свойств: компактно, подпись — всплывающая подсказка */
@@ -941,7 +945,53 @@ button:active { transform: translateY(1px); }
 }
 
 @media (min-width: 701px) {
-	.map-holder { margin-right: var(--tags-w, 0px); }
+	/* Над картой и справа от неё всегда оставлено место под самые крупные свойства (строка сверху,
+	   колонка справа, значок бота 60px), поэтому локация не сдвигается, когда свойства появляются */
+	.map-holder { padding-top: var(--props-top, 64px); margin-right: calc(max(var(--tags-w, 0px), 68px) + var(--pal-w, 0px)); }
+	/* значки тупиков прижаты к верху карты; свободное место резервируется выше них */
+	.map-holder > .props-deadend { position: absolute; top: var(--props-top, 64px); left: 0; transform: translateY(calc(-100% - 2px)); }
+	/* в «Поиске пути» карта идёт первой, а название, подпись («Начальная/Конечная локация») и ввод — под ней */
+	.point-picker > .map-holder { order: 1; }
+	.point-picker > .point-name { order: 2; }
+	.point-picker > .point-label { order: 3; }
+	.point-picker > .search-wrap { order: 4; }
+	/* в проверке локации колонка свойств стоит правее списка видов перехода */
+	.map-holder.has-palette .loc-tags { margin-left: var(--pal-w); }
+	.map-holder.has-palette .loc-tags:has(.loc-tag-icon-bot) { margin-left: calc(var(--pal-w) - 6px); }
+}
+
+/* ---------- Вид перехода (проверка нарисованной локации) ---------- */
+.location-finder { --type-w: 112px; }
+.map-holder.has-palette { --pal-w: calc(var(--type-w) + 8px + var(--note-w, 0px)); }
+.type-palette { position: absolute; top: -15px; left: calc(100% + 8px); width: var(--type-w); z-index: 2; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.type-palette[hidden] { display: none !important; }
+.type-strict-row { display: flex; align-items: center; height: 18px; margin: 0 0 2px; }
+.type-strict { display: flex; align-items: center; gap: 6px; height: 18px; margin: 0; font-size: 12px; line-height: 18px; color: var(--text); cursor: pointer; user-select: none; }
+.type-strict-row .restore-arrow { margin-left: 2px; padding: 0 3px; font-size: 13px; line-height: 1; opacity: 0.4; }
+.type-strict-row .restore-arrow:hover { opacity: 1; }
+/* пояснение к «Строго»: справа от списка видов, привязано к его верху */
+.type-note { position: absolute; top: 0; left: calc(100% + 8px); width: 210px; padding: 6px 8px; font-size: 11px; line-height: 1.35; color: var(--text-dim); background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; text-align: left; }
+.type-note p { margin: 0 0 5px; }
+.type-note .type-note-title { color: var(--text); font-weight: 600; }
+.type-note .hide-btn { display: block; margin: 2px 0 0; padding: 0; }
+.type-strict input { margin: 0; cursor: pointer; accent-color: var(--accent); }
+.type-palette-title { margin: 0 0 1px; font-size: 11px; line-height: 14px; color: var(--text-dim); }
+.type-btn { display: flex; align-items: center; justify-content: flex-start; gap: 6px; width: 100%; padding: 2px 6px; font-size: 12px; line-height: 1.2; text-align: left; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text-dim); }
+.type-btn i { flex: 0 0 auto; width: 10px; height: 14px; border: 1px solid rgba(0, 0, 0, 0.25); }
+.type-btn[data-kind="normal"] i { background-color: var(--cell-active); }
+.type-btn[data-kind="deadend"] i { background-color: var(--deadend); }
+.type-btn[data-kind="self"] i { background-color: var(--self-loop); }
+.type-btn[data-kind="random"] i { background-color: var(--random-cell); }
+.type-btn[data-kind="hidden"] i { background-color: var(--hidden-cell); }
+.type-btn[data-kind="fast"] i { background-color: var(--fast-cell); }
+.type-btn.active { border-color: var(--accent); background-color: var(--accent-soft); color: var(--text); }
+@media (max-width: 700px) {
+	/* на узком экране палитра — под картой, три кнопки в ряд */
+	.map-holder.has-palette { margin-bottom: 100px; }
+	.type-palette { top: calc(100% + 6px) !important; left: 50%; transform: translateX(-50%); width: min(300px, calc(100vw - 24px)); display: grid; grid-template-columns: repeat(3, 1fr); }
+	.type-palette-title, .type-strict-row, .type-note { grid-column: 1 / -1; }
+	.type-note { position: static; width: auto; }
+	.map-holder.has-palette.note-open { margin-bottom: 170px; }
 }
 
 .route-scope { font-size: 13px; line-height: 1.4; color: var(--text-dim); max-width: 520px; }
@@ -1001,7 +1051,7 @@ button:active { transform: translateY(1px); }
 .swap-mid svg { transform: rotate(90deg); } /* на компьютере локации слева и справа — стрелка ⇄ */
 @media (min-width: 701px) {
 	.points-row .swap-mid { align-self: flex-start; } /* отступ сверху задаёт placeSwapBtn */
-	.points-row #pointBHolder { margin-left: 10px; } /* запас под крестик «очистить» слева от карты конечной локации */
+	.points-row #pointBHolder { margin-left: 68px; } /* запас под крестик «очистить» слева от карты конечной локации */
 }
 @media (max-width: 700px) {
 	.swap-mid svg { transform: none; } /* на телефоне локации сверху и снизу — стрелка ⇅ */
@@ -1279,3 +1329,72 @@ button:active { transform: translateY(1px); }
 .graph-svg.lod-far .g-label-group { display: none; }
 .graph-svg.lod-far .g-edge.one { marker-end: none; }
 .graph-svg.lod-far .g-edge { stroke-dasharray: none; }
+/* ---------- Свойства локации в проверке ---------- */
+/* ряд: «Проверить» под картой, «Свойства» под списком видов перехода, по его ширине */
+.check-row { display: flex; align-items: stretch; gap: 8px; }
+.check-row #check { flex: 0 0 auto; width: var(--panel-w); }
+.prop-picker { position: relative; flex: 0 0 auto; width: var(--type-w); text-align: left; }
+.prop-toggle { width: 100%; height: 100%; padding: 4px 8px; font-size: 13px; text-align: center; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text-dim); }
+.prop-toggle:hover { border-color: var(--accent); }
+.prop-body { position: absolute; top: calc(100% + 4px); left: 0; z-index: 6; width: 290px; max-width: calc(100vw - 24px); display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; padding: 6px 8px; background-color: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+.prop-body[hidden] { display: none !important; }
+.prop-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.prop-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); cursor: pointer; }
+.prop-icon { flex: 0 0 auto; width: 18px; height: 18px; }
+.prop-sub { max-width: 120px; padding: 2px 4px; font-size: 12px; background-color: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text); }
+.prop-sub[hidden] { display: none !important; }
+@media (max-width: 700px) {
+	.check-row { flex-direction: column; align-items: center; width: 100%; }
+	.check-row #check { width: 100%; }
+	.prop-picker { width: min(300px, calc(100vw - 24px)); }
+	.prop-toggle { padding: 10px 8px; }
+	.prop-body { left: 50%; transform: translateX(-50%); width: min(300px, calc(100vw - 24px)); }
+}
+.search-more { font-style: italic; color: var(--text-dim); text-align: center; }
+.result-item { display: flex; flex-direction: column; align-items: stretch; width: fit-content; max-width: 100%; }
+/* width: 0 + min-width: 100% — строка не растягивает кнопку, а берёт её ширину */
+.prop-detail { width: 0; min-width: 100%; box-sizing: border-box; margin: 4px 0 1px; font-size: 11px; line-height: 1.3; font-weight: normal; text-align: left; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.prop-detail.expanded { white-space: normal; overflow: visible; }
+#result > .prop-detail { width: auto; min-width: 0; max-width: 100%; }
+.check-scope { display: flex; flex-direction: column; gap: 4px; margin-bottom: -4px; }
+.check-scope .graph-residence-hint { margin: 0; }
+.check-scope label { font-size: 13px; }
+/* блок поиска сразу под подсказкой: лишний верхний отступ не нужен */
+.panel-column.check-column .check-scope + .location-finder { margin-top: 0; }
+.prop-detail.loc-subgroup { cursor: pointer; margin: 1px 0 4px; }
+/* подпись «очистить» над крестиком: только на телефоне, едва заметная, читается сверху вниз */
+.map-clear-label { display: none; }
+@media (max-width: 700px) {
+	.map-clear-label { display: block; position: absolute; right: 100%; bottom: 22px; width: 20px; text-align: center; writing-mode: vertical-rl; font-size: 9px; line-height: 20px; letter-spacing: 0.5px; color: var(--text-dim); opacity: 0.5; pointer-events: none; user-select: none; }
+	/* «Минимум чужих локаций» — по центру, как остальные галочки */
+	.smart-route { text-align: center; }
+	.smart-route .waypoints-order { justify-content: center; }
+}
+
+/* подгруппа найденной локации — отдельной строкой под названием */
+#result > .loc-subgroup { flex: 0 0 100%; margin: -6px 0 0; }
+@media (min-width: 701px) {
+	/* «Поиск пути»: стрелка по центру между локациями (по 68px под свойства с каждой стороны), нижние элементы — на всю ширину */
+	.waypoints-block, #findPathBtn { max-width: calc(var(--panel-w) * 2 + 212px); }
+	/* «Проверка»: слева направо — карта, место под колонку свойств, виды переходов; палитра не сдвигается */
+	.map-holder.has-palette .type-palette { left: calc(100% + 76px); }
+	.map-holder.has-palette .loc-tags, .map-holder.has-palette .loc-tags:has(.loc-tag-icon-bot) { margin-left: 0; }
+	.check-row .prop-picker { margin-left: 68px; }
+}
+/* Галочки в подзаголовках панелей («Поиск пути», «Проверка локации»):
+   стрелка и звёздочка остаются вплотную к тексту, галочки — чуть поодаль */
+.title-opts { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; margin-left: 36px; vertical-align: middle; text-transform: none; letter-spacing: normal; font-weight: 400; }
+.title-opts label { font-size: 13px; color: var(--text-dim); }
+.title-opts [hidden] { display: none; }
+@media (max-width: 700px) {
+	.title-opts { display: flex; justify-content: center; margin: 6px 0 0; }
+}
+
+/* Строки цветов: подпись слева, строки не сжимаются и не наезжают на «Сбросить цвета» */
+.color-row { flex-shrink: 0; height: auto; text-align: left; }
+.color-row > span:last-child { flex: 1 1 auto; min-width: 0; text-align: left; line-height: 1.3; }
+.colors-layout { margin-bottom: 16px; }
+.settings-reset { margin-top: 4px; }
+
+/* Невидимый переход, ведущий к следующей локации маршрута: заливка остаётся прозрачной, шаг обозначен рамкой */
+.point-map button.cell-next.cell-hidden.active { background-color: var(--hidden-cell); box-shadow: inset 0 0 0 2px var(--path-color); }
