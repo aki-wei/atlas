@@ -667,6 +667,39 @@ function showPropTip(btn, text) {
 document.addEventListener("click", hidePropTip);
 window.addEventListener("scroll", hidePropTip, true);
 const CAN_HOVER = !!(window.matchMedia && window.matchMedia("(hover: hover)").matches);
+// На телефоне подсказки-title не показываются: по нажатию на клетку перехода
+// выводим её название (локация, тупик и т. п.) такой же всплывающей подсказкой, как у значков свойств.
+// true — подсказка показана (нажатие обработано)
+function tapTip(cell, e) {
+	if (CAN_HOVER) return false;
+	const text = cell.getAttribute("title") || cell.dataset.tip;
+	if (!text) return false;
+	if (e) e.stopPropagation();
+	if (propTipBtn === cell) hidePropTip(); else showPropTip(cell, text);
+	return true;
+}
+// Все нейтральные локации (с вложенными Горами, Городом, Посёлком и т. п., но без лабиринтов и деревень)
+function neutralAreaIds(data) {
+	const sgs = data.subgroups || [];
+	const out = new Set();
+	const find = function(id) { return sgs.find(function(x) { return x && String(x.id) === String(id); }); };
+	const addSub = function(sg) { (sg.ids || []).forEach(function(i) { out.add(String(i)); }); };
+	const root = find("neutral");
+	if (root) addSub(root);
+	const seen = new Set(["neutral"]);
+	(function walk(id, depth) {
+		if (depth > 6) return;
+		areaChildIds(sgs, id).forEach(function(c) {
+			const sg = find(c);
+			if (!sg || seen.has(String(c)) || isBulkSectionSub(sg)) return;
+			seen.add(String(c));
+			addSub(sg);
+			walk(c, depth + 1);
+		});
+	})("neutral", 0);
+	sgs.forEach(function(sg) { if (isBulkSectionSub(sg)) (sg.ids || []).forEach(function(i) { out.delete(String(i)); }); });
+	return out;
+}
 
 // Ключ вида свойства для фильтра иконок на графе: имя бота не учитывается,
 // чтобы все «Блоггеры» (например) выбирались одним пунктом
@@ -810,6 +843,11 @@ function positionPropsCol(holder) {
 	if (flagEl && map) flagEl.style.top = map.offsetTop + "px";
 	// резервируем место справа под колонку, чтобы она не наезжала на соседнюю карту
 	holder.style.setProperty("--tags-w", col ? (col.offsetWidth + 2) + "px" : "0px");
+	// на компьютере над картой всегда оставлено место под самую высокую строку свойств,
+	// чтобы карта не прыгала; раскрытая строка (▾) при необходимости сдвигает карту
+	const row = holder.querySelector(".props-deadend");
+	if (row && map) holder.style.setProperty("--props-top", Math.max(64, row.offsetHeight) + "px");
+	else holder.style.removeProperty("--props-top");
 }
 
 function renderLocationTags(holder, location) {
@@ -855,11 +893,14 @@ function findLocationById(data, id) {
 }
 function debounce(fn, ms) {
 	let timer = null;
-	return function() {
+	const wrapped = function() {
 		const args = arguments, self = this;
 		clearTimeout(timer);
 		timer = setTimeout(function() { fn.apply(self, args); }, ms);
 	};
+	// отложенный поиск нужно отменять при Enter, иначе он перерисует список уже после выбора
+	wrapped.cancel = function() { clearTimeout(timer); };
+	return wrapped;
 }
 function normalizeAbbrev(value) { return value.charAt(0).toUpperCase() + value.slice(1); }
 function hintsOf(data) { return data.hints || commonHints; }
@@ -939,6 +980,24 @@ function appendSearchLimitNote(container, total) {
 	note.textContent = "Показано " + SEARCH_LIMIT + " из " + total + " — уточните запрос";
 	container.appendChild(note);
 }
+// Первые несколько результатов + кнопка «Показать все»: список не раздувается на каждой букве
+const SEARCH_PREVIEW = 8;
+function appendLimitedOptions(container, matches, makeButton) {
+	matches.slice(0, SEARCH_PREVIEW).forEach(function(location) { container.appendChild(makeButton(location)); });
+	if (matches.length <= SEARCH_PREVIEW) return;
+	const more = document.createElement("button");
+	more.type = "button";
+	more.className = "search-option search-more";
+	more.textContent = "Показать все (" + matches.length + ")";
+	more.addEventListener("click", function(e) {
+		// кнопка исчезает из DOM, и общий обработчик «клик вне поиска» принял бы это за клик снаружи и очистил список
+		e.stopPropagation();
+		const frag = document.createDocumentFragment();
+		matches.slice(SEARCH_PREVIEW).forEach(function(location) { frag.appendChild(makeButton(location)); });
+		more.replaceWith(frag);
+	});
+	container.appendChild(more);
+}
 function locationTagsMatch(location, trimmedQuery) {
 	if (!location.tags || location.tags.length === 0) return false;
 	return location.tags.some(function(tag) {
@@ -985,6 +1044,42 @@ function searchOptionLabel(location, query, base) {
 	return base;
 }
 
+// Клетки локации, к которым ведёт запрос: тупики по названию или свойству, «тупик» вообще, «сам в себя».
+// Нужны, чтобы путь заканчивался на нужном тупике. Если запрос совпал с названием самой локации — пусто
+function endTargetCells(location, query) {
+	const q = String(query || "").trim().toLowerCase();
+	if (!q || String(location.id).toLowerCase() === q || String(location.name).toLowerCase().includes(q)) return [];
+	const active = [];
+	location.code.split("").forEach(function(bit, index) { if (bit === "1") active.push(index); });
+	const out = [];
+	const deadends = location.deadends || {};
+	const anyDead = q.length >= 3 && "тупик".indexOf(q) === 0;
+	const anySelf = q.length >= 3 && "сам в себя".indexOf(q) === 0;
+	active.forEach(function(cellIndex, ti) {
+		const type = getTransitionType(location.transitions[ti]);
+		if (type === "self" && anySelf) { out.push(cellIndex); return; }
+		if (type !== "deadend") return;
+		if (anyDead) { out.push(cellIndex); return; }
+		const info = deadends[String(cellIndex)];
+		if (!info) return;
+		const hit = String(info.name || "").toLowerCase().includes(q) || (info.props || []).some(function(tag) {
+			return tagLabel(tag).toLowerCase().includes(q) || String(tag.name || tag.customLabel || "").toLowerCase().includes(q);
+		});
+		if (hit) out.push(cellIndex);
+	});
+	return out;
+}
+// Подпись цели для заголовка пути
+function endTargetLabel(location, cells) {
+	if (!cells || cells.length === 0) return "";
+	const first = cells[0];
+	const ti = (function() { let n = -1, r = -1; location.code.split("").forEach(function(b, i) { if (b === "1") { n++; if (i === first) r = n; } }); return r; })();
+	const type = getTransitionType(location.transitions[ti]);
+	if (type === "self") return "сам в себя";
+	const info = (location.deadends || {})[String(first)];
+	return info && info.name ? "тупик «" + info.name + "»" : "тупик";
+}
+
 function findLocations(data, query) {
 	const trimmed = query.trim().toLowerCase();
 	if (!trimmed) return [];
@@ -1004,6 +1099,11 @@ function findLocations(data, query) {
 			searchBlobOf(location).indexOf(trimmed) >= 0;
 	});
 	if (/^\d+$/.test(trimmed)) return direct;
+	// «сам в себя» ищет локации с таким переходом
+	if (trimmed.length >= 3 && "сам в себя".indexOf(trimmed) === 0) {
+		const seenSelf = new Set(direct);
+		findLocationsByTransition(data, "С").forEach(function(location) { if (!seenSelf.has(location)) { seenSelf.add(location); direct.push(location); } });
+	}
 	const phantomHints = getPhantomAbbrevHints(data);
 	const extra = [];
 	const seenLoc = new Set(direct);
@@ -1032,11 +1132,19 @@ function sortSearchByProximity(data, matches, query, ctx) {
 	const anchor = ctx.isEnd && ctx.getAnchor ? ctx.getAnchor() : null;
 	let tree = null;
 	if (anchor) {
-		let graph = sortGraphCache.get(data);
-		if (!graph || graph.size !== data.length) { graph = { graph: buildTransitionGraph(data, null), size: data.length }; sortGraphCache.set(data, graph); }
-		graph = graph.graph;
-		const start = String(anchor.id);
-		tree = own ? weightedTree(graph, start, own) : bfsTree(graph, start);
+		// дерево расстояний зависит только от начальной точки и своей территории, а не от запроса:
+		// считаем один раз, а не на каждую введённую букву
+		const treeKey = String(anchor.id) + "|" + (own ? own.size : "-");
+		if (ctx._tree && ctx._tree.key === treeKey && ctx._tree.data === data) {
+			tree = ctx._tree.tree;
+		} else {
+			let graph = sortGraphCache.get(data);
+			if (!graph || graph.size !== data.length) { graph = { graph: buildTransitionGraph(data, null), size: data.length }; sortGraphCache.set(data, graph); }
+			graph = graph.graph;
+			const start = String(anchor.id);
+			tree = own ? weightedTree(graph, start, own) : bfsTree(graph, start);
+			ctx._tree = { key: treeKey, data: data, tree: tree };
+		}
 	}
 	const order = new Map();
 	matches.forEach(function(location, i) { order.set(location, i); });
@@ -1062,7 +1170,7 @@ function applyLocationInfo(cells, activeIndices, data, location) {
 	activeIndices.forEach(function(cellIndex, transitionIndex) {
 		const cell = cells[cellIndex];
 		const transition = location.transitions[transitionIndex];
-		cell.classList.remove("cell-deadend", "cell-self", "cell-random");
+		cell.classList.remove("cell-deadend", "cell-self", "cell-random", "cell-hidden", "cell-fast");
 		cell.removeAttribute("title");
 		if (transition === undefined) return;
 		cell.title = getTransitionTitle(data, location, transition, cellIndex);
@@ -1070,6 +1178,11 @@ function applyLocationInfo(cells, activeIndices, data, location) {
 		if (type === "deadend") cell.classList.add("cell-deadend");
 		else if (type === "self") cell.classList.add("cell-self");
 		else if (type === "random") cell.classList.add("cell-random");
+		else {
+			const cellType = location.cellTypes && location.cellTypes[cellIndex];
+			if (cellType === "hidden") cell.classList.add("cell-hidden");
+			else if (cellType === "fast") cell.classList.add("cell-fast");
+		}
 	});
 	if (cells.length > 0) renderLocationTags(cells[0].closest(".map-holder"), location);
 }
@@ -1078,7 +1191,7 @@ function paintRevealedLocation(map, data, location) {
 	const cells = map.querySelectorAll("button");
 	const activeIndices = [];
 	cells.forEach(function(cell) {
-		cell.classList.remove("active", "cell-deadend", "cell-self", "cell-random");
+		cell.classList.remove("active", "cell-deadend", "cell-self", "cell-random", "cell-hidden", "cell-fast");
 		cell.removeAttribute("title");
 		cell.disabled = false;
 	});
@@ -1382,7 +1495,7 @@ function saveRouteIcons(v) {
 	try { localStorage.setItem(ROUTE_ICONS_KEY, v ? "1" : "0"); } catch (e) {}
 }
 
-function createRouteCard(data, location, nextId, tags, showIcons, botNote) {
+function createRouteCard(data, location, nextId, tags, showIcons, botNote, endCells) {
 	const card = document.createElement("div");
 	card.className = "path-map-card";
 	const map = document.createElement("div");
@@ -1404,6 +1517,7 @@ function createRouteCard(data, location, nextId, tags, showIcons, botNote) {
 		cell.disabled = false;
 		cell.tabIndex = -1;
 		cell.classList.add("active");
+		cell.addEventListener("click", function(e) { tapTip(cell, e); });
 		if (transition === undefined) return;
 		cell.title = getTransitionTitle(data, location, transition, index);
 		const type = getTransitionType(transition);
@@ -1416,6 +1530,7 @@ function createRouteCard(data, location, nextId, tags, showIcons, botNote) {
 			if (cellType === "hidden") cell.classList.add("cell-hidden");
 			else if (cellType === "fast") cell.classList.add("cell-fast");
 		}
+		if (nextId === undefined && endCells && endCells.indexOf(index) >= 0) cell.classList.add("cell-next");
 		if (type !== "deadend" && type !== "self" && type !== "random" && nextId !== undefined) {
 			const destination = findLocationById(data, transition);
 			if (destination && String(destination.id) === String(nextId)) cell.classList.add("cell-next");
@@ -1461,7 +1576,7 @@ function createRouteStepEl(data, route, index, showIcons) {
 	const location = findLocationById(data, route.path[index]);
 	const step = document.createElement("div");
 	step.className = "path-step";
-	const card = createRouteCard(data, location, route.path[index + 1], route.tags[index] || [], showIcons, route.botSegments && route.botSegments[index + 1]);
+	const card = createRouteCard(data, location, route.path[index + 1], route.tags[index] || [], showIcons, route.botSegments && route.botSegments[index + 1], index === route.path.length - 1 ? route.endCells : null);
 	card.dataset.i = String(index);
 	step.appendChild(card);
 	return step;
@@ -2010,12 +2125,13 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 	const nameLabel = wrapper.querySelector(".point-name");
 	const clearBtn = wrapper.querySelector(".map-clear");
 	let selected = null;
+	let selectedTargets = [];
 	let locked = false;
 
 	function paintCode(location) {
 		const cells = map.querySelectorAll("button");
 		cells.forEach(function(cell) {
-			cell.classList.remove("active", "cell-deadend", "cell-self", "cell-random");
+			cell.classList.remove("active", "cell-deadend", "cell-self", "cell-random", "cell-hidden", "cell-fast", "cell-next");
 			cell.removeAttribute("title");
 		});
 		const activeIndices = [];
@@ -2028,6 +2144,11 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 			if (type === "deadend") cells[cellIndex].classList.add("cell-deadend");
 			else if (type === "self") cells[cellIndex].classList.add("cell-self");
 			else if (type === "random") cells[cellIndex].classList.add("cell-random");
+			else {
+				const cellType = location.cellTypes && location.cellTypes[cellIndex];
+				if (cellType === "hidden") cells[cellIndex].classList.add("cell-hidden");
+				else if (cellType === "fast") cells[cellIndex].classList.add("cell-fast");
+			}
 		});
 	}
 	function showTitles(location) {
@@ -2040,25 +2161,31 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 			if (transition !== undefined) cells[index].title = getTransitionTitle(data, location, transition, index);
 		});
 	}
-	function selectLocation(location, fromDraw) {
+	function selectLocation(location, fromDraw, query) {
 		selected = location;
+		selectedTargets = (sortCtx && sortCtx.isEnd && query) ? endTargetCells(location, query) : [];
 		locked = true;
 		nameLabel.textContent = location.name;
 
 		searchInput.value = location.name;
 		searchResults.innerHTML = "";
-		if (!fromDraw) paintCode(location);
+		paintCode(location);
 		showTitles(location);
 		renderLocationTags(map.parentElement, location);
-		onChange(location);
+		if (selectedTargets.length > 0) {
+			selectedTargets.forEach(function(i) { map.querySelectorAll("button")[i].classList.add("cell-next"); });
+			nameLabel.textContent = location.name + " → " + endTargetLabel(location, selectedTargets);
+		}
+		onChange(location, selectedTargets);
 	}
 	function resetPicker() {
 		const cells = map.querySelectorAll("button");
 		cells.forEach(function(cell) {
-			cell.classList.remove("cell-deadend", "cell-self", "cell-random");
+			cell.classList.remove("cell-deadend", "cell-self", "cell-random", "cell-hidden", "cell-fast", "cell-next");
 			cell.removeAttribute("title");
 		});
 		selected = null;
+		selectedTargets = [];
 		locked = false;
 		nameLabel.textContent = "";
 		searchInput.value = "";
@@ -2081,7 +2208,8 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 	for (let i = 0; i < 60; i++) {
 		const cell = document.createElement("button");
 		cell.type = "button";
-		cell.addEventListener("click", function() {
+		cell.addEventListener("click", function(e) {
+			if (locked && tapTip(cell, e)) return; // на телефоне нажатие по выбранной локации показывает название перехода
 			if (locked) resetPicker();
 			cell.classList.toggle("active");
 			tryAutoMatch();
@@ -2104,25 +2232,29 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 			searchResults.innerHTML = '<p class="search-empty">Локация не найдена</p>';
 			return;
 		}
-		matches.slice(0, SEARCH_LIMIT).forEach(function(location) {
+		appendLimitedOptions(searchResults, matches, function(location) {
 			const optionButton = document.createElement("button");
 			optionButton.type = "button";
 			optionButton.className = "search-option";
 			optionButton.textContent = searchOptionLabel(location, query);
-			optionButton.addEventListener("click", function() { selectLocation(location, false); });
-			searchResults.appendChild(optionButton);
+			optionButton.addEventListener("click", function() { selectLocation(location, false, query); });
+			return optionButton;
 		});
-		appendSearchLimitNote(searchResults, matches.length);
 		hints.forEach(function(entry) {
 			searchResults.appendChild(createSectionHint(entry, function(target) { cross.goTo(target, query); }));
 		});
 	}
 	searchBtn.addEventListener("click", runSearch);
-	searchInput.addEventListener("input", debounce(runSearch, 140));
+	const debouncedPickerSearch = debounce(runSearch, 140);
+	searchInput.addEventListener("input", debouncedPickerSearch);
 	searchInput.addEventListener("keydown", function(e) {
 		if (e.key !== "Enter") return;
-		const matches = findLocations(data, searchInput.value);
-		if (matches.length === 1) selectLocation(matches[0], false);
+		e.preventDefault();
+		debouncedPickerSearch.cancel();
+		// Enter выбирает первый результат из списка (в том же порядке, что и в выдаче)
+		const query = searchInput.value;
+		const matches = sortSearchByProximity(data, findLocations(data, query), query, sortCtx);
+		if (matches.length > 0) selectLocation(matches[0], false, query);
 		else runSearch();
 	});
 	searchInput.addEventListener("focus", function() {
@@ -2132,6 +2264,7 @@ function createLocationPicker(data, labelText, onChange, cross, alignRight, init
 	return {
 		element: wrapper,
 		getLocation: function() { return selected; },
+		getTargets: function() { return selectedTargets; },
 		setQuery: function(text) { searchInput.value = text; runSearch(); },
 		setLocation: function(location) {
 			if (location) selectLocation(location, false);
@@ -2177,6 +2310,13 @@ function shareLink(win, url, title, btn, label) {
 }
 
 // Блоки с кнопкой «скрыть»; незаметная стрелочка у заголовка возвращает их обратно
+// Блок галочек справа в подзаголовке панели (всегда последним, после стрелок возврата подсказок)
+function getTitleOpts(titleEl) {
+	let box = titleEl.querySelector(".title-opts");
+	if (!box) { box = document.createElement("span"); box.className = "title-opts"; }
+	titleEl.appendChild(box);
+	return box;
+}
 function createHideController(titleEl, symbol, tooltip) {
 	const arrow = document.createElement("button");
 	arrow.type = "button";
@@ -2184,7 +2324,11 @@ function createHideController(titleEl, symbol, tooltip) {
 	arrow.textContent = symbol || "▾";
 	arrow.title = tooltip || "Показать скрытые подсказки";
 	arrow.hidden = true;
-	if (titleEl) titleEl.appendChild(arrow);
+	if (titleEl) {
+		// стрелки возврата — вплотную к тексту подзаголовка, левее блока галочек
+		const optsBox = titleEl.querySelector(":scope > .title-opts");
+		if (optsBox) titleEl.insertBefore(arrow, optsBox); else titleEl.appendChild(arrow);
+	}
 	const blocks = [];
 	function sync() { arrow.hidden = !blocks.some(function(b) { return uiPrefs.hidden[b.key]; }); }
 	arrow.addEventListener("click", function(e) {
@@ -2268,7 +2412,8 @@ function openErrorReport(location, sectionName) {
 }
 
 const SETTINGS_KEY = "atlas.settings.v1";
-const DEFAULT_COLORS = {
+// Прежняя единая палитра — нужна, чтобы отличить сохранённые пользователем цвета от старых значений по умолчанию
+const LEGACY_COLORS = {
 	normal: "rgba(120, 135, 65, 1)",
 	deadend: "rgba(72, 75, 82, 1)",
 	self: "rgba(79, 145, 150, 1)",
@@ -2277,6 +2422,28 @@ const DEFAULT_COLORS = {
 	fast: "rgba(180, 150, 60, 1)",
 	next: "rgba(161, 81, 141, 1)"
 };
+// Палитры по умолчанию: приглушённые, в оттенках сайта; на тёмной теме светлее, на светлой глубже
+const THEME_COLORS = {
+	light: {
+		normal: "rgba(92, 112, 44, 1)",
+		deadend: "rgba(112, 112, 112, 1)",
+		self: "rgba(34, 108, 116, 1)",
+		random: "rgba(184, 86, 36, 1)",
+		hidden: "rgba(98, 78, 150, 0.3)",
+		fast: "rgba(160, 120, 20, 1)",
+		next: "rgba(150, 48, 112, 1)"
+	},
+	dark: {
+		normal: "rgba(155, 178, 106, 1)",
+		deadend: "rgba(150, 150, 150, 1)",
+		self: "rgba(96, 185, 180, 1)",
+		random: "rgba(235, 150, 90, 1)",
+		hidden: "rgba(168, 148, 212, 0.3)",
+		fast: "rgba(225, 190, 90, 1)",
+		next: "rgba(222, 120, 170, 1)"
+	}
+};
+const DEFAULT_COLORS = THEME_COLORS.light;
 const DEFAULT_TRANSITION_SECONDS = 45;
 const COLOR_VARS = {
 	normal: "--cell-active",
@@ -2300,7 +2467,8 @@ const COLOR_LABELS = [
 function loadSettings() {
 	const result = {
 		theme: "light",
-		colors: Object.assign({}, DEFAULT_COLORS),
+		colors: Object.assign({}, THEME_COLORS.light),
+		custom: {},
 		transitionSeconds: DEFAULT_TRANSITION_SECONDS,
 		homeland: "ov",
 		residence: "ov:neutral",
@@ -2309,10 +2477,12 @@ function loadSettings() {
 	try {
 		const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
 		if (saved.theme === "dark") result.theme = "dark";
-		Object.keys(DEFAULT_COLORS).forEach(function(key) {
+		Object.keys(THEME_COLORS.light).forEach(function(key) {
 			const value = saved.colors && saved.colors[key];
 			if (typeof value === "string" && (/^#[0-9a-f]{6}$/i.test(value) || /^rgba?\(/.test(value))) {
-				result.colors[key] = value;
+				// без пометки custom (старые настройки) своим считается только то, что отличается от прежней палитры
+				const isCustom = saved.custom ? !!saved.custom[key] : value !== LEGACY_COLORS[key];
+				if (isCustom) { result.colors[key] = value; result.custom[key] = true; }
 			}
 		});
 		if (Number.isFinite(saved.transitionSeconds) && saved.transitionSeconds >= 0) {
@@ -2403,6 +2573,10 @@ function rgbaString(hex, alpha) {
 function applySettings() {
 	const root = document.documentElement;
 	root.dataset.theme = settings.theme;
+	// цвета, не изменённые пользователем, следуют палитре текущей темы
+	Object.keys(THEME_COLORS.light).forEach(function(key) {
+		if (!settings.custom[key]) settings.colors[key] = THEME_COLORS[settings.theme][key];
+	});
 	Object.keys(COLOR_VARS).forEach(function(key) {
 		root.style.setProperty(COLOR_VARS[key], settings.colors[key]);
 	});
@@ -6852,9 +7026,12 @@ function renderGraph(wrap, entries, routeIds, startView) {
 		});
 		appendSearchLimitNote(searchResults, matches.length);
 	}
-	searchInput.addEventListener("input", debounce(runSearch, 140));
+	const debouncedGraphSearch = debounce(runSearch, 140);
+	searchInput.addEventListener("input", debouncedGraphSearch);
 	searchInput.addEventListener("keydown", function(e) {
 		if (e.key !== "Enter") return;
+		e.preventDefault();
+		debouncedGraphSearch.cancel();
 		const trimmed = searchInput.value.trim().toLowerCase();
 		const matchedAreas = findMatchingAreas(trimmed);
 		const matches = findMatchingNodes(searchInput.value);
@@ -7306,6 +7483,16 @@ function buildPathPanel(data, group, state, titleEl) {
 		<div class="path-route" id="pathRoute"></div>
 	`;
 
+	// галочки «Искать по всей вселенной» и «Минимум чужих локаций» — в подзаголовке, справа
+	// ссылки берём до переноса: после него элементы уже не лежат внутри panel
+	const allLabel = panel.querySelector("#allUniverseLabel");
+	const smartLabel = panel.querySelector("#smartRoute label");
+	if (showOpts && titleEl) {
+		const titleOpts = getTitleOpts(titleEl);
+		titleOpts.appendChild(allLabel);
+		titleOpts.appendChild(smartLabel);
+	}
+
 	let pointA = state.pointA;
 	let pointB = state.pointB;
 	const waypointChoices = {};
@@ -7316,8 +7503,7 @@ function buildPathPanel(data, group, state, titleEl) {
 	const waypointsInput = panel.querySelector("#waypointsInput");
 	const waypointsPreview = panel.querySelector("#waypointsPreview");
 	const waypointsOrdered = panel.querySelector("#waypointsOrdered");
-	const allLabel = panel.querySelector("#allUniverseLabel");
-	const allBox = panel.querySelector("#allUniverseBox");
+	const allBox = allLabel.querySelector("#allUniverseBox");
 	if (showOpts) {
 		allLabel.hidden = false;
 		allBox.checked = !!state.allUniverse;
@@ -7329,10 +7515,9 @@ function buildPathPanel(data, group, state, titleEl) {
 	}
 	const hideCtl = createHideController(titleEl, "▾", "Показать подсказку про место жительства");
 	const favCtl = createHideController(titleEl, "★", "Показать избранные маршруты");
-	const smartLabel = panel.querySelector("#smartRoute label");
 	const smartCtl = createHideController(smartLabel, "▾", "Показать пояснение к этой галочке");
 	const smartBlock = panel.querySelector("#smartRoute");
-	const smartBox = panel.querySelector("#smartBox");
+	const smartBox = smartLabel.querySelector("#smartBox");
 	if (showOpts) {
 		smartBlock.hidden = false;
 		smartBox.checked = !!state.smartRoute;
@@ -7385,9 +7570,10 @@ function buildPathPanel(data, group, state, titleEl) {
 		if (changed) state.routeStale = true;
 		refreshFindPathBtn(); refreshSwapBtn(); updateFindPathButton();
 	}, null, false, state.pointA, { isEnd: false, getOwn: ownIdsForSort });
-	const pickerB = createLocationPicker(data, "Конечная локация", function(location) {
-		const changed = (state.pointB || null) !== (location || null);
-		pointB = location; state.pointB = location;
+	const pickerB = createLocationPicker(data, "Конечная локация", function(location, targets) {
+		const nextTargets = targets || [];
+		const changed = (state.pointB || null) !== (location || null) || nextTargets.join() !== (state.pointBTargets || []).join();
+		pointB = location; state.pointB = location; state.pointBTargets = nextTargets;
 		if (changed) state.routeStale = true;
 		refreshFindPathBtn(); refreshSwapBtn(); updateFindPathButton();
 	}, null, false, state.pointB, { isEnd: true, getOwn: ownIdsForSort, getAnchor: function() { return pointA; } });
@@ -7517,8 +7703,10 @@ function buildPathPanel(data, group, state, titleEl) {
 			showRouteMessage(useScope ? "Путь не найден в пределах вашей территории. Отметьте «Искать по всей вселенной» под полем «Хочу пройти через локации» или измените место жительства в настройках." : "Путь не найден");
 			return;
 		}
+		const endCells = state.pointBTargets || [];
+		if (endCells.length > 0) route.endCells = endCells.slice();
 		state.route = route;
-		state.routeTitle = pointA.name + " → " + pointB.name;
+		state.routeTitle = pointA.name + " → " + pointB.name + (endCells.length > 0 ? " (" + endTargetLabel(pointB, endCells) + ")" : "");
 		state.routeHidden = false;
 		state.routeStale = false;
 		renderRouteSpread(pathRoute, data, route, state.routeTitle, group);
@@ -7576,7 +7764,7 @@ function buildPathPanel(data, group, state, titleEl) {
 			go.textContent = "★ " + favTitle(sp);
 			go.addEventListener("click", function() { applyFav(sp); });
 			row.appendChild(go);
-			if (favExpanded) {
+			{
 				const del = document.createElement("button");
 				del.type = "button"; del.className = "fav-del"; del.textContent = "✕"; del.title = "Убрать из избранного";
 				del.addEventListener("click", function() {
@@ -7602,7 +7790,7 @@ function buildPathPanel(data, group, state, titleEl) {
 	function syncActions() {
 		const ready = !!(pointA && pointB);
 		routeActions.hidden = !ready;
-		favBtn.textContent = favIndex() >= 0 ? "★ В избранном" : "☆ В избранное";
+		favBtn.textContent = favIndex() >= 0 ? "✕ Удалить из избранного" : "☆ В избранное";
 		favCtl.sync();
 	}
 	favCtl.addExtra("favs", renderFavs);
@@ -7685,7 +7873,179 @@ function renderRouteSpread(container, data, route, titleText, group) {
 // ============================================================
 //  Панель «Проверка локации»
 // ============================================================
-function buildCheckPanel(data, state, mode) {
+// Вид перехода в клетке локации из данных: обычный / тупик / сам в себя / случайный / невидимый / 5 сек
+function kindOfLocationCell(location, cellIndex, transitionIndex) {
+	const transition = location.transitions[transitionIndex];
+	const type = transition === undefined ? "normal" : getTransitionType(transition);
+	if (type !== "normal") return type;
+	const cellType = location.cellTypes && location.cellTypes[cellIndex];
+	return (cellType === "hidden" || cellType === "fast") ? cellType : "normal";
+}
+
+// Если нарисованному коду подходит несколько локаций, оставляем те, где совпали отмеченные виды переходов
+// (обычные клетки не сравниваются: пользователь мог просто не знать вид)
+// strict: клетка без отметки считается именно обычным переходом (а не любым)
+function narrowByKinds(matches, activeCells, kinds, strict) {
+	kinds = kinds || {};
+	const marked = Object.keys(kinds);
+	if (marked.length === 0 && !strict) return matches;
+	return matches.filter(function(location) {
+		return activeCells.every(function(cellIndex, transitionIndex) {
+			const wanted = kinds[cellIndex] || (strict ? "normal" : "");
+			return !wanted || kindOfLocationCell(location, cellIndex, transitionIndex) === wanted;
+		});
+	});
+}
+
+// Вид внутри свойства: что именно спавнится / на кого охота / какой бот
+function tagSub(tag) {
+	if (tag.key === "spawn") return tag.spawn;
+	if (tag.key === "hunt" || tag.key === "poisonHunt") return tag.hunt;
+	if (tag.key === "bot") return tag.bot;
+	return undefined;
+}
+
+// Свойство есть у самой локации или у одного из её тупиков
+function tagMatchesWanted(t, w) { return t.key === w.key && (!w.sub || tagSub(t) === w.sub); }
+function ownHasProp(location, w) { return (location.tags || []).some(function(t) { return tagMatchesWanted(t, w); }); }
+function deadendHasProp(location, w) {
+	const deadends = location.deadends || {};
+	return Object.keys(deadends).some(function(k) {
+		const info = deadends[k];
+		return info && (info.props || []).some(function(t) { return tagMatchesWanted(t, w); });
+	});
+}
+// Оставляем локации, у которых есть все отмеченные свойства (и, если выбран вид, то именно он);
+// свойства тупиков тоже считаются
+function narrowByProps(matches, wanted) {
+	if (!wanted || wanted.length === 0) return matches;
+	return matches.filter(function(location) {
+		return wanted.every(function(w) { return ownHasProp(location, w) || deadendHasProp(location, w); });
+	});
+}
+// Подробности для результата проверки: какие из искомых свойств нашлись у локации и в каких тупиках
+function propDetails(location, wanted) {
+	const out = [];
+	if (!wanted || wanted.length === 0) return out;
+	function text(tag) {
+		const label = tagLabel(tag);
+		const name = String(tag.name || tag.customLabel || "");
+		return name && label.indexOf(name) < 0 ? label + " «" + name + "»" : label;
+	}
+	function add(str) { if (out.indexOf(str) < 0) out.push(str); }
+	const deadends = location.deadends || {};
+	wanted.forEach(function(w) {
+		(location.tags || []).forEach(function(t) { if (tagMatchesWanted(t, w)) add(text(t)); });
+		Object.keys(deadends).forEach(function(k) {
+			const info = deadends[k];
+			if (!info) return;
+			(info.props || []).forEach(function(t) {
+				if (!tagMatchesWanted(t, w)) return;
+				const who = info.name ? "тупик «" + info.name + "»" : "тупик " + (Math.floor(Number(k) / 10) + 1) + "x" + (Number(k) % 10 + 1);
+				add(text(t) + " (" + who + ")");
+			});
+		});
+	});
+	return out;
+}
+// Строка с найденными свойствами: стоит над кнопкой по её ширине, длинный текст свёрнут, по клику раскрывается
+function propDetailEl(location, wanted) {
+	const details = propDetails(location, wanted);
+	if (details.length === 0) return null;
+	const el = document.createElement("div");
+	el.className = "prop-detail";
+	el.textContent = details.join("; ");
+	el.title = "Нажмите, чтобы развернуть или свернуть";
+	el.addEventListener("click", function(e) { e.stopPropagation(); el.classList.toggle("expanded"); });
+	return el;
+}
+// Подгруппа локации: цепочка от ближайшей к самой большой («Горы», «Нейтры»).
+// Учитываем и вложенные области (foldedKids: Горы, Туннели, лагеря), и прежние подобласти нейтров по началу id.
+const subgroupChainCache = new WeakMap();
+function buildSubgroupIndex(data) {
+	const sgs = data.subgroups || [];
+	const nodes = [];
+	const byKey = new Map();
+	const add = function(key, name, size, match, parentKey) {
+		if (!name || byKey.has(key)) return;
+		const n = { key: key, name: String(name), size: size, match: match, parent: parentKey };
+		byKey.set(key, n);
+		nodes.push(n);
+	};
+	const setMatch = function(ids) { const set = new Set((ids || []).map(String)); return function(id) { return set.has(String(id)); }; };
+	const hasNesting = sgs.some(function(sg) { return sg && sg.parentGroup; });
+	const legacyParent = {};
+	if (!hasNesting) Object.keys(AREA_CHILDREN).forEach(function(p) { AREA_CHILDREN[p].forEach(function(c) { legacyParent[c] = p; }); });
+	sgs.forEach(function(sg) {
+		if (!sg || sg.id === undefined) return;
+		const pk = sg.parentGroup !== undefined && sg.parentGroup !== null ? String(sg.parentGroup) : (legacyParent[String(sg.id)] || null);
+		add(String(sg.id), sg.name, (sg.ids || []).length, setMatch(sg.ids), pk);
+		(sg.foldedKids || []).forEach(function(k) {
+			add(String(k.id), k.name, (k.ids || []).length, setMatch(k.ids), k.parent !== undefined && k.parent !== null ? String(k.parent) : String(sg.id));
+		});
+	});
+	const neutral = byKey.get("neutral");
+	if (neutral && !neutralKidsOf(sgs)) {
+		neutralSubDefs(sgs).defs.forEach(function(d, i) {
+			add("~neutral~" + i, d.label, Math.max(0, neutral.size - 1 - i), d.match, "neutral");
+		});
+	}
+	return { nodes: nodes, byKey: byKey };
+}
+function subgroupChainOf(data, location) {
+	let idx = subgroupChainCache.get(data);
+	if (!idx) { idx = buildSubgroupIndex(data); subgroupChainCache.set(data, idx); }
+	const id = String(location.id);
+	const inside = idx.nodes.filter(function(n) { return n.match(id); });
+	if (inside.length === 0) return [];
+	const depthOf = function(n) { let d = 0; for (let g = 0; n && n.parent && g < 30; g++) { n = idx.byKey.get(n.parent); d++; } return d; };
+	inside.sort(function(a, b) { return (a.size - b.size) || (depthOf(b) - depthOf(a)); });
+	const chain = [];
+	const seen = new Set();
+	const push = function(n) { if (n && !seen.has(n.key)) { seen.add(n.key); chain.push(n.name); } };
+	let cur = inside[0];
+	for (let g = 0; cur && g < 30 && !seen.has(cur.key); g++) {
+		push(cur);
+		cur = cur.parent ? idx.byKey.get(cur.parent) : null;
+	}
+	inside.forEach(push);
+	// одинаковые названия подряд не повторяем
+	return chain.filter(function(n, i) { return chain.indexOf(n) === i; });
+}
+function subgroupNameOf(data, location) {
+	const chain = subgroupChainOf(data, location);
+	if (chain.length === 0) return "";
+	return chain[0] + (chain.length > 1 ? " (" + chain.slice(1).join(", ") + ")" : "");
+}
+function subgroupEl(data, location) {
+	const name = subgroupNameOf(data, location);
+	if (!name) return null;
+	const el = document.createElement("div");
+	el.className = "prop-detail loc-subgroup";
+	el.textContent = name;
+	el.title = "Нажмите, чтобы развернуть или свернуть";
+	el.addEventListener("click", function(e) { e.stopPropagation(); el.classList.toggle("expanded"); });
+	return el;
+}
+// Кнопка варианта: над ней строка свойств, под ней подгруппа
+function withDetail(button, location, wanted, data) {
+	const detail = propDetailEl(location, wanted);
+	const sub = subgroupEl(data, location);
+	if (!detail && !sub) return button;
+	const item = document.createElement("div");
+	item.className = "result-item";
+	if (detail) item.appendChild(detail);
+	item.appendChild(button);
+	if (sub) item.appendChild(sub);
+	return item;
+}
+// Мелкая пометка для списка: свойство нашлось только в тупике
+function propsNote(location, wanted) {
+	if (!wanted || wanted.length === 0) return "";
+	return wanted.some(function(w) { return !ownHasProp(location, w) && deadendHasProp(location, w); }) ? " (в тупике)" : "";
+}
+
+function buildCheckPanel(data, state, mode, group, titleEl) {
 	// mode: "search" — только поиск локации по названию (карту править нельзя),
 	// "check" — только проверка нарисованной карты
 	if (mode === "search") state = {};
@@ -7715,9 +8075,270 @@ function buildCheckPanel(data, state, mode) {
 	const searchBtn = panel.querySelector("#searchBtn");
 	const searchResults = panel.querySelector("#searchResults");
 	const mapClearBtn = panel.querySelector("#mapClearBtn");
+	// на телефоне над крестиком стоит еле заметная подпись «очистить» (см. .map-clear-label в style.css)
+	const clearLabel = document.createElement("span");
+	clearLabel.className = "map-clear-label";
+	clearLabel.textContent = "очистить";
+	clearLabel.setAttribute("aria-hidden", "true");
+	mapClearBtn.parentNode.appendChild(clearLabel);
 	let checked = false;
+
+	// Область поиска: по умолчанию — место жительства (как на графе), галочка снимает ограничение.
+	// Подписи переходов и карта локации по-прежнему берутся из полных данных (data)
+	const filtered = group ? applyResidenceFilter(data, group) : { list: data, label: null };
+	const restricted = !!filtered.label && filtered.list.length > 0;
+	// По умолчанию ищем в своём районе и на всех нейтрах; локации района идут первыми
+	let scopeCache = null;
+	function scope() {
+		if (!restricted || state.checkAllUniverse) return data;
+		if (!scopeCache) {
+			const own = new Set(filtered.list.map(function(l) { return String(l.id); }));
+			const neutral = neutralAreaIds(data);
+			const list = filtered.list.concat(data.filter(function(l) { return !own.has(String(l.id)) && neutral.has(String(l.id)); }));
+			Object.keys(data).forEach(function(k) { if (isNaN(Number(k)) && k !== "length") list[k] = data[k]; });
+			scopeCache = list;
+		}
+		return scopeCache;
+	}
+	const scopeBlock = document.createElement("div");
+	scopeBlock.className = "check-scope";
+	const scopeHint = document.createElement("p");
+	scopeHint.className = "graph-residence-hint";
+	scopeHint.appendChild(document.createTextNode((restricted ? "Локации ищутся в вашем районе: " + filtered.label + (/нейтр/i.test(filtered.label) ? "" : " и на нейтрах (локации района показываются первыми)") + ". " : "") + "Вы можете изменить своё местоположение в "));
+	const scopeLink = document.createElement("a");
+	scopeLink.href = "#";
+	scopeLink.textContent = "настройках";
+	scopeLink.addEventListener("click", function(e) { e.preventDefault(); openSettingsHomeland(); });
+	scopeHint.appendChild(scopeLink);
+	scopeHint.appendChild(document.createTextNode("."));
+	scopeBlock.appendChild(scopeHint);
+	if (titleEl) createHideController(titleEl, "▾", "Показать подсказку про место жительства").add(scopeHint, "checkScopeHint", scopeHint);
+	if (restricted) {
+		const allLabel = document.createElement("label");
+		allLabel.className = "waypoints-order";
+		allLabel.title = "Не ограничиваться вашей территорией";
+		const allBox = document.createElement("input");
+		allBox.type = "checkbox";
+		if (state.checkAllUniverse === undefined) {
+			try { state.checkAllUniverse = localStorage.getItem("atlas.check.allUniverse") === "1"; } catch (e) { state.checkAllUniverse = false; }
+		}
+		allBox.checked = !!state.checkAllUniverse;
+		allLabel.appendChild(allBox);
+		allLabel.appendChild(document.createTextNode(" Искать по всей вселенной"));
+		allBox.addEventListener("change", function() {
+			state.checkAllUniverse = allBox.checked;
+			try { localStorage.setItem("atlas.check.allUniverse", allBox.checked ? "1" : "0"); } catch (e) {}
+			if (checked) { stripLocationInfo(); clearGuessState(); }
+			else if (searchInput.value.trim()) runSearch();
+		});
+		if (titleEl) getTitleOpts(titleEl).appendChild(allLabel); else scopeBlock.appendChild(allLabel);
+	}
+	panel.insertBefore(scopeBlock, panel.firstChild);
 	if (mode === "search") checkButton.remove();
 	if (mode === "check") panel.querySelector(".search-wrap").remove();
+
+	// Вид перехода: выбираем «кисть» справа от карты и закрашиваем ею клетки.
+	// Цвета берутся из настроек. Повторный клик по клетке тем же видом снимает отметку
+	const KIND_CLASS = { deadend: "cell-deadend", self: "cell-self", random: "cell-random", hidden: "cell-hidden", fast: "cell-fast" };
+	const ALL_KIND_CLASSES = Object.keys(KIND_CLASS).map(function(k) { return KIND_CLASS[k]; });
+	const KIND_LABELS = [["normal", "Обычный"], ["deadend", "Тупик"], ["self", "Сам в себя"], ["random", "Случайный"], ["hidden", "Невидимый"], ["fast", "5 сек"]];
+	const mapHolder = map.parentElement;
+	let palette = null, strictBox = null;
+	let brush = (state.checkBrush === "normal" || KIND_CLASS[state.checkBrush]) ? state.checkBrush : "normal";
+	if (mode !== "search") {
+		palette = document.createElement("div");
+		palette.className = "type-palette";
+		palette.setAttribute("role", "group");
+		palette.setAttribute("aria-label", "Вид перехода");
+		const paletteTitle = document.createElement("div");
+		paletteTitle.className = "type-palette-title";
+		paletteTitle.textContent = "Вид перехода";
+		// «Строго»: обычный переход считается только обычным, а не любым видом
+		const strictLabel = document.createElement("label");
+		strictLabel.className = "type-strict";
+		strictLabel.title = "Включено: обычный переход — только обычный. Выключено: обычный может быть любым переходом";
+		strictBox = document.createElement("input");
+		strictBox.type = "checkbox";
+		strictBox.checked = !!state.checkStrict;
+		strictBox.addEventListener("change", function() { state.checkStrict = strictBox.checked; });
+		const strictText = document.createElement("span");
+		strictText.textContent = "Строго";
+		strictLabel.appendChild(strictBox);
+		strictLabel.appendChild(strictText);
+		const strictRow = document.createElement("div");
+		strictRow.className = "type-strict-row";
+		strictRow.appendChild(strictLabel);
+		palette.appendChild(strictRow);
+		palette.appendChild(paletteTitle);
+		// Пояснение справа от списка видов; когда скрыто, рядом с «Строго» остаётся звёздочка
+		const strictNote = document.createElement("div");
+		strictNote.className = "type-note";
+		[
+			["Строго", true],
+			["Вкл: обычный переход — только обычный, остальные виды и свойства тоже должны совпасть точно.", false],
+			["Выкл: обычный переход может быть любым видом.", false]
+		].forEach(function(item) {
+			const para = document.createElement("p");
+			para.textContent = item[0];
+			if (item[1]) para.className = "type-note-title";
+			strictNote.appendChild(para);
+		});
+		palette.appendChild(strictNote);
+		const strictHint = createHideController(strictRow, "*", "Показать пояснение к «Строго»");
+		function syncNoteSpace() {
+			// на широком экране пояснение стоит справа от списка, и под него резервируется место
+			mapHolder.style.setProperty("--note-w", strictNote.hidden ? "0px" : "218px");
+			mapHolder.classList.toggle("note-open", !strictNote.hidden);
+		}
+		strictHint.add(strictNote, "strictInfo", strictNote, syncNoteSpace);
+		syncNoteSpace();
+		KIND_LABELS.forEach(function(pair) {
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "type-btn";
+			btn.dataset.kind = pair[0];
+			const swatch = document.createElement("i");
+			const label = document.createElement("span");
+			label.textContent = pair[1];
+			btn.appendChild(swatch);
+			btn.appendChild(label);
+			btn.addEventListener("click", function() { setBrush(pair[0]); });
+			palette.appendChild(btn);
+		});
+		mapHolder.appendChild(palette);
+		mapHolder.classList.add("has-palette");
+	}
+	function setBrush(kind) {
+		brush = kind;
+		state.checkBrush = kind;
+		if (!palette) return;
+		palette.querySelectorAll(".type-btn").forEach(function(btn) {
+			const on = btn.dataset.kind === kind;
+			btn.classList.toggle("active", on);
+			btn.setAttribute("aria-pressed", on ? "true" : "false");
+		});
+	}
+	function kindOfCell(cell) {
+		const keys = Object.keys(KIND_CLASS);
+		for (let i = 0; i < keys.length; i++) if (cell.classList.contains(KIND_CLASS[keys[i]])) return keys[i];
+		return "normal";
+	}
+	function getKinds() {
+		const out = {};
+		getCells().forEach(function(cell, index) {
+			if (!cell.classList.contains("active")) return;
+			const kind = kindOfCell(cell);
+			if (kind !== "normal") out[index] = kind;
+		});
+		return out;
+	}
+	function paintKinds(kinds) {
+		getCells().forEach(function(cell, index) {
+			cell.classList.remove(...ALL_KIND_CLASSES);
+			const kind = kinds && kinds[index];
+			if (kind && KIND_CLASS[kind] && cell.classList.contains("active")) cell.classList.add(KIND_CLASS[kind]);
+		});
+	}
+	// Палитра остаётся на месте и при найденной локации: колонка свойств локации
+	// сдвигается правее неё (см. .has-palette .loc-tags в style.css).
+	// Вертикальное положение зависит от map.offsetTop, поэтому его нужно пересчитать
+	// после того, как панель попала в страницу (иначе при первом открытии вкладки палитра съезжает)
+	function syncPalette() {
+		if (!palette) return;
+		palette.hidden = false;
+		mapHolder.classList.add("has-palette");
+		palette.style.top = (map.offsetTop - 15 - 20) + "px"; // заголовок палитры стоит в зазоре над картой, «Строго» — ещё выше
+	}
+	if (palette && typeof ResizeObserver === "function") {
+		new ResizeObserver(syncPalette).observe(map);
+	}
+	if (palette) setBrush(brush);
+
+	// Свойства локации: отмечаем, что в ней есть (охота, спавн, бот и т. д.).
+	// Помогают выбрать нужную, когда нарисованному коду подходит несколько локаций
+	const PROP_SUBS = { spawn: SPAWN_TAGS, hunt: HUNT_TAGS, poisonHunt: POISON_HUNT_TAGS, bot: BOT_TAGS };
+	const propRows = [];
+	let propToggle = null, propBody = null;
+	function collectProps() {
+		return propRows.filter(function(r) { return r.box.checked; }).map(function(r) { return { key: r.key, sub: (r.select && r.select.value) ? r.select.value : "" }; });
+	}
+	function updatePropToggle() {
+		if (!propToggle) return;
+		const n = propRows.filter(function(r) { return r.box.checked; }).length;
+		propToggle.textContent = "Свойства" + (n > 0 ? " (" + n + ")" : "") + (propBody.hidden ? " ▾" : " ▴");
+	}
+	function saveProps() { state.checkProps = collectProps(); updatePropToggle(); }
+	if (mode !== "search") {
+		const propPicker = document.createElement("div");
+		propPicker.className = "prop-picker";
+		propToggle = document.createElement("button");
+		propToggle.type = "button";
+		propToggle.className = "prop-toggle";
+		propToggle.title = "Свойства локации: охота, спавн, бот и другие";
+		propBody = document.createElement("div");
+		propBody.className = "prop-body";
+		propBody.hidden = true;
+		Object.keys(LOCATION_TAGS).forEach(function(key) {
+			const def = LOCATION_TAGS[key];
+			const row = document.createElement("div");
+			row.className = "prop-row";
+			const label = document.createElement("label");
+			label.className = "prop-item";
+			const box = document.createElement("input");
+			box.type = "checkbox";
+			label.appendChild(box);
+			if (def.icon) {
+				const img = document.createElement("img");
+				img.className = "prop-icon";
+				img.alt = "";
+				img.src = new URL(def.icon, document.baseURI).href;
+				label.appendChild(img);
+			}
+			const text = document.createElement("span");
+			text.textContent = def.label;
+			label.appendChild(text);
+			row.appendChild(label);
+			let select = null;
+			const subs = PROP_SUBS[key];
+			if (subs) {
+				select = document.createElement("select");
+				select.className = "prop-sub";
+				select.hidden = true;
+				const any = document.createElement("option");
+				any.value = "";
+				any.textContent = "любой вид";
+				select.appendChild(any);
+				Object.keys(subs).forEach(function(k) {
+					const option = document.createElement("option");
+					option.value = k;
+					option.textContent = subs[k].label;
+					select.appendChild(option);
+				});
+				select.addEventListener("change", saveProps);
+				row.appendChild(select);
+			}
+			box.addEventListener("change", function() { if (select) select.hidden = !box.checked; saveProps(); });
+			propRows.push({ key: key, box: box, select: select });
+			propBody.appendChild(row);
+		});
+		(state.checkProps || []).forEach(function(p) {
+			const r = propRows.find(function(x) { return x.key === p.key; });
+			if (!r) return;
+			r.box.checked = true;
+			if (r.select) { r.select.hidden = false; r.select.value = p.sub || ""; }
+		});
+		propBody.hidden = !state.checkPropsOpen;
+		propToggle.addEventListener("click", function() { propBody.hidden = !propBody.hidden; state.checkPropsOpen = !propBody.hidden; updatePropToggle(); });
+		propPicker.appendChild(propToggle);
+		propPicker.appendChild(propBody);
+		// «Свойства» стоят справа от «Проверить», под списком видов перехода и по его ширине
+		const checkRow = document.createElement("div");
+		checkRow.className = "check-row";
+		checkButton.parentNode.insertBefore(checkRow, checkButton);
+		checkRow.appendChild(checkButton);
+		checkRow.appendChild(propPicker);
+		updatePropToggle();
+	}
 
 	function getCells() { return map.querySelectorAll("button"); }
 	function getMapCode() {
@@ -7733,16 +8354,22 @@ function buildCheckPanel(data, state, mode) {
 		checked = false; state.checkCode = null; state.checkLocationName = null;
 	}
 	function stripLocationInfo() {
-		getCells().forEach(function(cell) { cell.removeAttribute("title"); cell.classList.remove("cell-deadend", "cell-self", "cell-random"); });
+		getCells().forEach(function(cell) { cell.removeAttribute("title"); cell.classList.remove(...ALL_KIND_CLASSES); });
 		renderLocationTags(map.parentElement, null);
+		paintKinds(state.checkKinds); // возвращаем виды, которые отмечал сам пользователь
+		syncPalette();
 	}
 	mapClearBtn.addEventListener("click", function() {
 		if (checked) { stripLocationInfo(); clearGuessState(); }
-		getCells().forEach(function(cell) { cell.classList.remove("active"); });
+		getCells().forEach(function(cell) { cell.classList.remove("active", ...ALL_KIND_CLASSES); });
+		state.checkKinds = {};
 	});
 	function pickLocation(location) {
 		paintRevealedLocation(map, data, location);
+		syncPalette();
 		result.textContent = location.name;
+		const subEl = subgroupEl(data, location);
+		if (subEl) result.appendChild(subEl);
 		checked = true;
 		searchResults.innerHTML = "";
 		searchInput.value = location.name;
@@ -7752,11 +8379,20 @@ function buildCheckPanel(data, state, mode) {
 	for (let i = 0; i < 60; i++) {
 		const cell = document.createElement("button");
 		cell.type = "button";
-		cell.addEventListener("click", function() {
-			if (mode === "search") return;
+		cell.addEventListener("click", function(e) {
+			if (mode === "search") { tapTip(cell, e); return; }
+			// на телефоне найденную локацию не редактируем, пока её не очистят крестиком
+			if (!CAN_HOVER && checked && state.checkLocationName) { tapTip(cell, e); return; }
 			if (checked) { stripLocationInfo(); clearGuessState(); }
-			cell.classList.toggle("active");
+			if (cell.classList.contains("active") && kindOfCell(cell) === brush) {
+				cell.classList.remove("active", ...ALL_KIND_CLASSES);
+			} else {
+				cell.classList.add("active");
+				cell.classList.remove(...ALL_KIND_CLASSES);
+				if (brush !== "normal") cell.classList.add(KIND_CLASS[brush]);
+			}
 			state.checkCode = getMapCode();
+			state.checkKinds = getKinds();
 			state.checkLocationName = null;
 		});
 		map.appendChild(cell);
@@ -7765,24 +8401,26 @@ function buildCheckPanel(data, state, mode) {
 		const query = searchInput.value;
 		searchResults.innerHTML = "";
 		if (!query.trim()) return;
-		const matches = findLocations(data, query);
+		const matches = findLocations(scope(), query);
 		if (matches.length === 0) { searchResults.innerHTML = '<p class="search-empty">Локация не найдена</p>'; return; }
-		matches.slice(0, SEARCH_LIMIT).forEach(function(location) {
+		appendLimitedOptions(searchResults, matches, function(location) {
 			const optionButton = document.createElement("button");
 			optionButton.type = "button";
 			optionButton.className = "search-option";
 			optionButton.textContent = searchOptionLabel(location, query);
 			optionButton.addEventListener("click", function() { pickLocation(location); });
-			searchResults.appendChild(optionButton);
+			return optionButton;
 		});
-		appendSearchLimitNote(searchResults, matches.length);
 	}
 	searchBtn.addEventListener("click", runSearch);
-	searchInput.addEventListener("input", debounce(runSearch, 140));
+	const debouncedCheckSearch = debounce(runSearch, 140);
+	searchInput.addEventListener("input", debouncedCheckSearch);
 	searchInput.addEventListener("keydown", function(e) {
 		if (e.key !== "Enter") return;
-		const matches = findLocations(data, searchInput.value);
-		if (matches.length === 1) pickLocation(matches[0]);
+		e.preventDefault();
+		debouncedCheckSearch.cancel();
+		const matches = findLocations(scope(), searchInput.value);
+		if (matches.length > 0) pickLocation(matches[0]);
 		else runSearch();
 	});
 	searchInput.addEventListener("focus", function() { if (searchInput.value) { searchInput.value = ""; searchResults.innerHTML = ""; } });
@@ -7790,33 +8428,63 @@ function buildCheckPanel(data, state, mode) {
 	checkButton.addEventListener("click", function() {
 		const cells = getCells();
 		const userCode = getMapCode();
-		const activeCells = [];
+		let activeCells = [];
 		userCode.split("").forEach(function(bit, index) { if (bit === "1") activeCells.push(index); });
-		const matches = activeCells.length === 0 ? [] : data.filter(function(location) { return location.code === userCode; });
+		const strict = !!(strictBox && strictBox.checked);
+		const wantedProps = state.checkProps || [];
+		const kinds = state.checkKinds || {};
+		// Без «Строго» и без нарисованных переходов, но с выбранными свойствами:
+		// показываем все локации с такими свойствами
+		const byPropsOnly = !strict && activeCells.length === 0 && wantedProps.length > 0;
+		let matches;
+		if (byPropsOnly) {
+			matches = narrowByProps(scope(), wantedProps);
+		} else {
+			matches = activeCells.length === 0 ? [] : scope().filter(function(location) { return location.code === userCode; });
+			if (strict) {
+				// строго: виды переходов и свойства должны совпасть полностью
+				matches = narrowByProps(narrowByKinds(matches, activeCells, kinds, true), wantedProps);
+			} else if (matches.length > 1) {
+				const narrowed = narrowByKinds(matches, activeCells, kinds, false);
+				if (narrowed.length > 0) matches = narrowed;
+				const byProps = narrowByProps(matches, wantedProps);
+				if (byProps.length > 0) matches = byProps;
+			}
+		}
+		// показать выбранную локацию: при поиске по свойствам сначала рисуем её код на карте
+		function showLocation(location) {
+			if (byPropsOnly) {
+				setMapCode(location.code);
+				activeCells = [];
+				location.code.split("").forEach(function(bit, index) { if (bit === "1") activeCells.push(index); });
+			}
+			applyLocationInfo(cells, activeCells, data, location);
+			syncPalette();
+			result.textContent = "";
+			result.appendChild(document.createTextNode(location.name));
+			const subEl = subgroupEl(data, location);
+			if (subEl) result.appendChild(subEl);
+			state.checkCode = byPropsOnly ? location.code : userCode;
+			state.checkLocationName = location.name;
+		}
 		searchResults.innerHTML = ""; result.innerHTML = ""; checked = true;
 		if (matches.length === 1) {
-			result.textContent = matches[0].name;
-			applyLocationInfo(cells, activeCells, data, matches[0]);
-			state.checkCode = userCode; state.checkLocationName = matches[0].name;
+			showLocation(matches[0]);
 		} else if (matches.length > 1) {
-			matches.forEach(function(location) {
+			appendLimitedOptions(result, matches, function(location) {
 				const optionButton = document.createElement("button");
 				optionButton.type = "button";
 				optionButton.className = "search-option";
 				optionButton.textContent = location.name;
-				optionButton.addEventListener("click", function() {
-					applyLocationInfo(cells, activeCells, data, location);
-					result.textContent = location.name;
-					state.checkCode = userCode; state.checkLocationName = location.name;
-				});
-				result.appendChild(optionButton);
+				optionButton.addEventListener("click", function() { showLocation(location); });
+				return withDetail(optionButton, location, wantedProps, data);
 			});
 		} else {
 			result.textContent = "Локация не найдена";
 			state.checkCode = userCode; state.checkLocationName = null;
 		}
 	});
-	if (state.checkCode) { setMapCode(state.checkCode); if (state.checkLocationName) checkButton.click(); }
+	if (state.checkCode) { setMapCode(state.checkCode); paintKinds(state.checkKinds); if (state.checkLocationName) checkButton.click(); }
 	return panel;
 }
 
@@ -7861,7 +8529,7 @@ function buildGraphPanel(data, group, state) {
 	panel.insertBefore(hint, wrap);
 	const graphHide = createHideController(panel.querySelector(".graph-title h3"));
 	graphHide.add(hint, "graphHint", hint);
-	const routeIds = state.route ? state.route.path : null;
+	const routeIds = (state.route && !state.routeHidden) ? state.route.path : null;
 	const filtered = applyResidenceFilter(data, group);
 	if (filtered.list.length === 0) {
 		wrap.innerHTML = '<p class="graph-empty">В выбранной области пока нет локаций</p>';
@@ -7870,7 +8538,8 @@ function buildGraphPanel(data, group, state) {
 	}
 	// Разделы файла (ОВ / 7ДЛ / Деревня и тропы / МВ): галочки внизу графа.
 	// 7ДЛ очень большой, поэтому по умолчанию скрыт
-	const secDefs = Array.isArray(filtered.list.sections) ? filtered.list.sections : (Array.isArray(data.sections) ? data.sections : null);
+	const secDefsRaw = Array.isArray(filtered.list.sections) ? filtered.list.sections : (Array.isArray(data.sections) ? data.sections : null);
+	const secDefs = secDefsRaw ? secDefsRaw.slice() : null;
 	const SEC_KEY = "atlas.graph.hiddenSections3";
 	const BULK_SECTION_IDS = ["7dl_vl", "7dl_nl", "derevnya"]; // разделы с кнопками «выбрать все» / «снять все»
 	const useSecs = !!secDefs && (!filtered.label || filtered.withSections);
@@ -7884,14 +8553,34 @@ function buildGraphPanel(data, group, state) {
 			const path = Array.isArray(sg.secPath) ? sg.secPath : [sg.section];
 			(sg.ids || []).forEach(function(id) { const k = String(id); if (!secOfLoc.has(k)) secOfLoc.set(k, []); secOfLoc.get(k).push(path); });
 		});
+		// Разделы без вложенных пунктов (ОВ): основные подгруппы раздела становятся галочками, как в 7ДЛ
+		secDefs.forEach(function(def, i) {
+			if (def.options && def.options.length) return;
+			const subs = (data.subgroups || filtered.list.subgroups || []).filter(function(sg) {
+				if (!sg || !sg.ids || sg.ids.length === 0) return false;
+				const path = Array.isArray(sg.secPath) ? sg.secPath : (sg.section ? [sg.section] : []);
+				return path.length === 1 && path[0] === def.id;
+			});
+			if (subs.length < 2) return;
+			const options = subs.map(function(sg) { return { id: def.id + ":" + sg.id, name: String(sg.name || sg.id) }; });
+			secDefs[i] = Object.assign({}, def, { options: options });
+			subs.forEach(function(sg, j) {
+				(sg.ids || []).forEach(function(id) {
+					const paths = secOfLoc.get(String(id));
+					if (!paths) return;
+					secOfLoc.set(String(id), paths.filter(function(p) { return !(p.length === 1 && p[0] === def.id); }).concat([[def.id, options[j].id]]));
+				});
+			});
+		});
 		if (!hiddenSecs) {
 			hiddenSecs = new Set();
 			const hideAll = function(d) { hiddenSecs.add(d.id); (d.options || []).forEach(hideAll); };
 			secDefs.forEach(function(d) { if (d.defaultHidden) hideAll(d); });
+			// при выбранном месте жительства все галочки внизу сняты: область жительства
+			// показывается всегда, а отмеченные разделы добавляются к ней
 			if (filtered.label) {
-				// 7ДЛ, деревни и тропы свёрнуты, кроме того, что выбрано в месте жительства
-				// специально (весь лабиринт, отдельный лабиринт, деревня): оно показывается,
-				// а галочки внизу остаются, чтобы можно было включить остальное
+				secDefs.forEach(hideAll);
+				// выбранное в месте жительства специально (весь лабиринт, деревня) показывается
 				const showDef = function(d) { hiddenSecs.delete(d.id); (d.options || []).forEach(showDef); };
 				const findTrail = function(defs, id, trail) {
 					for (let i = 0; i < defs.length; i++) {
@@ -7938,6 +8627,31 @@ function buildGraphPanel(data, group, state) {
 	}
 	function visibleList() {
 		if (!useSecs) return filtered.list;
+		if (filtered.label) {
+			// в области жительства лабиринты и деревни (их добавляет фильтр) скрыты, пока не отмечены
+			const base = new Set();
+			filtered.list.forEach(function(l) {
+				const paths = secOfLoc.get(String(l.id));
+				const bulkOnly = !!paths && paths.every(function(p) { return p[0] === "7dl" || p[0] === "derevnya"; });
+				if (!bulkOnly || paths.some(pathVisible)) base.add(String(l.id));
+			});
+			const ids = new Set();
+			data.forEach(function(loc) {
+				const id = String(loc.id);
+				if (base.has(id)) return;
+				const paths = secOfLoc.get(id);
+				if (paths && paths.some(pathVisible) && oasisShown(loc)) ids.add(id);
+			});
+			if (ids.size === 0 && base.size === filtered.list.length) return filtered.list;
+			if (ids.size === 0) {
+				const only = filtered.list.filter(function(l) { return base.has(String(l.id)); });
+				["subgroups", "areaOrder", "areaRows", "areaLayout", "clans", "parents", "sections"].forEach(function(k) { only[k] = filtered.list[k]; });
+				return only;
+			}
+			const merged = data.filter(function(l) { return base.has(String(l.id)) || ids.has(String(l.id)); });
+			["subgroups", "areaOrder", "areaRows", "areaLayout", "clans", "parents", "sections"].forEach(function(k) { merged[k] = data[k] !== undefined ? data[k] : filtered.list[k]; });
+			return merged;
+		}
 		const hasOases = oasisSide.size > 0;
 		if (hiddenSecs.size === 0 && !hasOases) return filtered.list;
 		const out = filtered.list.filter(function(loc) {
@@ -8010,7 +8724,7 @@ function buildGraphPanel(data, group, state) {
 				box.addEventListener("change", function() { if (box.checked) hiddenSecs.delete(def.id); else hiddenSecs.add(def.id); fill(); persist(); });
 				// Маленькие кнопки «выбрать все» / «снять все» рядом с галочкой верхнего / нижнего
 				// лабиринта и деревни: отмечают или снимают все вложенные пункты разом
-				if (BULK_SECTION_IDS.indexOf(def.id) >= 0) {
+				if (BULK_SECTION_IDS.indexOf(def.id) >= 0 || (depth === 0 && def.options.length > 0)) {
 					const tools = document.createElement("span");
 					tools.className = "graph-sections-tools";
 					const makeTool = function(text, title, selectAll) {
@@ -8116,7 +8830,7 @@ function buildGroupPage(group) {
 			checkTitle.className = "panel-section-title";
 			checkTitle.textContent = "Проверка локации";
 			checkCol.appendChild(checkTitle);
-			checkCol.appendChild(buildCheckPanel(currentGroupData.list, state));
+			checkCol.appendChild(buildCheckPanel(currentGroupData.list, state, undefined, group, checkTitle));
 			toolArea.appendChild(checkCol);
 		} else if (view === "graph") {
 			toolArea.appendChild(buildGraphPanel(currentGroupData.list, group, state));
@@ -8239,7 +8953,7 @@ function buildSettingsPage() {
 	function showMenu() { menu.hidden = false; Object.keys(sections).forEach(function(k) { sections[k].hidden = true; }); }
 	function showSection(key) { menu.hidden = true; Object.keys(sections).forEach(function(k) { sections[k].hidden = k !== key; }); }
 
-	content.querySelector("#openColors").addEventListener("click", function() { showSection("colors"); });
+	content.querySelector("#openColors").addEventListener("click", function() { showSection("colors"); const parsed = parseColor(settings.colors[selectedKey]); editor.setColor(parsed.hex, parsed.alpha); refresh(); });
 	content.querySelector("#openDuration").addEventListener("click", function() { showSection("duration"); });
 	content.querySelector("#openTheme").addEventListener("click", function() { showSection("theme"); updateThemeButton(); });
 	content.querySelector("#openHomeland").addEventListener("click", function() { showSection("homeland"); renderHomelandList(); ensureResidenceData(); });
@@ -8258,6 +8972,7 @@ function buildSettingsPage() {
 	}
 	const editor = createColorEditor(function(hex, alpha) {
 		settings.colors[selectedKey] = rgbaString(hex, alpha);
+		settings.custom[selectedKey] = true;
 		applySettings(); saveSettings(); refresh();
 	});
 	COLOR_LABELS.forEach(function(item) {
@@ -8280,7 +8995,7 @@ function buildSettingsPage() {
 	});
 	content.querySelector(".color-editor-holder").appendChild(editor.element);
 	content.querySelector(".settings-reset").addEventListener("click", function() {
-		settings.colors = Object.assign({}, DEFAULT_COLORS);
+		settings.custom = {};
 		applySettings(); saveSettings();
 		const parsed = parseColor(settings.colors[selectedKey]);
 		editor.setColor(parsed.hex, parsed.alpha);
